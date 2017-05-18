@@ -4,23 +4,17 @@
 2016
 Media Zen & Korea University (Author: Hyungwon Yang)
 
-                                                    
-
-
 
 ### MacOSX and Linux
-----------------------------------------------------------------
-Mac OS X (El Capitan,Sierra 03.21.17): Stable.
-
-Linux (Ubuntu 14.04): Stable.
-
-Bash
-Python 3.5
-(This script was not tested on the other versions.)
+---
+- Mac OSX (El Capitan,Sierra): Stable.
+- Linux (Ubuntu 14.04): Stable.
+- Windows: Not tested on this OS.
+- Python 3.5 ~
 
 
 ### PREREQUISITE
-
+---
 1. **Install Kaldi**
  - Type below in command line.
     - $ git clone https://github.com/kaldi-asr/kaldi.git kaldi --origin upstream
@@ -37,7 +31,7 @@ Python 3.5
 
 
 ### MATERIALS (Data Preparation)
-
+---
 1. **Audio files (.wav)** (of sampling rate at 16,000Hz)
  - Please provide audio file(s) in WAV format ('.wav') at 16,000Hz sampling rate.
  - Korean_FA is applied assuming that the sampling rate of input audio file(s) is 16,000Hz.
@@ -57,7 +51,7 @@ Python 3.5
 		   - Good example: 나는 그시절 사람들과 사는것이 좋았어요
 
 ### DIRECTION
-
+---
 1. Navigate to 'Korean_FA' directory.
 2. Open forced_align.sh with any text editor to specify user path of kaldi directory.
  - Change 'kaldi' name variable. (initial setting: kaldi=/home/kaldi)
@@ -73,23 +67,22 @@ Python 3.5
 4. Textgrid(s) will be saved into data directoy.
 
 ### NOTICE
-
+---
 1. Do not copy or use audio files in the example directory for other purposes. However deleting them is allowed.
 2. Report bugs or provide any recommendation to us through the following email addresses.
 
 ### CONTRIBUTORS
 ---
-# In order to improve forced alignment performance, all contributors named below participate in this project.
+In order to improve forced alignment performance, all contributors named below participate in this project.
 
-# Students
-Hyungwon Yang / hyung8758@gmail.com
-Jaekoo Kang / jaekoo.jk@gmail.com
-Yejin Cho / scarletcho@korea.ac.kr
-Yeonjung Hong / yvonne.yj.hong@gmail.com
-Youngsun Cho / youngsunhere@gmail.com
-Sung Hah Hwang / hshsun@gmail.com
+#### Coworkers
+- Jaekoo Kang / jaekoo.jk@gmail.com
+- Yejin Cho / scarletcho@korea.ac.kr
+- Yeonjung Hong / yvonne.yj.hong@gmail.com
+- Youngsun Cho / youngsunhere@gmail.com
+- Sung Hah Hwang / hshsun@gmail.com
 
-# Advisor
+#### Advisor
 Hosung Nam / hnam@korea.ac.kr
 
 
