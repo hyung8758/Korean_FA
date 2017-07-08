@@ -124,7 +124,7 @@ source path.sh $kaldi
 [ ! -d tmp/model_ali ] && mkdir -p tmp/model_ali
 [ ! -d tmp/log ] && mkdir -p tmp/log
 
-# Check the text files. 
+# Check the text files.
 wav_list=
 txt_list=
 wav_num=
@@ -180,7 +180,7 @@ for turn in `seq 1 $wav_num`; do
 	log_name=`echo $sel_wav | sed -e "s/.wav//g"`
 
 	source_dir=$PWD/main/data/source_wav/source$turn
-	echo Alinging: $sel_wav '('$turn /$wav_num')'
+	echo Aligning: $sel_wav '('$turn /$wav_num')'
 	cp $data_dir/$sel_wav $source_dir
 	cp $data_dir/$sel_txt $source_dir
 	echo "Procedure: $turn " > $log_dir/process.$log_name.log
@@ -204,6 +204,7 @@ for turn in `seq 1 $wav_num`; do
 	[ -f tmp/prono/new_lexicon.txt ] && rm tmp/prono/new_lexicon.txt
 
 	# g2p conversion.
+	echo "Initiating g2p process." | tee -a $log_dir/process.$log_name.log
 	for div in $words; do
 		python main/local/g2p.py $div >> tmp/prono/prono_list
 	done
@@ -214,11 +215,10 @@ for turn in `seq 1 $wav_num`; do
 	## Language modeling.
 	# Combine new_lexicon to lexicon file in order to make an appropriate language model.
 	paste -d'\n' tmp/prono/new_lexicon.txt model/lexicon.txt | sort | uniq | sed '/^\s*$/d' > $dict_dir/lexicon.txt
-	bash main/local/prepare_new_lang.sh $dict_dir $lang_dir "<UNK>" >/dev/null
-
+	bash main/local/prepare_new_lang.sh $dict_dir $lang_dir "<UNK>" &>/dev/null
 	## Feature extraction.
 	# MFCC default setting.
-	echo "Extracting the features from the input data." >> $log_dir/process.$log_name.log
+	echo "Extracting the MFCC features." | tee -a $log_dir/process.$log_name.log
 	mfccdir=mfcc
 	cmd="$code_dir/run.pl"
 
@@ -246,20 +246,28 @@ for turn in `seq 1 $wav_num`; do
 	# Aligning data. Total 4 trials will be executed to align every audio file. Smaller parameter setting will give the best result 
 	# but some audio file cannot be aligned with the smaller setting. After 4 trials the audio file will be rejected to be aligned 
 	# because larger than the 4th parameter setting would not give a adequate result which means that the result cannot be credible.
-	echo "Force aligning the input data." >> $log_dir/process.$log_name.log
+	echo "Force aligning the data." | tee -a $log_dir/process.$log_name.log
 	for pass in 1 2 3 4; do
 		if [ $pass == 1 ]; then
 			beam=10
 			retry_beam=40
+			echo "1st, Beam parameters: beam=$beam, retry_beam=$retry_beam" | tee -a $log_dir/process.$log_name.log
 		elif [ $pass == 2 ]; then
 			beam=50
 			retry_beam=60
+			echo "2nd, Beam parameters: beam=$beam, retry_beam=$retry_beam" | tee -a $log_dir/process.$log_name.log
 		elif [ $pass == 3 ]; then
-			beam=70
-			retry_beam=80;
+			beam=80
+			retry_beam=100
+			echo "3rd, Beam parameters: beam=$beam, retry_beam=$retry_beam" | tee -a $log_dir/process.$log_name.log
 		elif [ $pass == 4 ]; then
-			beam=90
-			retry_beam=100; 
+			beam=1000
+			retry_beam=2500
+			echo "4th, Beam parameters: beam=$beam, retry_beam=$retry_beam" | tee -a $log_dir/process.$log_name.log
+		elif [ $pass == 5 ]; then
+			beam=4000
+			retry_beam=8000
+			echo "5th, is this audio file long? Beam parameters: beam=$beam, retry_beam=$retry_beam" | tee -a $log_dir/process.$log_name.log
 		fi
 
 		# Alignement.
@@ -288,9 +296,9 @@ for turn in `seq 1 $wav_num`; do
 		align_check=`cat tmp/log/align.$log_name.log | grep "Did not successfully decode file" | wc -l`
 		if [ $align_check == 0 ]; then
 			break
-		elif [ $align_check == 0 ] && [ $pass == 4 ]; then
+		elif [ $align_check == 0 ] && [ $pass == 5 ]; then
 			echo "WARNNING: $sel_wav was difficult to align, the result might be unsatisfactory." | tee -a $log_dir/process.$log_name.log
-		elif [ $align_check != 0 ] && [ $pass == 4 ]; then
+		elif [ $align_check != 0 ] && [ $pass == 5 ]; then
 			echo -e "Fail Alignment: $sel_wav might be corrupted.\n" | tee -a $log_dir/process.$log_name.log
 			fail_num=$((fail_num+1))
 			passing=1
@@ -303,7 +311,7 @@ for turn in `seq 1 $wav_num`; do
 		
 		# CTM file conversion.
 		[ ! -d $result_dir ] && mkdir -p $result_dir
-		$kaldi/src/bin/ali-to-phones --ctm-output model/$fa_model/final.mdl ark:"gunzip -c tmp/model_ali/ali.1.gz|" - > tmp/model_ali/raw_ali.ctm
+		$kaldi/src/bin/ali-to-phones --ctm-output model/$fa_model/final.mdl ark:"gunzip -c tmp/model_ali/ali.1.gz|" - > tmp/model_ali/raw_ali.ctm 
 		echo "ctm result: " >> $log_dir/process.$log_name.log
 		cat tmp/model_ali/raw_ali.ctm >> $log_dir/process.$log_name.log
 
@@ -313,19 +321,22 @@ for turn in `seq 1 $wav_num`; do
 		cp $trans_dir/trans$turn/segments $result_dir
 
 		# id to phone conversion.
-		echo "Reconstructing the alinged data." >> $log_dir/process.$log_name.log
+		echo "Reconstructing the alinged data." | tee -a $log_dir/process.$log_name.log
 		python main/local/id2phone.py $result_dir/phones.txt \
 									   $result_dir/segments \
 									   $result_dir/raw_ali.txt \
 									   $result_dir/final_ali.txt >> $log_dir/process.$log_name.log || exit 1;
 		echo "final_ali result: " >> $log_dir/process.$log_name.log
 		cat $result_dir/final_ali.txt >> $log_dir/process.$log_name.log
+		echo "Adjust floating points in a final_ali result" >> $log_dir/process.$log_name.log
+		python main/local/adjust_float.py $result_dir/final_ali.txt $result_dir/fixed_final_ali.txt
+		cat $result_dir/fixed_final_ali.txt >> $log_dir/process.$log_name.log
 
 		# Split the whole text files.
 		echo "Inserting labels for each column in the aligned data." >> $log_dir/process.$log_name.log
 		mkdir -p $result_dir/tmp_fa
 		int_line="utt_id\tfile_id\tphone_id\tutt_num\tstart_ph\tdur_ph\tphone\tstart_utt\tend_utt\tstart_real\tend_real"
-		cat $result_dir/final_ali.txt | sed '1i '"${int_line}" > $result_dir/tmp_fa/tagged_final_ali.txt
+		cat $result_dir/fixed_final_ali.txt | sed '1i '"${int_line}" > $result_dir/tmp_fa/tagged_final_ali.txt
 
 		# Generate text_num file.
 		cat tmp/raw_sent/$txt_rename | wc -l >> tmp/raw_sent/text_num.raw || exit 1;
@@ -339,11 +350,13 @@ for turn in `seq 1 $wav_num`; do
 								tmp/raw_sent/text_num.raw \
 								$source_dir 2>/dev/null || align_error=1;
 		if [ $align_error -eq 1 ]; then
-			echo -e "Fail Result Composition: $sel_wav might be corrupted.\n" | tee -a $log_dir/process.$log_name.log
+			echo "Fail Result Composition: $sel_wav might be corrupted." | tee -a $log_dir/process.$log_name.log
+			echo ""
 			fail_num=$((fail_num+1))
 			align_error=0
 		else
-			echo -e "$sel_wav was successfully aligned.\n" | tee -a $log_dir/process.$log_name.log
+			echo "$sel_wav was successfully aligned." | tee -a $log_dir/process.$log_name.log
+			echo ""
 			tg_name=`echo $sel_txt | sed 's/.txt//g'`
 			mv $source_dir/tagged_final_ali.TextGrid $data_dir/$tg_name.TextGrid
 		fi
@@ -362,9 +375,10 @@ echo "Total Trials:" $wav_num									        	  | tee -a $log_dir/process.$log_
 echo "Success     :" $((wav_num - fail_num))								  | tee -a $log_dir/process.$log_name.log
 echo "Fail        :" $fail_num												  | tee -a $log_dir/process.$log_name.log
 echo "----------------------------------------------------------------------" | tee -a $log_dir/process.$log_name.log
-echo "Result      : $((wav_num - fail_num)) / $wav_num (Success / Total)"	  | tee -a $log_dir/process.$log_name.log
+echo "Result      : $((wav_num - fail_num)) / "$wav_num" (Success / Total)"	  | tee -a $log_dir/process.$log_name.log
 if [ $fail_num -gt 0 ]; then 
-echo "To check the failed results, refer to the ./log directory."; fi
+	echo "To check the failed results, refer to the ./log directory."
+fi
 echo
 
 

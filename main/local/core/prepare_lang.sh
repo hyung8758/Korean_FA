@@ -432,13 +432,13 @@ main/local/core/gen_topo.pl $num_nonsil_states $num_sil_states $nonsilphonelist 
 if $silprob; then
   main/local/core/make_lexicon_fst_silprob.pl $tmpdir/lexiconp_silprob_disambig.txt $srcdir/silprob.txt $silphone '#'$ndisambig | \
      fstcompile --isymbols=$dir/phones.txt --osymbols=$dir/words.txt \
-     --keep_isymbols=false --keep_osymbols=false |   \
+     --keep_isymbols=false --keep_osymbols=false | \
      fstaddselfloops  $dir/phones/wdisambig_phones.int $dir/phones/wdisambig_words.int | \
      fstarcsort --sort_type=olabel > $dir/L_disambig.fst || exit 1;
 else
   main/local/core/make_lexicon_fst.pl --pron-probs $tmpdir/lexiconp_disambig.txt $sil_prob $silphone '#'$ndisambig | \
      fstcompile --isymbols=$dir/phones.txt --osymbols=$dir/words.txt \
-     --keep_isymbols=false --keep_osymbols=false |   \
+     --keep_isymbols=false --keep_osymbols=false | \
      fstaddselfloops  $dir/phones/wdisambig_phones.int $dir/phones/wdisambig_words.int | \
      fstarcsort --sort_type=olabel > $dir/L_disambig.fst || exit 1;
 fi

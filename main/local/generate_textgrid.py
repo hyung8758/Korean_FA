@@ -52,6 +52,15 @@ word_file=args[1]
 text_num=args[2]
 save_dir=args[3]
 
+# source_dir="/Users/hyungwonyang/Documents/ASR_project/kaldi_project/exp/Korean_FA/tmp/result/tmp_fa"
+# word_file="/Users/hyungwonyang/Documents/ASR_project/kaldi_project/exp/Korean_FA/tmp/prono/new_lexicon.txt"
+# text_num="/Users/hyungwonyang/Documents/ASR_project/kaldi_project/exp/Korean_FA/tmp/raw_sent/text_num.raw"
+# save_dir="/Users/hyungwonyang/Documents/ASR_project/kaldi_project/exp/Korean_FA/tmp/result/tmp_fa"
+# word_option=False
+# phone_option=False
+# tier_num=2
+
+
 tier_num = 0
 # Option setting
 # word_option true means no word tier. phone_options true means no phone tier.
@@ -91,27 +100,26 @@ rg_list=[]
 with open(word_file,'r') as rgl:
     rg_lexicon=rgl.readlines()
     for rg_box in rg_lexicon:
-        rg_list.append(rg_box.split(' ')[0:-1])
+        tmp_rg_box = re.sub('\n','',rg_box)
+        rg_list.append(tmp_rg_box.split(' '))
 
 # Sorting data.
 best=0
 order_list=[]
 whole_list=[]
-for up in range(len(txt_box)):
-    up_txt = txt_box[up]
-    best=0
-    for down_num in range(len(up_txt)):
-        roll=0
-        while roll <= len(up_txt):
-            init=float("{0:.3f}".format(float(up_txt[roll].split('\t')[-2])))
-            if init == best:
-                order_list.append(up_txt[roll])
-                best =float("{0:.3f}".format(float(up_txt[roll].split('\t')[-1])))
-                break
-            roll +=1
+init_val=[]
+for down_num in range(len(txt_box[0])):
+    roll=0
+    while roll <= len(txt_box[0]):
+        init=float("{0:.3f}".format(float(txt_box[0][roll].split('\t')[-2])))
+        if init == best:
+            order_list.append(txt_box[0][roll])
+            best =float("{0:.3f}".format(float(txt_box[0][roll].split('\t')[-1])))
+            break
+        roll +=1
 
-    whole_list.append(order_list)
-    order_list=[]
+whole_list.append(order_list)
+order_list=[]
 
 # text_num file.
 with open(text_num,'r') as tn:
@@ -148,7 +156,7 @@ for piece in range(len(file_name)):
             counting=0
             for down in mid:
                 '''
-                Divide into 3 types. First line, last line and rest lines.
+                Divide into 3 types. First line, last line and mid lines.
                 This division is needed because of the characteristics of TextGrid type.
                 More detail: Due to the slight time difference, separation is occurred.
                 '''
@@ -223,6 +231,7 @@ for piece in range(len(file_name)):
                         tg.write('0' + '\n' + "{0:.3f}".format(float(time[-1])) + '\n')
                         tg.write('"' + rg_list[rg_rem][0] + '"' + '\n')
                         rg_rem += 1
+                        word_loc += 1
                         rgc -= 1
                         time = []
                 # Last line
@@ -262,7 +271,6 @@ for piece in range(len(file_name)):
 
     # Check and fix the end time.
     with open('/'.join([save_dir,new_name]),'r') as tg:
-        # tg = open('/Users/hyungwonyang/Documents/ASR_project/kaldi_project/exp/kaldi_recipes/Korean_FA/example/my_record/test06.TextGrid', 'r')
         tg_lines = tg.readlines()
         tg_end_time = tg_lines[4]
         tg_check_time = tg_lines[-2]
@@ -273,67 +281,3 @@ for piece in range(len(file_name)):
                     rewrite.write(sent)
             os.remove('/'.join([save_dir,new_name]))
             os.rename('/'.join([save_dir,'tmp_file']),'/'.join([save_dir,new_name]))
-
-        # if phone_option is False:
-        #     # Combine coda phones with onset phones.
-        #     # Following 5 phone sets will be merged: pf > p0, tf > t0, kf > k0, mf > mm, nf > nn
-        #     tg_new_lines = []
-        #     tg_length = len(tg_lines)
-        #     tg_idx = 0
-        #     while tg_idx < tg_length:
-        #         # Merging.
-        #         if tg_lines[tg_idx] == '"pf"\n' and tg_lines[tg_idx+3] == '"p0"\n':
-        #             tg_new_lines.append(tg_lines[tg_idx+3])
-        #             tg_new_lines.append(tg_lines[tg_idx+1])
-        #             tg_new_lines.append(tg_lines[tg_idx+5])
-        #             tg_idx += 5
-        #         elif tg_lines[tg_idx] == '"tf"\n' and tg_lines[tg_idx+3] == '"t0"\n':
-        #             tg_new_lines.append(tg_lines[tg_idx + 3])
-        #             tg_new_lines.append(tg_lines[tg_idx + 1])
-        #             tg_new_lines.append(tg_lines[tg_idx + 5])
-        #             tg_idx += 5
-        #         elif tg_lines[tg_idx] == '"kf"\n' and tg_lines[tg_idx+3] == '"k0"\n':
-        #             tg_new_lines.append(tg_lines[tg_idx + 3])
-        #             tg_new_lines.append(tg_lines[tg_idx + 1])
-        #             tg_new_lines.append(tg_lines[tg_idx + 5])
-        #             tg_idx += 5
-        #         elif tg_lines[tg_idx] == '"mf"\n' and tg_lines[tg_idx+3] == '"mm"\n':
-        #             tg_new_lines.append(tg_lines[tg_idx + 3])
-        #             tg_new_lines.append(tg_lines[tg_idx + 1])
-        #             tg_new_lines.append(tg_lines[tg_idx + 5])
-        #             tg_idx += 5
-        #         elif tg_lines[tg_idx] == '"nf"\n' and tg_lines[tg_idx+3] == '"nn"\n':
-        #             tg_new_lines.append(tg_lines[tg_idx + 3])
-        #             tg_new_lines.append(tg_lines[tg_idx + 1])
-        #             tg_new_lines.append(tg_lines[tg_idx + 5])
-        #             tg_idx += 5
-        #
-        #         # Converting.
-        #         elif tg_lines[tg_idx] == '"pf"\n':
-        #             tg_new_lines.append('"p0"\n')
-        #             tg_idx += 1
-        #         elif tg_lines[tg_idx] == '"tf"\n':
-        #             tg_new_lines.append('"t0"\n')
-        #             tg_idx += 1
-        #         elif tg_lines[tg_idx] == '"kf"\n':
-        #             tg_new_lines.append('"k0"\n')
-        #             tg_idx += 1
-        #         elif tg_lines[tg_idx] == '"mf"\n':
-        #             tg_new_lines.append('"mm"\n')
-        #             tg_idx += 1
-        #         elif tg_lines[tg_idx] == '"nf"\n':
-        #             tg_new_lines.append('"nn"\n')
-        #             tg_idx += 1
-        #
-        #         # Pasting.
-        #         else:
-        #             tg_new_lines.append(tg_lines[tg_idx])
-        #             tg_idx += 1
-        #
-        #     with open('/'.join([save_dir,'tmp_file']),'w') as rewrite:
-        #         for sent in tg_lines:
-        #             rewrite.write(sent)
-        #     os.remove('/'.join([save_dir,new_name]))
-        #     os.rename('/'.join([save_dir,'tmp_file']),'/'.join([save_dir,new_name]))
-
-print("TextGrid for all the sound files are successfully generated.")

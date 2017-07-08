@@ -1,8 +1,8 @@
 # Korean_FA: Korean Forced-Aligner  
 ---
 
-2016
-Media Zen & Korea University (Author: Hyungwon Yang)
+- v.1.5.2(05.17.17)
+- NAMZ & EMCS Labs
 
 
 ### MacOSX and Linux
@@ -39,7 +39,7 @@ Media Zen & Korea University (Author: Hyungwon Yang)
  - Name your transcription text files suffixed by ordered numbers
  - ex) name01.txt, name02.txt, ...
  - Each text file should contain one full sentence.
- - Do NOT include any punctuation marks such as a period ('.') or a comma (',') in the text file.
+ - DO NOT include any punctuation marks such as a period ('.') or a comma (',') in the text file.
  - Sentences should be written in Korean letters.
  - Remove every white space (or tab) in the end of the line.
  - Recommendations for better performance:
@@ -56,20 +56,28 @@ Media Zen & Korea University (Author: Hyungwon Yang)
 2. Open forced_align.sh with any text editor to specify user path of kaldi directory.
  - Change 'kaldi' name variable. (initial setting: kaldi=/home/kaldi)
 3. Run the code with the path of data to forced-align.
- - ex) $ sh forced_align.sh (options) (data directory)
- -     $ sh forced_align.sh -nw ./example/readspeech
- - Options:
-	 1) -h  | --help    : Showing instruction.
-     2) -s  | --skip    : Skip alignment for already aligned data.
-	 2) -nw | --no-word : Deleting word tier.
-	 4) -np | --no-phone: Deleting phone tier.
 
-4. Textgrid(s) will be saved into data directoy.
+	```
+	$ sh forced_align.sh (options) (data directory)
+	$ sh forced_align.sh -nw ./example/readspeech
+	```
+ 	- Options
+	 	1. -h  | --help    : Showing instruction.
+	 	2. -s  | --skip    : Skip alignment for already aligned data.
+	 	3. -nw | --no-word : Deleting word tier.
+	 	4. -np | --no-phone: Deleting phone tier.
+
+4. Textgrid(s) will be saved into a data directory.
 
 ### NOTICE
 ---
-1. Do not copy or use audio files in the example directory for other purposes. However deleting them is allowed.
-2. Report bugs or provide any recommendation to us through the following email addresses.
+1. Do not copy or use audio files in the example directory for other purposes.
+2. Report bugs or provide any recommendation to us through the developer's email address.
+
+### DEVELOPER
+---
+
+- [Hyungwon Yang](https://hyungwonsnotebook.blogspot.kr/) / hyung8758@gmail.com
 
 ### CONTRIBUTORS
 ---
@@ -83,11 +91,11 @@ In order to improve forced alignment performance, all contributors named below p
 - Sung Hah Hwang / hshsun@gmail.com
 
 #### Advisor
-Hosung Nam / hnam@korea.ac.kr
+- [Hosung Nam](http://www.haskins.yale.edu/staff/nam.html)
 
 
 ### VERSION HISTORY
-
+---
 - v.1.0(08/27/16): gmm, sgmm_mmi, and dnn based Korean FA is released.
 - v.1.1(09/06/16): g2p updated. monophone model is added.
 - v.1.2(10/10/16): phoneset is simplified. Choosing model such as dnn or gmm for forced alignment is no longer available. 
@@ -96,4 +104,5 @@ Hosung Nam / hnam@korea.ac.kr
 - v.1.5(02.08.17): Main g2p was changed and it is now compatible with the new g2p system. Skipping option is added and it will skip alignment of audio files that have TextGrdis. A few minor bugs are fixed.
 - v.1.5.1(02.26.17): bug reports. Time mismatch in the word tier. fixed.
 - v.1.5.2(05.17.17): change return to exit, option errors, minor bug fixed. skip option is added.
+
 
