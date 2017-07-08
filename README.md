@@ -41,19 +41,19 @@
 ### MATERIALS (Data Preparation)
 ---
 1. **Audio files (.wav)** (of sampling rate at 16,000Hz)
- - Please provide audio file(s) in WAV format ('.wav') at 16,000Hz sampling rate.
- - Korean_FA is applied assuming that the sampling rate of input audio file(s) is 16,000Hz.
+	- Please provide audio file(s) in WAV format ('.wav') at 16,000Hz sampling rate.
+	- Korean_FA is applied assuming that the sampling rate of input audio file(s) is 16,000Hz.
 2. **Text files (.txt)**
- - Name your transcription text files suffixed by ordered numbers
- - ex) name01.txt, name02.txt, ...
- - Each text file should contain one full sentence.
- - DO NOT include any punctuation marks such as a period ('.') or a comma (',') in the text file.
- - Sentences should be written in Korean letters.
- - Remove every white space (or tab) in the end of the line.
- - Recommendations for better performance:
-	 - Less usage of white spaces between characters is strongly recommended.
-	 - Apply word spacing in transcription mostly according to the way the speaker reads. Strict compliance with prescriptive spacing rules is not recommended.
-	 - i.e. Put a whitespace when a pause is present.
+	- Name your transcription text files suffixed by ordered numbers
+		- ex) name01.txt, name02.txt, ...
+	- Each text file should contain one full sentence.
+	- **DO NOT** include any punctuation marks such as a period ('.') or a comma (',') in the text file.
+	- Sentences should be written in Korean letters.
+	- Remove every white space (or tab) in the end of the line.
+	- Recommendations for better performance:
+	- Less usage of white spaces between characters is strongly recommended.
+	- Leave spaces between words in the transcription according to the way the speaker reads. Strict compliance with prescriptive spacing rules is not recommended.
+		- i.e. Put a whitespace when a pause is present.
 		- ex) If a speaker reads: "나는 그시절 사람들과 사는것이 좋았어요"
 		   - Bad example: 나는 그 시절 사람들과 사는 것이 좋았어요
 		   - Good example: 나는 그시절 사람들과 사는것이 좋았어요
@@ -62,7 +62,7 @@
 ---
 1. Navigate to 'Korean_FA' directory.
 2. Open forced_align.sh with any text editor to specify user path of kaldi directory.
- - Change 'kaldi' name variable. (initial setting: kaldi=/home/kaldi)
+	- Change 'kaldi' name variable. (initial setting: kaldi=/home/kaldi)
 3. Run the code with the path of data to forced-align.
 
 	```
