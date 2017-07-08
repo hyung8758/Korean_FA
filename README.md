@@ -1,5 +1,4 @@
 # Korean_FA: Korean Forced-Aligner  
----
 
 - v.1.5.2(05.17.17)
 - NAMZ & EMCS Labs
@@ -16,19 +15,28 @@
 ### PREREQUISITE
 ---
 1. **Install Kaldi**
- - Type below in command line.
-    - $ git clone https://github.com/kaldi-asr/kaldi.git kaldi --origin upstream
-    - $ cd kaldi
-    - $ git pull 
- - Read INSTALL and follow the direction written there.
+	- Type below in command line.
+
+		```
+		$ git clone https://github.com/kaldi-asr/kaldi.git kaldi --origin upstream
+		$ cd kaldi
+		$ git pull
+		``` 
+ 	- Read INSTALL and follow the direction written there.
 
 2. **Install Packages**
- - Install list: Sox, xlrd, coreutils.
- -  On mac
-    - $ brew install sox
-    - $ pip3 install xlrd (Make sure to install xlrd into python3 library not in python2. If you use anaconda then you have to install it in there. Otherwise, install it into a proper directory.)
-    - $ brew install coreutils
+ 	- Install list: Sox, xlrd, coreutils.
+	-  On mac
 
+		```
+		$ brew install sox
+		$ pip3 install xlrd 
+    	```
+	- library not in python2. If you use anaconda then you have to install it in there. Otherwise, install it into a proper directory.)
+
+		```
+		brew install coreutils
+		```
 
 ### MATERIALS (Data Preparation)
 ---
@@ -71,7 +79,7 @@
 
 ### NOTICE
 ---
-1. Do not copy or use audio files in the example directory for other purposes.
+1. **Do not** copy or use audio files in the example directory for other purposes.
 2. Report bugs or provide any recommendation to us through the developer's email address.
 
 ### DEVELOPER
@@ -103,6 +111,6 @@ In order to improve forced alignment performance, all contributors named below p
 - v.1.4(01.14.16): It will catch more errors. The name of log files will be tagged with respect to each wave file name. 
 - v.1.5(02.08.17): Main g2p was changed and it is now compatible with the new g2p system. Skipping option is added and it will skip alignment of audio files that have TextGrdis. A few minor bugs are fixed.
 - v.1.5.1(02.26.17): bug reports. Time mismatch in the word tier. fixed.
-- v.1.5.2(05.17.17): change return to exit, option errors, minor bug fixed. skip option is added.
+- **v.1.5.2(05.17.17)**: change return to exit, option errors, minor bug fixed. skip option is added.
 
 
