@@ -1,6 +1,6 @@
 # Korean_FA: Korean Forced-Aligner  
 
-- v.1.5.2(05.17.17)
+- v.1.5.3(07.10.17)
 - NAMZ & EMCS Labs
 
 
@@ -79,7 +79,7 @@
 
 ### NOTICE
 ---
-1. **Do not** copy or use audio files in the example directory for other purposes.
+1. **DO NOT** copy or use audio files in the example directory for other purposes.
 2. Report bugs or provide any recommendation to us through the developer's email address.
 
 ### DEVELOPER
@@ -111,6 +111,7 @@ In order to improve forced alignment performance, all contributors named below p
 - v.1.4(01.14.16): It will catch more errors. The name of log files will be tagged with respect to each wave file name. 
 - v.1.5(02.08.17): Main g2p was changed and it is now compatible with the new g2p system. Skipping option is added and it will skip alignment of audio files that have TextGrdis. A few minor bugs are fixed.
 - v.1.5.1(02.26.17): bug reports. Time mismatch in the word tier. fixed.
-- **v.1.5.2(05.17.17)**: change return to exit, option errors, minor bug fixed. skip option is added.
+- v.1.5.2(05.17.17): change return to exit, option errors, minor bug fixed. skip option is added.
+- **v.1.5.3(07.10.17)**: Long audio files are now available to be aligned. print more information on the screen. Floating error which caused time mismatch betweeen start and end points of each phone segment is fixed.
 
 

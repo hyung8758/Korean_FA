@@ -25,7 +25,7 @@
 # from outside of this folder.
 
 # Kaldi directory ./kaldi
-kaldi=/Users/hyungwonyang/kaldi
+kaldi=/home/kaldi
 # Model directory
 fa_model=model4fa
 # lexicon directory
