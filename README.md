@@ -79,7 +79,7 @@
 
 ### NOTICE
 ---
-1. **DO NOT** copy or use audio files or codes in the example directory for other purposes.
+1. **DO NOT** copy or use audio files in the example directory for other purposes.
 2. Report bugs or provide any recommendation to us through the developer's email address.
 
 ### DEVELOPER
