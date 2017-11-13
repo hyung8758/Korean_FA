@@ -1,13 +1,13 @@
 # Korean_FA: Korean Forced-Aligner  
 
-- v.1.5.3(07.10.17)
+- v.1.5.4(11.13.17)
 - NAMZ & EMCS Labs
 
 
 ### MacOSX and Linux
 ---
-- Mac OSX (El Capitan,Sierra): Stable.
-- Linux (Ubuntu 14.04): Stable.
+- Mac OSX 10.13.1(El Capitan,Sierra,High Sierra): Stable.
+- Linux (Ubuntu 16.04): Stable.
 - Windows: Not tested on this OS.
 - Python 3.5 ~
 
@@ -79,7 +79,7 @@
 
 ### NOTICE
 ---
-1. **DO NOT** copy or use audio files in the example directory for other purposes.
+1. **DO NOT** copy or use audio files or codes in the example directory for other purposes.
 2. Report bugs or provide any recommendation to us through the developer's email address.
 
 ### DEVELOPER
@@ -112,6 +112,7 @@ In order to improve forced alignment performance, all contributors named below p
 - v.1.5(02.08.17): Main g2p was changed and it is now compatible with the new g2p system. Skipping option is added and it will skip alignment of audio files that have TextGrdis. A few minor bugs are fixed.
 - v.1.5.1(02.26.17): bug reports. Time mismatch in the word tier. fixed.
 - v.1.5.2(05.17.17): change return to exit, option errors, minor bug fixed. skip option is added.
-- **v.1.5.3(07.10.17)**: Long audio files are now available to be aligned. print more information on the screen. Floating error which caused time mismatch betweeen start and end points of each phone segment is fixed.
+- v.1.5.3(07.10.17): Long audio files are now available to be aligned. print more information on the screen. Floating error which caused time mismatch betweeen start and end points of each phone segment is fixed.
+- **v.1.5.4(11.14.17)**: Floatting error is occurred in kaldi code. This error will be solved as post-processing. Hopely, from now on, time mismatch error will not appear any longer.
 
 
