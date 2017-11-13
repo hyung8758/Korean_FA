@@ -313,10 +313,12 @@ for turn in `seq 1 $wav_num`; do
 		[ ! -d $result_dir ] && mkdir -p $result_dir
 		$kaldi/src/bin/ali-to-phones --ctm-output model/$fa_model/final.mdl ark:"gunzip -c tmp/model_ali/ali.1.gz|" - > tmp/model_ali/raw_ali.ctm 
 		echo "ctm result: " >> $log_dir/process.$log_name.log
-		cat tmp/model_ali/raw_ali.ctm >> $log_dir/process.$log_name.log
+		# Fixing floating problem.
+		python main/local/fix_ctm_float.py tmp/model_ali/raw_ali.ctm tmp/model_ali/fixed_ali.ctm
+		cat tmp/model_ali/fixed_ali.ctm >> $log_dir/process.$log_name.log
 
 		# Move requisite files.
-		cp tmp/model_ali/raw_ali.ctm $result_dir/raw_ali.txt
+		cp tmp/model_ali/fixed_ali.ctm $result_dir/fixed_ali.txt
 		cp main/data/lang/phones.txt $result_dir
 		cp $trans_dir/trans$turn/segments $result_dir
 
@@ -324,19 +326,16 @@ for turn in `seq 1 $wav_num`; do
 		echo "Reconstructing the alinged data." | tee -a $log_dir/process.$log_name.log
 		python main/local/id2phone.py $result_dir/phones.txt \
 									   $result_dir/segments \
-									   $result_dir/raw_ali.txt \
+									   $result_dir/fixed_ali.txt \
 									   $result_dir/final_ali.txt >> $log_dir/process.$log_name.log || exit 1;
 		echo "final_ali result: " >> $log_dir/process.$log_name.log
 		cat $result_dir/final_ali.txt >> $log_dir/process.$log_name.log
-		echo "Adjust floating points in a final_ali result" >> $log_dir/process.$log_name.log
-		python main/local/adjust_float.py $result_dir/final_ali.txt $result_dir/fixed_final_ali.txt
-		cat $result_dir/fixed_final_ali.txt >> $log_dir/process.$log_name.log
 
 		# Split the whole text files.
 		echo "Inserting labels for each column in the aligned data." >> $log_dir/process.$log_name.log
 		mkdir -p $result_dir/tmp_fa
 		int_line="utt_id\tfile_id\tphone_id\tutt_num\tstart_ph\tdur_ph\tphone\tstart_utt\tend_utt\tstart_real\tend_real"
-		cat $result_dir/fixed_final_ali.txt | sed '1i '"${int_line}" > $result_dir/tmp_fa/tagged_final_ali.txt
+		cat $result_dir/final_ali.txt | sed '1i '"${int_line}" > $result_dir/tmp_fa/tagged_final_ali.txt
 
 		# Generate text_num file.
 		cat tmp/raw_sent/$txt_rename | wc -l >> tmp/raw_sent/text_num.raw || exit 1;
