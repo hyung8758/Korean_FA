@@ -52,14 +52,6 @@ word_file=args[1]
 text_num=args[2]
 save_dir=args[3]
 
-# source_dir="/Users/hyungwonyang/Documents/ASR_project/kaldi_project/exp/Korean_FA/tmp/result/tmp_fa"
-# word_file="/Users/hyungwonyang/Documents/ASR_project/kaldi_project/exp/Korean_FA/tmp/prono/new_lexicon.txt"
-# text_num="/Users/hyungwonyang/Documents/ASR_project/kaldi_project/exp/Korean_FA/tmp/raw_sent/text_num.raw"
-# save_dir="/Users/hyungwonyang/Documents/ASR_project/kaldi_project/exp/Korean_FA/tmp/result/tmp_fa"
-# word_option=False
-# phone_option=False
-# tier_num=2
-
 
 tier_num = 0
 # Option setting
