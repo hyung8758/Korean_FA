@@ -25,16 +25,16 @@ boost_silence=1.0 # Factor by which to boost silence during alignment.
 echo "$0 $@"  # Print the command line for logging
 
 [ -f path.sh ] && . ./path.sh # source the path.
-. main/local/core/parse_options.sh || exit 1;
+. src/local/core/parse_options.sh || exit 1;
 
-if [ $# != 7 ]; then
+if [ $# != 8 ]; then
    echo "usage: steps/align_si.sh <data-dir> <lang-dir> <src-dir> <align-dir>"
    echo "e.g.:  steps/align_si.sh data/train data/lang exp/tri1 exp/tri1_ali"
    echo "main options (for others, see top of script file)"
    echo "  --config <config-file>                           # config containing options"
    echo "  --nj <nj>                                        # number of parallel jobs"
    echo "  --use-graphs true                                # use graphs in src-dir"
-   echo "  --cmd (main/local/core/run.pl|main/local/core/queue.pl <queue opts>) # how to run jobs."
+   echo "  --cmd (src/local/core/run.pl|src/local/core/queue.pl <queue opts>) # how to run jobs."
    exit 1;
 fi
 
@@ -45,7 +45,7 @@ dir=$4
 beam=$5
 retry_beam=$6
 data_index=$7
-log_dir=tmp/log
+log_dir=$8
 
 
 for f in $data/text $lang/oov.int $srcdir/tree $srcdir/final.mdl; do
@@ -63,7 +63,7 @@ cp $srcdir/cmvn_opts $dir 2>/dev/null # cmn/cmvn option.
 delta_opts=`cat $srcdir/delta_opts 2>/dev/null`
 cp $srcdir/delta_opts $dir 2>/dev/null
 
-[[ -d $sdata && $data/feats.scp -ot $sdata ]] || main/local/core/split_data.sh $data $nj || exit 1;
+[[ -d $sdata && $data/feats.scp -ot $sdata ]] || src/local/core/split_data.sh $data $nj || exit 1;
 
 cp $srcdir/{tree,final.mdl} $dir || exit 1;
 cp $srcdir/final.occs $dir;
@@ -93,7 +93,7 @@ if $use_graphs; then
     gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" \
       "ark:gunzip -c $srcdir/fsts.JOB.gz|" "$feats" "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
 else
-  tra="ark:main/local/core/sym2int.pl --map-oov $oov -f 2- $lang/words.txt $sdata/JOB/text|";
+  tra="ark:src/local/core/sym2int.pl --map-oov $oov -f 2- $lang/words.txt $sdata/JOB/text|";
   # We could just use gmm-align in the next line, but it's less efficient as it compiles the
   # training graphs one by one.
   $cmd JOB=1:$nj $log_dir/align.$data_index.log \

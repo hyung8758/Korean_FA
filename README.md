@@ -1,6 +1,6 @@
 # Korean_FA: Korean Forced-Aligner  
 
-- v.1.5.4(11.13.17)
+- v.1.6(01.18.18)
 - NAMZ & EMCS Labs
 
 
@@ -8,8 +8,8 @@
 ---
 - Mac OSX 10.13.1(El Capitan,Sierra,High Sierra): Stable.
 - Linux (Ubuntu 16.04): Stable.
-- Windows: Not tested on this OS.
-- Python 3.5 ~
+- Windows: Unstable. (Not tested)
+- Python 3.5 ~ (python2 is unavailable)
 
 
 ### PREREQUISITE
@@ -25,17 +25,20 @@
  	- Read INSTALL and follow the direction written there.
 
 2. **Install Packages**
- 	- Install list: Sox, xlrd, coreutils.
+ 	- Install list: Sox, coreutils, xlrd.
 	-  On mac
 
 		```
 		$ brew install sox
+		$ brew install coreutils
 		$ pip3 install xlrd 
     	```
-	- library not in python2. If you use anaconda then you have to install it in there. Otherwise, install it into a proper directory.)
-
+	- On Ubuntu
+	
 		```
-		brew install coreutils
+		apt-get install sox
+		apt-get install coreutils
+		pip3 install xlrd
 		```
 
 ### MATERIALS (Data Preparation)
@@ -71,9 +74,10 @@
 	```
  	- Options
 	 	1. -h  | --help    : Showing instruction.
-	 	2. -s  | --skip    : Skip alignment for already aligned data.
-	 	3. -nw | --no-word : Deleting word tier.
-	 	4. -np | --no-phone: Deleting phone tier.
+	 	2. -nj | --num-job : Parallel alignment to speed up.
+	 	3. -s  | --skip    : Skip alignment for already aligned data.
+	 	4. -nw | --no-word : Deleting word tier.
+	 	5. -np | --no-phone: Deleting phone tier.
 
 4. Textgrid(s) will be saved into a data directory.
 
@@ -113,6 +117,7 @@ In order to improve forced alignment performance, all contributors named below p
 - v.1.5.1(02.26.17): bug reports. Time mismatch in the word tier. fixed.
 - v.1.5.2(05.17.17): change return to exit, option errors, minor bug fixed. skip option is added.
 - v.1.5.3(07.10.17): Long audio files are now available to be aligned. print more information on the screen. Floating error which caused time mismatch betweeen start and end points of each phone segment is fixed.
-- **v.1.5.4(11.14.17)**: Floatting error is occurred in kaldi code. This error will be solved as post-processing. Hopely, from now on, time mismatch error will not appear any longer.
+- v.1.5.4(11.14.17): Floatting error is occurred in kaldi code. This error will be solved as post-processing. Hopely, from now on, time mismatch error will not appear any longer.
+- **v.1.6(01.18.17)**: num-jb option is provided and this option will split multiple files into sub groups and align multiple files at once. This will speed up the alignment process. The way of printing log histories and the structure of main script are changed.
 
 

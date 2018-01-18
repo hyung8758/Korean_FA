@@ -48,11 +48,11 @@ nf=`cat $data/feats.scp 2>/dev/null | wc -l`
 nt=`cat $data/text 2>/dev/null | wc -l` # take it as zero if no such file
 if [ -f $data/feats.scp ] && [ $nu -ne $nf ]; then
   echo "** split_data.sh: warning, #lines is (utt2spk,feats.scp) is ($nu,$nf); you can "
-  echo "**  use main/local/core/fix_data_dir.sh $data to fix this."
+  echo "**  use src/local/core/fix_data_dir.sh $data to fix this."
 fi
 if [ -f $data/text ] && [ $nu -ne $nt ]; then
   echo "** split_data.sh: warning, #lines is (utt2spk,text) is ($nu,$nt); you can "
-  echo "** use main/local/core/fix_data_dir.sh to fix this."
+  echo "** use src/local/core/fix_data_dir.sh to fix this."
 fi
 
 s1=$data/split$numsplit/1
@@ -86,11 +86,11 @@ fi
 # If lockfile is not installed, just don't lock it.  It's not a big deal.
 which lockfile >&/dev/null && lockfile -l 60 $data/.split_lock 
 
-main/local/core/split_scp.pl $utt2spk_opt $data/utt2spk $utt2spks || exit 1
+src/local/core/split_scp.pl $utt2spk_opt $data/utt2spk $utt2spks || exit 1
 
 for n in `seq $numsplit`; do
   dsn=$data/split$numsplit/$n
-  main/local/core/utt2spk_to_spk2utt.pl $dsn/utt2spk > $dsn/spk2utt || exit 1;
+  src/local/core/utt2spk_to_spk2utt.pl $dsn/utt2spk > $dsn/spk2utt || exit 1;
 done
 
 maybe_wav_scp=
@@ -102,7 +102,7 @@ fi
 # split some things that are indexed by utterance.
 for f in feats.scp text vad.scp utt2lang $maybe_wav_scp; do
   if [ -f $data/$f ]; then
-    main/local/core/filter_scps.pl JOB=1:$numsplit \
+    src/local/core/filter_scps.pl JOB=1:$numsplit \
       $data/split$numsplit/JOB/utt2spk $data/$f $data/split$numsplit/JOB/$f || exit 1;
   fi
 done
@@ -110,7 +110,7 @@ done
 # split some things that are indexed by speaker
 for f in spk2gender spk2warp cmvn.scp; do
   if [ -f $data/$f ]; then
-    main/local/core/filter_scps.pl JOB=1:$numsplit \
+    src/local/core/filter_scps.pl JOB=1:$numsplit \
       $data/split$numsplit/JOB/spk2utt $data/$f $data/split$numsplit/JOB/$f || exit 1;
   fi
 done
@@ -118,13 +118,13 @@ done
 for n in `seq $numsplit`; do
    dsn=$data/split$numsplit/$n
    if [ -f $data/segments ]; then
-     main/local/core/filter_scp.pl $dsn/utt2spk $data/segments > $dsn/segments
+     src/local/core/filter_scp.pl $dsn/utt2spk $data/segments > $dsn/segments
      awk '{print $2;}' $dsn/segments | sort | uniq > $data/tmp.reco # recording-ids.
      if [ -f $data/reco2file_and_channel ]; then
-       main/local/core/filter_scp.pl $data/tmp.reco $data/reco2file_and_channel > $dsn/reco2file_and_channel
+       src/local/core/filter_scp.pl $data/tmp.reco $data/reco2file_and_channel > $dsn/reco2file_and_channel
      fi
      if [ -f $data/wav.scp ]; then
-       main/local/core/filter_scp.pl $data/tmp.reco $data/wav.scp >$dsn/wav.scp
+       src/local/core/filter_scp.pl $data/tmp.reco $data/wav.scp >$dsn/wav.scp
      fi
      rm $data/tmp.reco
    fi # else it would have been handled above, see maybe_wav.

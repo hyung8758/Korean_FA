@@ -8,14 +8,14 @@
 # Begin configuration section.
 nj=4
 cmd=run.pl
-mfcc_config=main/conf/mfcc.conf
+mfcc_config=src/conf/mfcc.conf
 compress=true
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
 
 if [ -f path.sh ]; then . ./path.sh; fi
-. main/local/core/parse_options.sh || exit 1;
+. src/local/core/parse_options.sh || exit 1;
 
 if [ $# != 3 ]; then
    echo "Usage: $0 [options] <data-dir> <log-dir> <path-to-mfccdir>";
@@ -23,7 +23,7 @@ if [ $# != 3 ]; then
    echo "options: "
    echo "  --mfcc-config <config-file>                      # config passed to compute-mfcc-feats "
    echo "  --nj <nj>                                        # number of parallel jobs"
-   echo "  --cmd (main/local/core/run.pl|main/local/core/queue.pl <queue opts>) # how to run jobs."
+   echo "  --cmd (src/local/core/run.pl|src/local/core/queue.pl <queue opts>) # how to run jobs."
    exit 1;
 fi
 
@@ -57,7 +57,7 @@ for f in $required; do
     exit 1;
   fi
 done
-main/local/core/validate_data_dir.sh --no-text --no-feats $data || exit 1;
+src/local/core/validate_data_dir.sh --no-text --no-feats $data || exit 1;
 
 if [ -f $data/spk2warp ]; then
   echo "$0 [info]: using VTLN warp factors from $data/spk2warp"
@@ -69,8 +69,8 @@ fi
 
 for n in $(seq $nj); do
   # the next command does nothing unless $mfccdir/storage/ exists, see
-  # main/local/core/create_data_link.pl for more info.
-  main/local/core/create_data_link.pl $mfccdir/raw_mfcc_$name.$n.ark
+  # src/local/core/create_data_link.pl for more info.
+  src/local/core/create_data_link.pl $mfccdir/raw_mfcc_$name.$n.ark
 done
 
 
@@ -82,7 +82,7 @@ if [ -f $data/segments ]; then
     split_segments="$split_segments $logdir/segments.$n"
   done
 
-  main/local/core/split_scp.pl $data/segments $split_segments || exit 1;
+  src/local/core/split_scp.pl $data/segments $split_segments || exit 1;
   rm $logdir/.error 2>/dev/null
 
   $cmd JOB=1:$nj $logdir/make_mfcc_${name}.JOB.log \
@@ -99,7 +99,7 @@ else
     split_scps="$split_scps $logdir/wav_${name}.$n.scp"
   done
 
-  main/local/core/split_scp.pl $scp $split_scps || exit 1;
+  src/local/core/split_scp.pl $scp $split_scps || exit 1;
 
 
   # add ,p to the input rspecifier so that we can just skip over
@@ -131,7 +131,7 @@ nf=`cat $data/feats.scp | wc -l`
 nu=`cat $data/utt2spk | wc -l`
 if [ $nf -ne $nu ]; then
   echo "It seems not all of the feature files were successfully processed ($nf != $nu);"
-  echo "consider using main/local/core/fix_data_dir.sh $data"
+  echo "consider using src/local/core/fix_data_dir.sh $data"
 fi
 
 if [ $nf -lt $[$nu - ($nu/20)] ]; then

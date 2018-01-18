@@ -82,7 +82,7 @@ check_sorted_and_uniq $data/utt2spk
 check_sorted_and_uniq $data/spk2utt
 
 ! cmp -s <(cat $data/utt2spk | awk '{print $1, $2;}') \
-     <(main/local/core/spk2utt_to_utt2spk.pl $data/spk2utt)  && \
+     <(src/local/core/spk2utt_to_utt2spk.pl $data/spk2utt)  && \
    echo "$0: spk2utt and utt2spk do not seem to match" && exit 1;
 
 cat $data/utt2spk | awk '{print $1;}' > $tmpdir/utts

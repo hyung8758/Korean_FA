@@ -44,7 +44,7 @@ sed -i '1 i\<UNK> <UNK>' $dict_dir/lexicon.txt
 sed -i '1 i\<UNK> 1.0 <UNK>' $dict_dir/lexiconp.txt
 
 ### lang directory ###
-main/local/core/prepare_lang.sh $dict_dir $oov_word main/data/local/lang $lang_dir >/dev/null
+src/local/core/prepare_lang.sh $dict_dir $oov_word $lang_dir/local/lang $lang_dir >/dev/null
 
 	
 

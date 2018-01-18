@@ -61,11 +61,11 @@ sil_prob=0.5
 phone_symbol_table=              # if set, use a specified phones.txt file.
 # end configuration sections
 
-. main/local/core/parse_options.sh
+. src/local/core/parse_options.sh
 
 if [ $# -ne 4 ]; then
-  echo "usage: main/local/core/prepare_lang.sh <dict-src-dir> <oov-dict-entry> <tmp-dir> <lang-dir>"
-  echo "e.g.: main/local/core/prepare_lang.sh data/local/dict <SPOKEN_NOISE> data/local/lang data/lang"
+  echo "usage: src/local/core/prepare_lang.sh <dict-src-dir> <oov-dict-entry> <tmp-dir> <lang-dir>"
+  echo "e.g.: src/local/core/prepare_lang.sh data/local/dict <SPOKEN_NOISE> data/local/lang data/lang"
   echo "<dict-src-dir> should contain the following files:"
   echo " extra_questions.txt  lexicon.txt nonsilence_phones.txt  optional_silence.txt  silence_phones.txt"
   echo "See http://kaldi.sourceforge.net/data_prep.html#data_prep_lang_creating for more info."
@@ -95,7 +95,7 @@ silprob=false
 
 [ -f path.sh ] && . ./path.sh
 
-! main/local/core/validate_dict_dir.pl $srcdir && \
+! src/local/core/validate_dict_dir.pl $srcdir && \
   echo "*Error validating directory $srcdir*" && exit 1;
 
 if [[ ! -f $srcdir/lexicon.txt ]]; then
@@ -107,8 +107,8 @@ if [[ ! -f $srcdir/lexiconp.txt ]]; then
   perl -ape 's/(\S+\s+)(.+)/${1}1.0\t$2/;' < $srcdir/lexicon.txt > $srcdir/lexiconp.txt || exit 1;
 fi
 
-if ! main/local/core/validate_dict_dir.pl $srcdir >&/dev/null; then
-  main/local/core/validate_dict_dir.pl $srcdir  # show the output.
+if ! src/local/core/validate_dict_dir.pl $srcdir >&/dev/null; then
+  src/local/core/validate_dict_dir.pl $srcdir  # show the output.
   echo "Validation failed (second time)"
   exit 1;
 fi
@@ -220,26 +220,26 @@ if $share_silence_phones; then
   # so all phones in the line correspond to the same model.
 
   cat $srcdir/silence_phones.txt | awk '{printf("%s ", $0); } END{printf("\n");}' | cat - $srcdir/nonsilence_phones.txt | \
-    main/local/core/apply_map.pl $tmpdir/phone_map.txt > $dir/phones/sets.txt
+    src/local/core/apply_map.pl $tmpdir/phone_map.txt > $dir/phones/sets.txt
   cat $dir/phones/sets.txt | \
     awk '{if(NR==1) print "not-shared", "not-split", $0; else print "shared", "split", $0;}' > $dir/phones/roots.txt
 else
   # different silence phones will have different GMMs.  [note: here, all "shared split" means
   # is that we may have one GMM for all the states, or we can split on states.  because they're
   # context-independent phones, they don't see the context.]
-  cat $srcdir/{,non}silence_phones.txt | main/local/core/apply_map.pl $tmpdir/phone_map.txt > $dir/phones/sets.txt
+  cat $srcdir/{,non}silence_phones.txt | src/local/core/apply_map.pl $tmpdir/phone_map.txt > $dir/phones/sets.txt
   cat $dir/phones/sets.txt | awk '{print "shared", "split", $0;}' > $dir/phones/roots.txt
 fi
 
-cat $srcdir/silence_phones.txt | main/local/core/apply_map.pl $tmpdir/phone_map.txt | \
+cat $srcdir/silence_phones.txt | src/local/core/apply_map.pl $tmpdir/phone_map.txt | \
   awk '{for(n=1;n<=NF;n++) print $n;}' > $dir/phones/silence.txt
-cat $srcdir/nonsilence_phones.txt | main/local/core/apply_map.pl $tmpdir/phone_map.txt | \
+cat $srcdir/nonsilence_phones.txt | src/local/core/apply_map.pl $tmpdir/phone_map.txt | \
   awk '{for(n=1;n<=NF;n++) print $n;}' > $dir/phones/nonsilence.txt
 cp $srcdir/optional_silence.txt $dir/phones/optional_silence.txt
 cp $dir/phones/silence.txt $dir/phones/context_indep.txt
 
 # if extra_questions.txt is empty, it's OK.
-cat $srcdir/extra_questions.txt 2>/dev/null | main/local/core/apply_map.pl $tmpdir/phone_map.txt \
+cat $srcdir/extra_questions.txt 2>/dev/null | src/local/core/apply_map.pl $tmpdir/phone_map.txt \
   >$dir/phones/extra_questions.txt
 
 # Want extra questions about the word-start/word-end stuff. Make it separate for
@@ -258,9 +258,9 @@ fi
 # and produce $tmpdir/lexicon_*disambig.txt
 
 if "$silprob"; then
-  ndisambig=`main/local/core/add_lex_disambig.pl --pron-probs --sil-probs $tmpdir/lexiconp_silprob.txt $tmpdir/lexiconp_silprob_disambig.txt`
+  ndisambig=`src/local/core/add_lex_disambig.pl --pron-probs --sil-probs $tmpdir/lexiconp_silprob.txt $tmpdir/lexiconp_silprob_disambig.txt`
 else
-  ndisambig=`main/local/core/add_lex_disambig.pl --pron-probs $tmpdir/lexiconp.txt $tmpdir/lexiconp_disambig.txt`
+  ndisambig=`src/local/core/add_lex_disambig.pl --pron-probs $tmpdir/lexiconp.txt $tmpdir/lexiconp_disambig.txt`
 fi
 ndisambig=$[$ndisambig+1]; # add one disambig symbol for silence in lexicon FST.
 echo $ndisambig > $tmpdir/lex_ndisambig
@@ -360,8 +360,8 @@ cat $tmpdir/align_lexicon.txt | \
  perl -ane '@A = split; print $A[0], " ", join(" ", @A), "\n";' | sort | uniq > $dir/phones/align_lexicon.txt
 
 # create phones/align_lexicon.int
-cat $dir/phones/align_lexicon.txt | main/local/core/sym2int.pl -f 3- $dir/phones.txt | \
-  main/local/core/sym2int.pl -f 1-2 $dir/words.txt > $dir/phones/align_lexicon.int
+cat $dir/phones/align_lexicon.txt | src/local/core/sym2int.pl -f 3- $dir/phones.txt | \
+  src/local/core/sym2int.pl -f 1-2 $dir/words.txt > $dir/phones/align_lexicon.int
 
 # Create the basic L.fst without disambiguation symbols, for use
 # in training.
@@ -369,13 +369,13 @@ cat $dir/phones/align_lexicon.txt | main/local/core/sym2int.pl -f 3- $dir/phones
 if $silprob; then
   # Usually it's the same as having a fixed-prob L.fst
   # it matters a little bit in discriminative trainings
-  main/local/core/make_lexicon_fst_silprob.pl $tmpdir/lexiconp_silprob_disambig.txt $srcdir/silprob.txt $silphone '#'$ndisambig | \
+  src/local/core/make_lexicon_fst_silprob.pl $tmpdir/lexiconp_silprob_disambig.txt $srcdir/silprob.txt $silphone '#'$ndisambig | \
      sed 's=\#[0-9][0-9]*=<eps>=g' | \
      fstcompile --isymbols=$dir/phones.txt --osymbols=$dir/words.txt \
      --keep_isymbols=false --keep_osymbols=false |   \
      fstarcsort --sort_type=olabel > $dir/L.fst || exit 1;
 else
-  main/local/core/make_lexicon_fst.pl --pron-probs $tmpdir/lexiconp.txt $sil_prob $silphone | \
+  src/local/core/make_lexicon_fst.pl --pron-probs $tmpdir/lexiconp.txt $sil_prob $silphone | \
     fstcompile --isymbols=$dir/phones.txt --osymbols=$dir/words.txt \
     --keep_isymbols=false --keep_osymbols=false | \
      fstarcsort --sort_type=olabel > $dir/L.fst || exit 1;
@@ -384,7 +384,7 @@ fi
 # The file oov.txt contains a word that we will map any OOVs to during
 # training.
 echo "$oov_word" > $dir/oov.txt || exit 1;
-cat $dir/oov.txt | main/local/core/sym2int.pl $dir/words.txt >$dir/oov.int || exit 1;
+cat $dir/oov.txt | src/local/core/sym2int.pl $dir/words.txt >$dir/oov.int || exit 1;
 # integer version of oov symbol, used in some scripts.
 
 
@@ -396,33 +396,33 @@ cat $dir/oov.txt | main/local/core/sym2int.pl $dir/words.txt >$dir/oov.int || ex
 # symbol table words.txt, and wdisambig_phones.int contains the corresponding
 # list interpreted by the symbol table phones.txt.
 echo '#0' >$dir/phones/wdisambig.txt
-main/local/core/sym2int.pl $dir/phones.txt <$dir/phones/wdisambig.txt >$dir/phones/wdisambig_phones.int
-main/local/core/sym2int.pl $dir/words.txt <$dir/phones/wdisambig.txt >$dir/phones/wdisambig_words.int
+src/local/core/sym2int.pl $dir/phones.txt <$dir/phones/wdisambig.txt >$dir/phones/wdisambig_phones.int
+src/local/core/sym2int.pl $dir/words.txt <$dir/phones/wdisambig.txt >$dir/phones/wdisambig_words.int
 
 # Create these lists of phones in colon-separated integer list form too,
 # for purposes of being given to programs as command-line options.
 for f in silence nonsilence optional_silence disambig context_indep; do
-  main/local/core/sym2int.pl $dir/phones.txt <$dir/phones/$f.txt >$dir/phones/$f.int
-  main/local/core/sym2int.pl $dir/phones.txt <$dir/phones/$f.txt | \
+  src/local/core/sym2int.pl $dir/phones.txt <$dir/phones/$f.txt >$dir/phones/$f.int
+  src/local/core/sym2int.pl $dir/phones.txt <$dir/phones/$f.txt | \
    awk '{printf(":%d", $1);} END{printf "\n"}' | sed s/:// > $dir/phones/$f.csl || exit 1;
 done
 
 for x in sets extra_questions; do
-  main/local/core/sym2int.pl $dir/phones.txt <$dir/phones/$x.txt > $dir/phones/$x.int || exit 1;
+  src/local/core/sym2int.pl $dir/phones.txt <$dir/phones/$x.txt > $dir/phones/$x.int || exit 1;
 done
 
-main/local/core/sym2int.pl -f 3- $dir/phones.txt <$dir/phones/roots.txt \
+src/local/core/sym2int.pl -f 3- $dir/phones.txt <$dir/phones/roots.txt \
    > $dir/phones/roots.int || exit 1;
 
 #if $position_dependent_phones; then
 if [ -f $dir/phones/word_boundary.txt ]; then
-  main/local/core/sym2int.pl -f 1 $dir/phones.txt <$dir/phones/word_boundary.txt \
+  src/local/core/sym2int.pl -f 1 $dir/phones.txt <$dir/phones/word_boundary.txt \
     > $dir/phones/word_boundary.int || exit 1;
 fi
 
 silphonelist=`cat $dir/phones/silence.csl`
 nonsilphonelist=`cat $dir/phones/nonsilence.csl`
-main/local/core/gen_topo.pl $num_nonsil_states $num_sil_states $nonsilphonelist $silphonelist >$dir/topo
+src/local/core/gen_topo.pl $num_nonsil_states $num_sil_states $nonsilphonelist $silphonelist >$dir/topo
 
 
 # Create the lexicon FST with disambiguation symbols, and put it in lang_test.
@@ -430,13 +430,13 @@ main/local/core/gen_topo.pl $num_nonsil_states $num_sil_states $nonsilphonelist 
 # disambiguation symbols from G.fst.
 
 if $silprob; then
-  main/local/core/make_lexicon_fst_silprob.pl $tmpdir/lexiconp_silprob_disambig.txt $srcdir/silprob.txt $silphone '#'$ndisambig | \
+  src/local/core/make_lexicon_fst_silprob.pl $tmpdir/lexiconp_silprob_disambig.txt $srcdir/silprob.txt $silphone '#'$ndisambig | \
      fstcompile --isymbols=$dir/phones.txt --osymbols=$dir/words.txt \
      --keep_isymbols=false --keep_osymbols=false | \
      fstaddselfloops  $dir/phones/wdisambig_phones.int $dir/phones/wdisambig_words.int | \
      fstarcsort --sort_type=olabel > $dir/L_disambig.fst || exit 1;
 else
-  main/local/core/make_lexicon_fst.pl --pron-probs $tmpdir/lexiconp_disambig.txt $sil_prob $silphone '#'$ndisambig | \
+  src/local/core/make_lexicon_fst.pl --pron-probs $tmpdir/lexiconp_disambig.txt $sil_prob $silphone '#'$ndisambig | \
      fstcompile --isymbols=$dir/phones.txt --osymbols=$dir/words.txt \
      --keep_isymbols=false --keep_osymbols=false | \
      fstaddselfloops  $dir/phones/wdisambig_phones.int $dir/phones/wdisambig_words.int | \
@@ -445,7 +445,7 @@ fi
 
 
 echo "$(basename $0): validating output directory"
-! main/local/core/validate_lang.pl $dir && echo "$(basename $0): error validating output" &&  exit 1;
+! src/local/core/validate_lang.pl $dir && echo "$(basename $0): error validating output" &&  exit 1;
 
 exit 0;
 

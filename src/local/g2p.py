@@ -334,6 +334,6 @@ if __name__ == '__main__':
 
     else:
         graph = args[0]
-        runKoG2P(graph, 'main/local/rulebook.txt')
+        runKoG2P(graph, 'src/local/rulebook.txt')
 
 
