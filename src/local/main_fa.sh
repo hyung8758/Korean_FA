@@ -83,13 +83,14 @@ echo "Initiating g2p process." >> $log_dir/process.$log_name.log
 for div in $words; do
 	python src/local/g2p.py $div >> $prono_dir/prono_list
 done
-paste -d' ' $raw_sent_dir/$txt_rename $prono_dir/prono_list >> $prono_dir/new_lexicon.txt
+paste -d ' ' $raw_sent_dir/$txt_rename $prono_dir/prono_list >> $prono_dir/tmp_lexicon.txt
+cat $prono_dir/tmp_lexicon.txt | sort -u > $dict_dir/lexicon.txt
 echo "Lexicon: " >> $log_dir/process.$log_name.log
-cat $prono_dir/new_lexicon.txt >> $log_dir/process.$log_name.log
+cat $dict_dir/lexicon.txt >> $log_dir/process.$log_name.log
 
 ## Language modeling.
-# Combine new_lexicon to lexicon file in order to make an appropriate language model.
-paste -d'\n' $prono_dir/new_lexicon.txt model/lexicon.txt | sort | uniq | sed '/^\s*$/d' > $dict_dir/lexicon.txt
+# make L.fst
+paste -d '\n' $prono_dir/tmp_lexicon.txt model/lexicon.txt | sort | uniq | sed '/^\s*$/d' > $dict_dir/lexicon.txt
 bash src/local/prepare_new_lang.sh $dict_dir $lang_dir "<UNK>" &>/dev/null
 
 ## Feature extraction.
@@ -211,8 +212,9 @@ if [ $passing -ne 1 ]; then
 	# Split the whole text files.
 	echo "Inserting labels for each column in the aligned data." >> $log_dir/process.$log_name.log
 	mkdir -p $result_dir/tmp_fa
-	int_line="utt_id\tfile_id\tphone_id\tutt_num\tstart_ph\tdur_ph\tphone\tstart_utt\tend_utt\tstart_real\tend_real"
-	cat $result_dir/final_ali.txt | sed '1i '"${int_line}" > $result_dir/tmp_fa/tagged_final_ali.txt
+	int_line="utt_id\tfile_id\tphone_id\tutt_num\tstart_ph\tdur_ph\tphone\tstart_utt\tend_utt\tstart_real\tend_real\n"
+	awk -v fa_var=$int_line 'BEGIN{printf fa_var};{print $0}' $result_dir/final_ali.txt >  $result_dir/tmp_fa/tagged_final_ali.txt
+	# cat $result_dir/final_ali.txt | sed '1i '"${int_line}" > $result_dir/tmp_fa/tagged_final_ali.txt
 
 	# Generate text_num file.
 	cat $raw_sent_dir/$txt_rename | wc -l >> $raw_sent_dir/text_num.raw || exit 1;
@@ -222,7 +224,7 @@ if [ $passing -ne 1 ]; then
 	# Generate textgrid.
 	python src/local/generate_textgrid.py $tg_word_opt $tg_phone_opt \
 							$result_dir/tmp_fa \
-							$prono_dir/new_lexicon.txt \
+							$prono_dir/tmp_lexicon.txt \
 							$raw_sent_dir/text_num.raw \
 							$data_dir 2>/dev/null || align_error=1;
 	if [ $align_error -eq 1 ]; then

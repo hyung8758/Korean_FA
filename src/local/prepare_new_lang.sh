@@ -20,7 +20,7 @@ oov_word=$3
 
 ### dict directory ###
 # lexcionp.
-perl -ape 's/(\S+\s+)(.+)/${1}1.0\t$2/;' < $dict_dir/lexicon.txt > $dict_dir/lexiconp.txt
+perl -ape 's/(\S+\s+)(.+)/${1}1.0 $2/;' < $dict_dir/lexicon.txt > $dict_dir/lexiconp.txt
 
 # silence.
 echo -e "<SIL>\n<UNK>" >  $dict_dir/silence_phones.txt
@@ -40,8 +40,10 @@ cat $dict_dir/nonsilence_phones.txt | perl -e 'while(<>){ foreach $p (split(" ",
 echo "extra_questions.txt file was generated."
 
 # Insert <UNK> in the lexicon.txt and lexiconp.txt.
-sed -i '1 i\<UNK> <UNK>' $dict_dir/lexicon.txt 
-sed -i '1 i\<UNK> 1.0 <UNK>' $dict_dir/lexiconp.txt
+# sed -i '1 i\<UNK> <UNK>' $dict_dir/lexicon.txt 
+# sed -i '1 i\<UNK> 1.0 <UNK>' $dict_dir/lexiconp.txt
+echo "<UNK> <UNK>" >> $dict_dir/lexicon.txt
+echo "<UNK> 1.0 <UNK>" >> $dict_dir/lexiconp.txt
 
 ### lang directory ###
 src/local/core/prepare_lang.sh $dict_dir $oov_word $lang_dir/local/lang $lang_dir >/dev/null

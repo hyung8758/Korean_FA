@@ -65,10 +65,10 @@ with open('/'.join([save_dir,'text']),'w') as text:
 '''
 Generate textraw
 '''
-text_cont=[]
-for rd in text_list:
-    with open ('/'.join([data_dir,rd]),'r') as txt:
-        text_cont.append(txt.read())
+# text_cont=[]
+# for rd in text_list:
+#     with open ('/'.join([data_dir,rd]),'r') as txt:
+#         text_cont.append(txt.read())
 
 with open('/'.join([save_dir,'textraw']),'w') as text:
     for turn in text_cont:
