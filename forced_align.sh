@@ -24,6 +24,10 @@
 # Do not move the parts of scripts or folders or run the main script
 # from outside of this folder.
 
+set -e
+set -u
+# set -o pipefail
+
 # Kaldi directory ./kaldi
 kaldi=/home/kaldi
 
@@ -38,8 +42,8 @@ fi
 
 # Option Parsing and checking. 
 # Option default.
-tg_word_opt=
-tg_phone_opt=
+tg_word_opt=none
+tg_phone_opt=none
 tg_skip_opt=
 usage="=======================================================\n\
 \t         The Usage of Korean Foreced Aligner.         \n\
@@ -151,6 +155,7 @@ fi
 # Split jobs.
 split_nj=$((wav_num/fa_nj))
 remain=$((wav_num%fa_nj))
+echo "split num job: $split_nj"
 if [ $split_nj -ne 0 ]; then
 	for snj in `seq 1 $split_nj`; do
 		mkdir -p tmp/work_$snj/source
@@ -222,4 +227,4 @@ echo
 echo "DONE"
 
 # remove tmp direcotry.
-rm -rf tmp
+rm -rf tmp 

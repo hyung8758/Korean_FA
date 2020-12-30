@@ -9,17 +9,27 @@
 # And you have one text file that transrbied "I want to go to school", then you can use this script
 # for generating all the transcribed text files that corresponds to the name of each wave file.
 
+# set -e
+# set -u
+# set -o pipefail
+
 # get variables.
 kaldi=$1
 jidx=$2
 origin_dir=$3
 wav_file=$4
 txt_file=$5
-tg_word_opt=$6
-tg_phone_opp=$7
+if [ $6 == "none" ]; then
+    tg_word_opt=
+else
+    tg_word_opt=$6; fi
+if [ $7 == "none" ]; then
+    tg_phone_opt=
+else
+    tg_phone_opt=$7; fi
 source_dir=`dirname $wav_file`
 work_dir=`dirname $source_dir`
-
+ 
 # Model directory
 fa_model=model/model4fa
 # Code directory
@@ -47,8 +57,8 @@ align_nj=1
 mfcc_nj=1
 passing=0
 align_error=0
-
 mkdir -p $log_dir
+ls $log_dir
 mkdir -p $data_dir
 mkdir -p $trans_dir
 mkdir -p $dict_dir
@@ -100,18 +110,25 @@ mfccdir=mfcc
 cmd="$code_dir/run.pl"
 
 # Wav file sanitiy check.
+# adjust audio format.
+# sr: 16000, channel: 1, bit: 16
 # Audio file should have only 1 channel.
-wav_ch=`sox --i $data_dir/$wav_name | grep "Channels" | awk '{print $3}'`
-if [ $wav_ch -ne 1 ]; then
-	sox $data_dir/$wav_name -c 1 $data_dir/ch_tmp.wav
-	mv $data_dir/ch_tmp.wav $data_dir/$wav_name; fi
-	echo "$wav_name channel changed." >> $log_dir/process.$log_name.log
-# Sampling rate should be set to 16000.
-wav_sr=`sox --i $data_dir/$wav_name | grep "Sample Rate" | awk '{print $4}'`
-if [ $wav_sr -ne 16000 ]; then
-	sox $data_dir/$wav_name -r 16000 $data_dir/sr_tmp.wav
-	echo "$wav_name sampling rate changed." >> $log_dir/process.$log_name.log
-	mv $data_dir/sr_tmp.wav $data_dir/$wav_name; fi
+echo "adjust $wav_name  to sr(16000), channel(1), bit(16)." >> $log_dir/process.$log_name.log
+sox $data_dir/$wav_name -r 16000 -c 1 -b 16 $data_dir/fixed_tmp.wav
+mv $data_dir/fixed_tmp.wav $data_dir/$wav_name 
+
+# wav_ch=`sox --i $data_dir/$wav_name | grep "Channels" | awk '{print $3}'`
+# if [ $wav_ch -ne 1 ]; then
+# 	sox $data_dir/$wav_name -c 1 $data_dir/ch_tmp.wav
+# 	mv $data_dir/ch_tmp.wav $data_dir/$wav_name; fi
+# 	echo "$wav_name channel changed." >> $log_dir/process.$log_name.log
+
+# # Sampling rate should be set to 16000.
+# # wav_sr=`sox --i $data_dir/$wav_name | grep "Sample Rate" | awk '{print $4}'`
+# # if [ $wav_sr -ne 16000 ]; then
+# 	sox $data_dir/$wav_name -r 16000 $data_dir/sr_tmp.wav
+# 	echo "$wav_name sampling rate changed." >> $log_dir/process.$log_name.log
+# 	mv $data_dir/sr_tmp.wav $data_dir/$wav_name; fi
 
 # Extracting MFCC features and calculate CMVN.
 $code_dir/make_mfcc.sh --nj $mfcc_nj --cmd "$cmd" $trans_dir $log_dir $data_dir/$mfccdir >> $log_dir/process.$log_name.log
