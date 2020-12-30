@@ -23,7 +23,7 @@ parser.add_option("--skip", action="store_true", dest="textgrid_skip", default=F
 tg_option = options.textgrid_skip
 
 # Arguments check.
-if len(args) is 0 or len(args) > 1:
+if len(args) == 0 or len(args) > 1:
     print("Input arguments are incorrectly provided. One argument should be assigned.")
     print("1. data directory.")
     print("*** USAGE ***")
@@ -49,7 +49,7 @@ for tg in data_list:
 # Execute the following lines based on the option setting.
 # Check whether textgrids are already present or not. If so, remove all of them.
 if tg_option is False:
-    if len(tg_list) is not 0:
+    if len(tg_list) != 0:
         print("WARNNING: TextGrids are already present. However, newly generated TextGrids will replace remained TextGrids.")
         for tg_rm in tg_list:
             os.remove('/'.join([data_dir,tg_rm]))
