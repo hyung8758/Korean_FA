@@ -102,14 +102,16 @@ if [ ! -d $data_dir ]; then
 	echo "ERROR: $data_dir is not present. Please check the data directory."  && exit
 fi
 
+log_dir=log
+tmp_dir=tmp
 # Remove previous log, tmp, and data directories.
-[ -d log ] && rm -rf log/*
-[ -d tmp ] && rm -rf tmp/*
+[ -d $log_dir ] && rm -rf $log_dir/*
+[ -d $tmp_dir ] && rm -rf $tmp_dir/*
 
 # Directory check.
 source path.sh $kaldi
-[ ! -d tmp ] && mkdir -p tmp
-[ ! -d log ] && mkdir -p log
+[ ! -d $log_dir ] && mkdir -p $log_dir
+[ ! -d $tmp_dir ] && mkdir -p $tmp_dir
 
 # Check the text files.
 wav_list=
@@ -155,22 +157,21 @@ fi
 # Split jobs.
 split_nj=$((wav_num/fa_nj))
 remain=$((wav_num%fa_nj))
-echo "split num job: $split_nj"
 if [ $split_nj -ne 0 ]; then
 	for snj in `seq 1 $split_nj`; do
-		mkdir -p tmp/work_$snj/source
+		mkdir -p $tmp_dir/work_$snj/source
 	done
 fi
 total_j=$split_nj
 if [ $remain -ne 0 ]; then
-	mkdir -p tmp/work_$((split_nj+1))/source
+	mkdir -p $tmp_dir/work_$((split_nj+1))/source
 	total_j=$((total_j+1))
 fi
 
 # distribute source files.
 j=1
 for wav in $wav_list; do
-	cp $data_dir/$wav tmp/work_$j/source
+	cp $data_dir/$wav $tmp_dir/work_$j/source
 	if [ $j -eq $total_j ]; then
 		j=1
 	else
@@ -179,7 +180,7 @@ for wav in $wav_list; do
 done
 j=1
 for txt in $txt_list; do
-	cp $data_dir/$txt tmp/work_$j/source
+	cp $data_dir/$txt $tmp_dir/work_$j/source
 	if [ $j -eq $total_j ]; then
 		j=1
 	else
@@ -196,29 +197,29 @@ echo The number of text  files: $txt_num
 # Main loop for alignment.
 job_idx=1
 for turn in `seq 1 $total_j`; do
-	subwav_list=`ls tmp/work_$turn/source | grep .wav`
+	subwav_list=`ls $tmp_dir/work_$turn/source | grep .wav`
 	# pre-processing and alining wave files.
 	echo "Aligning $subwav_list"
 	for sub_wav in $subwav_list; do
 		sub_txt=`echo $sub_wav | sed 's/wav/txt/g'`
-		bash src/local/main_fa.sh $kaldi $job_idx $data_dir tmp/work_$turn/source/$sub_wav tmp/work_$turn/source/$sub_txt $tg_word_opt $tg_phone_opt &
+		bash src/local/main_fa.sh $kaldi $job_idx $data_dir $tmp_dir/work_$turn/source/$sub_wav $tmp_dir/work_$turn/source/$sub_txt $tg_word_opt $tg_phone_opt &
 		job_idx=$((job_idx+1))
 	done
 	wait
 done
 
 # count fail trials.
-fail_num=`cat log/history.log | grep FAIL | wc -l`
+fail_num=`cat $log_dir/history.log | grep FAIL | wc -l`
 # sort history.log
-cat log/history.log | sort > log/tmp.log; mv log/tmp.log log/history.log
+cat $log_dir/history.log | sort > $log_dir/tmp.log; mv $log_dir/tmp.log $log_dir/history.log
 # Print result information.
-echo "===================== FORCED ALIGNMENT FINISHED  =====================" | tee    log/result.log
-echo "** Result Information on $(date) **									" | tee -a log/result.log
-echo "Total Trials:" $wav_num									        	  | tee -a log/result.log
-echo "Success     :" $((wav_num - fail_num))								  | tee -a log/result.log
-echo "Fail        :" $fail_num												  | tee -a log/result.log
-echo "----------------------------------------------------------------------" | tee -a log/result.log
-echo "Result      : $((wav_num - fail_num)) / "$wav_num" (Success / Total)"	  | tee -a log/result.log
+echo "===================== FORCED ALIGNMENT FINISHED  =====================" | tee    $log_dir/result.log
+echo "** Result Information on $(date) **									" | tee -a $log_dir/result.log
+echo "Total Trials:" $wav_num									        	  | tee -a $log_dir/result.log
+echo "Success     :" $((wav_num - fail_num))								  | tee -a $log_dir/result.log
+echo "Fail        :" $fail_num												  | tee -a $log_dir/result.log
+echo "----------------------------------------------------------------------" | tee -a $log_dir/result.log
+echo "Result      : $((wav_num - fail_num)) / "$wav_num" (Success / Total)"	  | tee -a $log_dir/result.log
 if [ $fail_num -gt 0 ]; then 
 	echo "To check the failed results, refer to the ./log directory."
 fi
@@ -227,4 +228,4 @@ echo
 echo "DONE"
 
 # remove tmp direcotry.
-rm -rf tmp 
+rm -rf $tmp_dir 
