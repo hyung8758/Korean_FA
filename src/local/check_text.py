@@ -13,7 +13,9 @@ Ex. python check_text.py $data_directory
 import os
 import re
 import time
+import shutil
 import optparse
+from datetime import datetime
 
 # Option check.
 parser = optparse.OptionParser()
@@ -51,8 +53,13 @@ for tg in data_list:
 if tg_option is False:
     if len(tg_list) != 0:
         print("WARNNING: TextGrids are already present. However, newly generated TextGrids will replace remained TextGrids.")
-        for tg_rm in tg_list:
-            os.remove('/'.join([data_dir,tg_rm]))
+        print("Prvious TextGrids will be moved to backup_{DATE} directory.")
+        now_time = datetime.now.strftime("%d%m%Y-%H%M%S")
+        backup_folder_name = ''.join([date_dir,now_time])
+        os.mkdir(backup_folder_name)
+        for tg_file in tg_list:
+            file_path = '/'.join([data_dir,tg_file])
+            shutil.move(backup_folder_name,file_path)
 
 # Fix the problem if it exists.
 inform=0
