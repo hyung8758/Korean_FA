@@ -227,5 +227,8 @@ echo
 
 echo "DONE"
 
-# remove tmp direcotry.
+# remove processed directoies.
 rm -rf $tmp_dir 
+if [ -d bin ]; then
+    rm -rf bin
+fi

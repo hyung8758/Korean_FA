@@ -1,13 +1,13 @@
 # Korean_FA: Korean Forced-Aligner  
 
-- v.1.6.1(10.28.20)
+- v.1.6.2(01.03.21)
 - NAMZ Labs
 
 
 ### MacOSX and Linux
 ---
-- Mac OSX 10.15.7(El Capitan,Sierra,High Sierra, Catalina): Stable.
-- Linux (Ubuntu 16.04): Stable.
+- Mac OSX 11.0.1(recent Big Sur): Stable.
+- Linux (recent Ubuntu 18.04): Stable.
 - Windows: Unstable. (Not tested)
 - Python 3.5 ~ (python2 is unavailable)
 
@@ -118,5 +118,5 @@ In order to improve forced alignment performance, all contributors named below p
 - v.1.5.3(07.10.17): Long audio files are now available to be aligned. print more information on the screen. Floating error which caused time mismatch betweeen start and end points of each phone segment is fixed.
 - v.1.5.4(11.14.17): Floatting error is occurred in kaldi code. This error will be solved as post-processing. Hopely, from now on, time mismatch error will not appear any longer.
 - v.1.6(01.18.18): num-jb option is provided and this option will split multiple files into sub groups and align multiple files at once. This will speed up the alignment process. The way of printing log histories and the structure of main script are changed.
-- **v.1.6.1(10.28.20)**: lexicon process was unstable and it has been fixed. remove redundant jobs in main_fa.sh and fa_prep_data.sh. 
-
+- v.1.6.1(10.28.20): lexicon process was unstable and it has been fixed. remove redundant jobs in main_fa.sh and fa_prep_data.sh. 
+- **v1.6.2(01.03.21)**: adjust audio process part(sr=16000, channel=1, bit=16) and change log variables. 
