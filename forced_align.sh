@@ -64,6 +64,7 @@ if [ $# -gt 5 ] || [ $# -lt 1 ]; then
    echo -e $usage  && exit
 fi
 
+# find optional variables.
 arg_num=$#
 while [ $arg_num -gt 0 ] ; do 
   case "$1" in
@@ -84,20 +85,20 @@ while [ $arg_num -gt 0 ] ; do
   esac
 done
 
+# num job variable should contain integer.
 if ! [[ $fa_nj =~ ^[0-9]+$ ]] ; then
  echo "ERROR: -nj or --num-jb is not a number. Please provide a number for this option."; exit 1
 fi
 
-# Folder directory that contains wav and text files.
-tmp_data_dir=$1
-if [ "$tmp_data_dir" == "" ]; then
-	echo "ERROR: data directory is not provided." && exit
+# find input variables.
+if [ $# -eq 0 ]; then
+    echo -e $usage
+    exit 1
 fi
 
 # Check data_dir
 alias realpath="perl -MCwd -e 'print Cwd::realpath(\$ARGV[0]),qq<\n>'"
-data_dir=
-data_dir=`realpath $tmp_data_dir`
+data_dir=`realpath $1`
 if [ ! -d $data_dir ]; then
 	echo "ERROR: $data_dir is not present. Please check the data directory."  && exit
 fi
