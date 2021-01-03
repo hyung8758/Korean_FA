@@ -1,5 +1,5 @@
 """
-Copyright 2016  Korea University & EMCS Labs  (Author: Hyungwon Yang)
+Copyright 2016  Korea University & NAMZ Labs  (Author: Hyungwon Yang)
 Apache 2.0
 
 *** Introduction ***
