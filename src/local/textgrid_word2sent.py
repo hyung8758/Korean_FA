@@ -85,6 +85,7 @@ with open(tg_text, 'r', encoding='utf-8') as tg:
     tg_line_num = len(new_tg_lines)
     word_num = tg_line_num - word_idx
     word_lines = [None] * word_num
+    # print("word_lines: {}".format(len(word_lines)))
     num = 0
     for idx in range(word_idx,tg_line_num):
         tmp_line = new_tg_lines[idx]
@@ -127,6 +128,7 @@ total_idx += 1
 
 # write main sentence FA
 for idx, sent in enumerate(ori_lines):
+    # print("original sentence: {}".format(sent))
     time_box = []
     # 첫 sil symbol 넣기.
     if idx == 0:
@@ -137,11 +139,14 @@ for idx, sent in enumerate(ori_lines):
         matched_textgrid_list[total_idx] = sil_insert_form
         total_idx += 1
         fa_line_num += 1
+        tg_idx += 3
     # 첫 문장부터 마지막 문장까지 넣기.
     sent_box = []
     for w_idx, w in enumerate(sent):
+        # print("tg idx: {}".format(tg_idx))
         # print('word and word_lines: {} : {}'.format(w,word_lines[tg_idx]))
         while w != word_lines[tg_idx]:
+            # print("{} and {} mismatch!".format(w,word_lines[tg_idx]))
             # sil process 
             if sym_pause:
                 if (w_idx != 0 and word_lines[tg_idx] == sil_sym):
@@ -153,6 +158,7 @@ for idx, sent in enumerate(ori_lines):
                             sent_box.append(sym_type)
                         now_threshold += sym_pause_dur
             tg_idx += 3
+            # print("what next: {} and {}".format(w,word_lines[tg_idx]))
             
         # handle same word occurred twice in the sentence.
         if w_idx != 0:
@@ -165,6 +171,7 @@ for idx, sent in enumerate(ori_lines):
         time_box.append(float(word_lines[tg_idx - 2]))
         time_box.append(float(word_lines[tg_idx - 1]))
         sent_box.append(word_lines[tg_idx])
+        tg_idx += 3
     fa_line_num += 1
     # print('sentence and times: {} {} {}'.format(sent_box,min(time_box),max(time_box)))
     matched_textgrid_list[total_idx] = str(min(time_box)) + '\n'
@@ -196,7 +203,7 @@ matched_textgrid_list[12] = str(fa_line_num) + "\n"
 # save processed textgrid file.
 print("Generating output TextGrid.")
 with open(tg_out, 'w', encoding='utf-8') as wrt:
-    
+
     for idx in range(start_idx-2):
         wrt.write(matched_textgrid_list[idx])
     
