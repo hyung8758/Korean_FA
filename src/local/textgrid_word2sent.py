@@ -39,6 +39,7 @@ if len(args) != 3:
 origin_text = args[0]
 tg_text = args[1]
 tg_out = args[2]
+log_info=False
 
 # read original text file and pre processing.
 with open(origin_text,'r',encoding='utf-8') as txt:
@@ -128,7 +129,8 @@ total_idx += 1
 
 # write main sentence FA
 for idx, sent in enumerate(ori_lines):
-    # print("original sentence: {}".format(sent))
+    if log_info:
+        print("original sentence: {}".format(sent))
     time_box = []
     # 첫 sil symbol 넣기.
     if idx == 0:
@@ -143,10 +145,12 @@ for idx, sent in enumerate(ori_lines):
     # 첫 문장부터 마지막 문장까지 넣기.
     sent_box = []
     for w_idx, w in enumerate(sent):
-        # print("tg idx: {}".format(tg_idx))
-        # print('word and word_lines: {} : {}'.format(w,word_lines[tg_idx]))
+        if log_info:
+            print("tg idx: {}".format(tg_idx))
+            print('word and word_lines: {} : {}'.format(w,word_lines[tg_idx]))
         while w != word_lines[tg_idx]:
-            # print("{} and {} mismatch!".format(w,word_lines[tg_idx]))
+            if log_info:
+                print("mismatch: {} and {}".format(w,word_lines[tg_idx]))
             # sil process 
             if sym_pause:
                 if (w_idx != 0 and word_lines[tg_idx] == sil_sym):
@@ -158,8 +162,7 @@ for idx, sent in enumerate(ori_lines):
                             sent_box.append(sym_type)
                         now_threshold += sym_pause_dur
             tg_idx += 3
-            # print("what next: {} and {}".format(w,word_lines[tg_idx]))
-            
+        
         # handle same word occurred twice in the sentence.
         if w_idx != 0:
             if w == sent[w_idx-1]:
@@ -167,11 +170,15 @@ for idx, sent in enumerate(ori_lines):
                 time_box.append(float(word_lines[tg_idx - 2]))
                 time_box.append(float(word_lines[tg_idx - 1]))
                 sent_box.append(word_lines[tg_idx])
-        # print('in sentenece tg_idx: {}'.format(tg_idx))
         time_box.append(float(word_lines[tg_idx - 2]))
         time_box.append(float(word_lines[tg_idx - 1]))
         sent_box.append(word_lines[tg_idx])
-        tg_idx += 3
+        # original sentence 문장에서 끝 문장이 발생할 경우 index를 다음으로 밀어준다.
+        # print("w_idx and tg_idx length: {} / {}".format(w_idx,len(sent)-1))
+        if w_idx == len(sent)-1:
+            if log_info:
+                print("push index!")
+            tg_idx += 3
     fa_line_num += 1
     # print('sentence and times: {} {} {}'.format(sent_box,min(time_box),max(time_box)))
     matched_textgrid_list[total_idx] = str(min(time_box)) + '\n'
@@ -182,6 +189,7 @@ for idx, sent in enumerate(ori_lines):
     total_idx += 1
     # 마지막 sil symbol 넣기.
     if idx == len(ori_lines) - 1:
+        tg_idx -= 3
         matched_textgrid_list[total_idx] = str(float(word_lines[tg_idx + 1]))+'\n'
         total_idx += 1
         matched_textgrid_list[total_idx] = new_tg_lines[3]
