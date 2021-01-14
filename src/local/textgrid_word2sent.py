@@ -34,7 +34,7 @@ sym_type = options.sym_type
 
 if len(args) != 3:
     print("USAGE: python3 textgrid_word2sent.py [input: sentence text] [input word level TextGrid] [output: sentence level TextGrid]")
-    exit(1)
+    sys.exit()
 
 origin_text = args[0]
 tg_text = args[1]
@@ -185,7 +185,10 @@ for idx, sent in enumerate(ori_lines):
     total_idx += 1
     matched_textgrid_list[total_idx] = str(max(time_box)) + '\n'
     total_idx += 1
-    matched_textgrid_list[total_idx] = '"' + ' '.join(sent_box) + '"' + '\n'
+    joined_sent = ' '.join(sent_box)
+    joined_sent = re.sub("<SIL>","",joined_sent)
+    final_sent = re.sub(" +"," ",joined_sent)
+    matched_textgrid_list[total_idx] = '"' + final_sent + '"' + '\n'
     total_idx += 1
     # 마지막 sil symbol 넣기.
     if idx == len(ori_lines) - 1:
