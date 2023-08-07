@@ -52,7 +52,6 @@ word_file=args[1]
 text_num=args[2]
 save_dir=args[3]
 
-
 tier_num = 0
 # Option setting
 # word_option true means no word tier. phone_options true means no phone tier.
@@ -94,6 +93,7 @@ with open(word_file,'r') as rgl:
     for rg_box in rg_lexicon:
         tmp_rg_box = re.sub('\n','',rg_box)
         rg_list.append(tmp_rg_box.split(' '))
+# print("rg list: {}".format(rg_list))
 
 # Sorting data.
 best=0
@@ -122,11 +122,11 @@ ct=0
 for interm in whole_list:
     tn_count=0
     for interm_list in interm:
-        if re.findall('SIL',interm_list) != []:
+        if re.findall('sil|SIL',interm_list) != []:
             tn_count +=1
     tn_hold.append(str(tn_count + int(tn_list[ct])))
     ct += 1
-
+# print(tn_hold)
 
 # Writing textgrid.
 rg_rem = 0
@@ -154,26 +154,27 @@ for piece in range(len(file_name)):
                 '''
                 counting +=1
                 # First line.
+                phone_sym = down.split('\t')[-5].split("_")[0]
                 if counting == 1:
                     tg.write('0' + '\n' + "{0:.3f}".format(float(down.split('\t')[-1])) + '\n')
                     if re.findall('[<>]',down.split('\t')[-5]) != []:
                         tg.write('"' + down.split('\t')[-5] + '"' + '\n')
                     else:
-                        tg.write('"' + down.split('\t')[-5][0:2] + '"' + '\n')
+                        tg.write('"' + phone_sym + '"' + '\n')
                 # Last line.
                 elif counting == len(mid):
                     tg.write("{0:.3f}".format(float(down.split('\t')[-2])) + '\n' + str(end_time) + '\n')
                     if re.findall('[<>]',down.split('\t')[-5]) != []:
                         tg.write('"' + down.split('\t')[-5] + '"')
                     else:
-                        tg.write('"' + down.split('\t')[-5][0:2] + '"')
+                        tg.write('"' + phone_sym + '"')
                 # Mid lines.
                 else:
                     tg.write("{0:.3f}".format(float(down.split('\t')[-2])) + '\n' + "{0:.3f}".format(float(down.split('\t')[-1])) + '\n')
                     if re.findall('[<>]',down.split('\t')[-5]) != []:
                         tg.write('"' + down.split('\t')[-5] + '"' + '\n')
                     else:
-                        tg.write('"' + down.split('\t')[-5][0:2] + '"' + '\n')
+                        tg.write('"' + phone_sym + '"' + '\n')
 
         # Word tier.
         if word_option is False:
@@ -202,7 +203,6 @@ for piece in range(len(file_name)):
             # print(phones_end_idx)
 
             word_loc=0
-
             for down in range(len(mid)):
                 rgc +=1
                 # First line. The reason for separating first line from rest is to mark 0 at the
@@ -216,7 +216,7 @@ for piece in range(len(file_name)):
                         str_len = len(rg_list[rg_rem]) - 1
                         for i in range(str_len):
                             # Time marking
-                            if rg_list[rg_rem][1 + i] == mid[rgc - 1].split('\t')[-5][0:2]:
+                            if rg_list[rg_rem][1 + i] == mid[rgc - 1].split('\t')[-5].split("_")[0]:
                                 time.append(mid[rgc - 1].split('\t')[-2])
                                 time.append(mid[rgc - 1].split('\t')[-1])
                                 rgc += 1
@@ -238,9 +238,10 @@ for piece in range(len(file_name)):
                 elif re.findall('[<>]', mid[down].split('\t')[-5]) == [] and rgc - 1 == down:
                     prono_in_rom = rg_list[rg_rem][1:]  # e.g. ['c0', 'ii', 'nf', 'hh', 'qq', 'ng']
                     prono_in_ctm = phone_seq[phones_beg_idx[word_loc]:phones_end_idx[word_loc] + 1]
-                    prono_in_ctm = [re.sub(r'(..)_.', r'\1', iphone) for iphone in
+                    prono_in_ctm = [re.sub(r'(.+)_.', r'\1', iphone) for iphone in
                                     prono_in_ctm]  # e.g. ['c0', 'ii', 'nf', 'qq', 'ng']
-
+                    # print("prono in rom: {}".format(prono_in_rom))
+                    # print("prono in ctm: {}".format(prono_in_ctm))
                     # if prono_in_rom != prono_in_ctm --> overwrite to prono_in_ctm
                     if prono_in_rom is not prono_in_ctm:
                         rg_list[rg_rem] = rg_list[rg_rem][:1] + prono_in_ctm
@@ -248,10 +249,12 @@ for piece in range(len(file_name)):
                     str_len = len(rg_list[rg_rem]) - 1
                     for i in range(str_len):
                         # Time marking
-                        if rg_list[rg_rem][1 + i] == mid[rgc - 1].split('\t')[-5][0:2]:
+                        if rg_list[rg_rem][1 + i] == mid[rgc - 1].split('\t')[-5].split("_")[0]:
                             time.append(mid[rgc - 1].split('\t')[-2])
                             time.append(mid[rgc - 1].split('\t')[-1])
                             rgc += 1
+                    # print("rg list: {}".format(rg_list[rg_rem]))
+                    # print("time: {}".format(time))
                     tg.write("{0:.3f}".format(float(time[0])) + '\n' + "{0:.3f}".format(float(time[-1])) + '\n')
                     tg.write('"' + rg_list[rg_rem][0] + '"' + '\n')
                     rg_rem += 1

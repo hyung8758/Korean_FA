@@ -81,11 +81,11 @@ for rd in text_list:
             print("=============================== ERROR ===============================")
             print(rd + " file is empty. Please check the text files again.")
             print("=====================================================================")
-            raise ValueError("Shut down the process.")
+            raise ValueError("Terminate the process.")
 
         # Fix.
         txt_tmp1=re.sub('\s{2,}|[\t\n]',' ',text_try)
-        txt_tmp2=re.sub('[.,?/;:!@#$%^&*-_=+(){}\'\"]','',txt_tmp1)
+        txt_tmp2=re.sub('[.,?/;:!@#$%^&*-_=+(){}\'\"，．。]','',txt_tmp1)
         txt_fixed=re.sub('\s$','',txt_tmp2)
 
     with open('/'.join([data_dir,rd]),'w') as wr:

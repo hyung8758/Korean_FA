@@ -13,6 +13,10 @@
 # set -u
 # set -o pipefail
 
+# default variables.
+mfccdir=mfcc
+mfcchiresdir=mfcchires
+
 # get variables.
 kaldi=$1
 jidx=$2
@@ -27,13 +31,16 @@ if [ $7 == "none" ]; then
     tg_phone_opt=
 else
     tg_phone_opt=$7; fi
+model_type=nnet3
 source_dir=`dirname $wav_file`
 work_dir=`dirname $source_dir`
- 
+
 # Model directory
-fa_model=model/kor_model
+fa_model=model/jap_model
 # Code directory
 code_dir=src/local/core
+# conf directory
+conf_dir=src/conf
 # log directory
 log_dir=$work_dir/log_$jidx
 # source directory
@@ -58,7 +65,6 @@ mfcc_nj=1
 passing=0
 align_error=0
 mkdir -p $log_dir
-ls $log_dir
 mkdir -p $data_dir
 mkdir -p $trans_dir
 mkdir -p $dict_dir
@@ -68,13 +74,18 @@ mkdir -p $ali_dir
 mkdir -p $raw_sent_dir
 mkdir -p $prono_dir
 
+if [ $model_type == "nnet3" ];then
+	ivector_dir=$trans_dir/ivector
+	mkdir -p $ivector_dir
+fi
+
 # mian FA job.
 mv $wav_file $txt_file $data_dir
 wav_name=`basename $wav_file`
 txt_name=`basename $txt_file`
 log_name=`echo $wav_name | sed -e "s/.wav//g"`
 
-echo "Audio: $wav_name, Text: $txt_name." > $log_dir/process.$log_name.log
+echo "Audio: $wav_name / Text: $txt_name" > $log_dir/process.$log_name.log
 
 # Wav file sanitiy check.
 # adjust audio format.
@@ -98,30 +109,47 @@ cat $raw_sent_dir/$txt_rename >> $log_dir/process.$log_name.log
 ## For Generating new_lexicon file.
 # g2p conversion.
 echo "Initiating g2p process." >> $log_dir/process.$log_name.log
-for div in $words; do
-	python src/local/g2p.py $div >> $prono_dir/prono_list
+bash src/local/run_japanese_mecab.sh $raw_sent_dir/$txt_rename $raw_sent_dir/mecab_reuslt.txt
+bash src/local/run_japanese_g2p.sh $raw_sent_dir/mecab_reuslt.txt $prono_dir/raw_prono_list
+cat $prono_dir/raw_prono_list | awk -F'+' '{print $1}' > $prono_dir/g2p_word_list.txt
+cat $prono_dir/raw_prono_list | awk '{$1="";print $0}' | sed 's/^ //g' > $prono_dir/g2p_phone_list.txt
+paste -d ' ' $prono_dir/g2p_word_list.txt $prono_dir/g2p_phone_list.txt >> $prono_dir/tmp_lexicon.txt
+# mecab result to text file.
+mecab_sent=`cat $raw_sent_dir/mecab_reuslt.txt | tr ' ' '\n'  | awk -F'+' '{print $1}' | tr '\n' ' '`
+# textgrid 생성에 사용할 sent_lexicon은 문장의 단어 순서와 같아야 한다. 
+IFS=$' '
+for mecab_word in $mecab_sent; do
+	cat $prono_dir/tmp_lexicon.txt | grep "^$mecab_word " | head -1 >> $prono_dir/sent_lexicon.txt
 done
-paste -d ' ' $raw_sent_dir/$txt_rename $prono_dir/prono_list >> $prono_dir/tmp_lexicon.txt
-cat $prono_dir/tmp_lexicon.txt | sort -u > $dict_dir/lexicon.txt
-echo "Lexicon: " >> $log_dir/process.$log_name.log
-cat $dict_dir/lexicon.txt >> $log_dir/process.$log_name.log
+# mecab에 실패한 단어들을 삭제하여 text를 새롭게 생성한다. 
+mecab_sent=`cat $prono_dir/sent_lexicon.txt | awk '{print $1}' | tr '\n' ' '`
+new_txt_name=`echo $txt_name | sed 's/.txt//g'`
+echo "$new_txt_name $mecab_sent" > $trans_dir/text
 
 ## Language modeling.
 # make L.fst
 paste -d '\n' $prono_dir/tmp_lexicon.txt $fa_model/lexicon.txt | sort | uniq | sed '/^\s*$/d' > $dict_dir/lexicon.txt
-bash src/local/prepare_new_lang.sh $dict_dir $lang_dir "<UNK>" &>/dev/null
+bash src/local/prepare_jap_new_lang.sh $dict_dir $lang_dir "<unk>" &>/dev/null
 
 ## Feature extraction.
-# MFCC default setting.
 echo "Extracting the MFCC features." >> $log_dir/process.$log_name.log
-mfccdir=mfcc
 cmd="$code_dir/run.pl"
-
 # Extracting MFCC features and calculate CMVN.
-$code_dir/make_mfcc.sh --nj $mfcc_nj --cmd "$cmd" $trans_dir $log_dir $data_dir/$mfccdir >> $log_dir/process.$log_name.log
-$code_dir/fix_data_dir.sh $trans_dir >> $log_dir/process.$log_name.log
-$code_dir/compute_cmvn_stats.sh $trans_dir $log_dir $data_dir/$mfccdir >> $log_dir/process.$log_name.log
-$code_dir/fix_data_dir.sh $trans_dir >> $log_dir/process.$log_name.log
+if [ $model_type == "gmm" ]; then
+	$code_dir/make_mfcc.sh --nj $mfcc_nj --cmd "$cmd" --mfcc-config src/conf/mfcc.conf $trans_dir $log_dir $trans_dir/$mfccdir >> $log_dir/process.$log_name.log
+	$code_dir/fix_data_dir.sh $trans_dir >> $log_dir/process.$log_name.log
+	$code_dir/compute_cmvn_stats.sh $trans_dir $log_dir $trans_dir/$mfccdir >> $log_dir/process.$log_name.log
+	$code_dir/fix_data_dir.sh $trans_dir >> $log_dir/process.$log_name.log
+elif [ $model_type == "nnet3" ]; then
+	# Extract high resolution mfcc and ivector.
+	$code_dir/make_mfcc.sh --nj $mfcc_nj --cmd "$cmd" --mfcc-config src/conf/mfcc_hires.conf $trans_dir $log_dir $trans_dir/$mfcchiresdir >> $log_dir/process.$log_name.log
+	$code_dir/fix_data_dir.sh $trans_dir >> $log_dir/process.$log_name.log
+	$code_dir/compute_cmvn_stats.sh $trans_dir $log_dir $trans_dir/$mfcchiresdir >> $log_dir/process.$log_name.log
+	$code_dir/fix_data_dir.sh $trans_dir >> $log_dir/process.$log_name.log
+	nspk=$(wc -l <$trans_dir/spk2utt)
+	$code_dir/extract_ivectors_online.sh --cmd "$cmd" --nj "${nspk}" \
+      $trans_dir $fa_model/ivector_extractor $ivector_dir
+fi
 
 ## Forced alignment.
 # Aligning data. Total 4 trials will be executed to align every audio file. Smaller parameter setting will give the best result 
@@ -148,19 +176,31 @@ for pass in 1 2 3 4; do
 	elif [ $pass == 5 ]; then
 		beam=4000
 		retry_beam=8000
-		echo "5th, is this audio file long? Beam parameters: beam=$beam, retry_beam=$retry_beam" >> $log_dir/process.$log_name.log
+		echo "5th, Is this audio file long? Beam parameters: beam=$beam, retry_beam=$retry_beam" >> $log_dir/process.$log_name.log
 	fi
 
 	# Alignement.
-	$code_dir/align_si.sh --nj $align_nj --cmd "$cmd" \
-						$trans_dir \
-						$lang_dir \
-						$fa_model \
-						$ali_dir \
-						$beam \
-						$retry_beam \
-						$log_name \
-						$log_dir >> $log_dir/process.$log_name.log 2>/dev/null
+	if [ $model_type = "gmm" ];then
+		$code_dir/align_si.sh --nj $align_nj --cmd "$cmd" \
+							$trans_dir \
+							$lang_dir \
+							$fa_model \
+							$ali_dir \
+							$beam \
+							$retry_beam \
+							$log_name \
+							$log_dir >> $log_dir/process.$log_name.log 2>/dev/null
+	elif [ $model_type = "nnet3" ];then
+		$code_dir/align_nnet3.sh --nj $align_nj --cmd "$cmd" \
+							$ivector_dir \
+							$lang_dir \
+							$fa_model \
+							$ali_dir \
+							$beam \
+							$retry_beam \
+							$log_name \
+							$log_dir >> $log_dir/process.$log_name.log 2>/dev/null
+	fi
 
 	# Sanity check.
 	# If error occurred, stop alignment right away.
@@ -176,6 +216,7 @@ for pass in 1 2 3 4; do
 
 	# Check the alignemnt result.
 	align_check=`cat $log_dir/align.$log_name.log | grep "Did not successfully decode file" | wc -l`
+	echo "align check: $align_check"
 	if [ $align_check == 0 ]; then
 		break
 	elif [ $align_check == 0 ] && [ $pass == 5 ]; then
@@ -221,14 +262,15 @@ if [ $passing -ne 1 ]; then
 	# cat $result_dir/final_ali.txt | sed '1i '"${int_line}" > $result_dir/tmp_fa/tagged_final_ali.txt
 
 	# Generate text_num file.
-	cat $raw_sent_dir/$txt_rename | wc -l >> $raw_sent_dir/text_num.raw || exit 1;
+	cat $prono_dir/sent_lexicon.txt | wc -l >> $raw_sent_dir/text_num.raw || exit 1;
 
 	# Generate Textgrid files and save it to the data directory.
 	echo "Organizing the aligned data to textgrid format." >> $log_dir/process.$log_name.log
 	# Generate textgrid.
+	echo "START generate textgrid."
 	python src/local/generate_textgrid.py $tg_word_opt $tg_phone_opt \
 							$result_dir/tmp_fa \
-							$prono_dir/tmp_lexicon.txt \
+							$prono_dir/sent_lexicon.txt \
 							$raw_sent_dir/text_num.raw \
 							$data_dir 2>/dev/null || align_error=1;
 	if [ $align_error -eq 1 ]; then
