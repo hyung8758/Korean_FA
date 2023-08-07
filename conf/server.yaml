@@ -1,0 +1,12 @@
+version: 1.0
+
+# server
+server_pidfile: server.pid
+server_ip: 127.0.0.1
+server_port: 30100
+
+# log
+log_path: log
+log_file_name: main.log
+log_format: "%(asctime)s(%(module)s:%(lineno)d)%(levelname)s:%(message)s"
+log_in_date: false # if you set it true, log file will be saved in a date directory. (A date directory will be automatically generated.)
