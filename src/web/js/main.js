@@ -7,6 +7,30 @@
 // Scripts
 // 
 
+const newContentContainer = document.getElementById("contentContainer");
+const uploadMainBar = document.getElementById("uploadMainBar");
+const resultMainBar = document.getElementById("resultMainBar");
+
+const loadHtmlContent = htmlFile => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", htmlFile, true);
+    xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            newContentContainer.innerHTML = xhr.responseText;
+          }
+    }
+    xhr.send();
+}
+
+uploadMainBar.addEventListener("click", event => {
+    event.preventDefault();
+    loadHtmlContent("html/upload.html");
+    });
+resultMainBar.addEventListener("click", event => {
+    event.preventDefault();
+    loadHtmlContent("html/result.html");
+    });
+
 window.addEventListener('DOMContentLoaded', event => {
 
     // Toggle the side navigation
@@ -22,5 +46,6 @@ window.addEventListener('DOMContentLoaded', event => {
             localStorage.setItem('sb|sidebar-toggle', document.body.classList.contains('sb-sidenav-toggled'));
         });
     }
-
 });
+
+
