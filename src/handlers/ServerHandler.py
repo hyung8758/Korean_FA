@@ -14,7 +14,7 @@ CURRENT_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class HttpServerHandler(tornado.web.RequestHandler):
     def get(self):
-        self.render("main.html")
+        self.render("../web/html/main.html")
         
     def post(self):
         data = self.get_argument("data")

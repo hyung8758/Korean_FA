@@ -7,6 +7,7 @@ Hyungwon Yang
 
 import os, sys
 
+
 def main():
     usageMessage = f"Usage: {sys.argv[0]} (start|stop|status|version)"
     if len(sys.argv) == 2:
@@ -24,6 +25,15 @@ def main():
                 print(usageMessage)
         except Exception as e:
             print(e)
+    elif len(sys.argv) == 1:
+        import tornado
+        from src.handlers.ServerHandler import App
+        app = App()
+        server_port = 30100
+        app.listen(server_port)
+        print("open server port: {}".format(server_port))
+
+        tornado.ioloop.IOLoop.current().start()
     else:
         print(usageMessage)
 
