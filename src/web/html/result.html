@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="utf-8" />
@@ -5,36 +6,82 @@
         <meta name="description" content="" />
         <meta name="author" content="" />
         <script src="/js/jquery.min.js"></script>
-
-        <!-- bootstrap -->
-        <link href="/css/bootstrap.min.css" rel="stylesheet">
-        <script src="/js/bootstrap.bundle.min.js"></script>
         <!-- datatables -->
         <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
         <script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
+        <script type="text/javascript" charset="utf8" src="js/bootstrap.bundle.min.js"></script>
         <title>Korean_FA - Result Page</title>
     </head>
     <body>
-        <div class="main scrollTableArea" style="margin-left:160px; padding: 10px 10px 10px 10px;">
-            <div style="height:100px"></div>
-            <div id="mainTable">
-              <table id="resultTable" class="display" style="width:100%">
-                  <thead>
-                      <tr>
-                          <th>Name</th>
-                          <th>Date</th>
-                          <th>TotalAudio</th>
-                          <th>Processed</th>
-                          <th>Language</th>
-                      </tr>
-                  </thead>
-                  <tbody>
-                  </tbody>
-              </table>
+        <div class="d-flex" id="wrapper">
+            <!-- Sidebar-->
+            <div class="border-end bg-white" id="sidebar-wrapper">
+                <div class="sidebar-heading border-bottom bg-light" id-="indexMainBar" href="/">Korean FA</div>
+                <div class="list-group list-group-flush">
+                    <a class="list-group-item list-group-item-action list-group-item-light p-3" id="uploadMainBar" href="/upload">Upload</a>
+                    <a class="list-group-item list-group-item-action list-group-item-light p-3" id="resultMainBar" href="/result">Result</a>
+                    <!-- <a class="list-group-item list-group-item-action list-group-item-light p-3" href="#!">Overview</a> -->
+                </div>
             </div>
-          
-          </div>
+            <!-- Page content wrapper-->
+            <div id="page-content-wrapper">
+                <!-- Top navigation-->
+                <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+                    <div class="container-fluid">
+                        <button class="btn btn-primary" id="sidebarToggle">Toggle Menu</button>
+                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+                        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                            <ul class="navbar-nav ms-auto mt-2 mt-lg-0">
+                                <li class="nav-item active"><a class="nav-link" href="/">Home</a></li>
+                                <li class="nav-item"><a class="nav-link" href="#!">Link</a></li>
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Dropdown</a>
+                                    <div class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                                        <a class="dropdown-item" href="#!">Action</a>
+                                        <a class="dropdown-item" href="#!">Another action</a>
+                                        <div class="dropdown-divider"></div>
+                                        <a class="dropdown-item" href="#!">Something else here</a>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
+                <div class="main scrollTableArea" style="padding: 10px 10px 10px 10px;">
+                    <div id="mainTable">
+                        <table id="resultTable" class="display" style="width:100%">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Date</th>
+                                    <th>TotalAudio</th>
+                                    <th>Processed</th>
+                                    <th>Language</th>
+                                    <th>Delete</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td>Male Adult</td>
+                                <td>23/08/10</td>
+                                <td>381</td>
+                                <td>85%</td>
+                                <td>Korean</td>
+                                <td><button class="delete" onclick="stopProcess(this);">
+                                    <svg width="16" height="16" fill="grey" class="bi bi-trash3-fill" viewBox="0 0 16 16">
+                                      <path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1H5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5Zm-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5ZM4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06Zm6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528ZM8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5Z"/>
+                                    </svg>
+                                    </button></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
         <script src="js/result.js"></script>
+        <script src="js/main.js"></script>
+        <link rel="stylesheet" type="text/css" href="css/main.css">
         <link rel="stylesheet" type="text/css" href="css/result.css">
     </body>
 </html>
