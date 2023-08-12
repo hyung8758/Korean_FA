@@ -27,9 +27,13 @@ def main():
             print(e)
     elif len(sys.argv) == 1:
         import tornado
+        import yaml
         from src.handlers.ServerHandler import App
+        # config
+        with open("conf/server.yaml") as f:
+            server_config = yaml.load(f, Loader=yaml.FullLoader)
         app = App()
-        server_port = 30100
+        server_port = server_config["server_port"]
         app.listen(server_port)
         print("open server port: {}".format(server_port))
 

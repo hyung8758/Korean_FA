@@ -7,6 +7,7 @@ Hyungwon Yang
 
 
 import sys, os, time, psutil, signal
+import argparse
 import logging
 import tornado
 import yaml
@@ -16,8 +17,9 @@ from src.handlers.ServerHandler import App
 # config
 with open("conf/server.yaml") as f:
     server_config = yaml.load(f, Loader=yaml.FullLoader)
-
-_version = server_config["version"]
+parser = argparse.ArgumentParser()
+args =  parser.parse_args(namespace=argparse.Namespace(**server_config))
+_version = args.version
 CURRENT_PATH = "/".join([os.path.dirname(os.path.abspath(__file__)), "../.."])
 
 # variables
@@ -35,7 +37,7 @@ stderr = '/dev/null'
 # pid
 pid_dir = '.pids'
 pid_path = os.path.join(CURRENT_PATH, pid_dir)
-server_pidfile = server_config["server_pidfile"]
+server_pidfile = args.server_pidfile
 if not os.path.exists(pid_path):
     os.makedirs(pid_path)
 # pid folder가 있을경우만 pid 파일 생성.
@@ -63,8 +65,8 @@ def removePidFile(fileName: str):
 def run():
     # open connection.
     app = App()
-    app.listen(server_config["server_port"])
-    print("open server port: {}".format(server_config["server_port"]))
+    app.listen(args.server_port)
+    print("open server port: {}".format(args.server_port))
     server_pid = os.getpid()
     savePidFile(server_pid, server_pidfile)
 
