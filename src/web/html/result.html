@@ -4,15 +4,37 @@
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
         <meta name="description" content="" />
         <meta name="author" content="" />
-        <title>Korean_FA - check result files.</title>
+        <script src="/js/jquery.min.js"></script>
+
+        <!-- bootstrap -->
+        <link href="/css/bootstrap.min.css" rel="stylesheet">
+        <script src="/js/bootstrap.bundle.min.js"></script>
+        <!-- datatables -->
+        <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
+        <script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
+        <title>Korean_FA - Result Page</title>
     </head>
     <body>
-        <section class="bg-diffrent">
-            <div class="resultPage">
-                <p> this is a result page </p>
+        <div class="main scrollTableArea" style="margin-left:160px; padding: 10px 10px 10px 10px;">
+            <div style="height:100px"></div>
+            <div id="mainTable">
+              <table id="resultTable" class="display" style="width:100%">
+                  <thead>
+                      <tr>
+                          <th>Name</th>
+                          <th>Date</th>
+                          <th>TotalAudio</th>
+                          <th>Processed</th>
+                          <th>Language</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+              </table>
             </div>
-        </section>
+          
+          </div>
         <script src="js/result.js"></script>
-        <link rel="stylesheet" type="text/css" href="/css/result.css">
-    </body>>
-</html>>
+        <link rel="stylesheet" type="text/css" href="css/result.css">
+    </body>
+</html>
