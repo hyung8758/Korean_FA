@@ -7,6 +7,7 @@ Hyungwon Yang
 
 import os, sys
 import logging
+import json
 import tornado.web
 
 from src.handlers.MainHandler import MainHandler
@@ -28,6 +29,21 @@ class resultHandler(tornado.web.RequestHandler):
 class uploadHandler(tornado.web.RequestHandler):
     def get(self):
         self.render("../web/html/upload.html")
+    
+    def post(self):
+        # 파일 다운로드 관리.
+        try:
+            file_list = dict()
+            for each_key in self.request.files.keys():
+                file_list[each_key] = self.request.files[each_key]
+            # print("data:{}".format(file_list))
+            self.set_status(200)
+            self.write(json.dumps({"message": "Upload successful", "success": True}))
+            print("successful!!")
+        except Exception as e:
+            self.set_status(400)
+            self.write(json.dumps({"error":str(e)}))
+            print("failed!!")
 
 class App(tornado.web.Application):
     def __init__(self):
