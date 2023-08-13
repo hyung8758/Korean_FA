@@ -49,7 +49,7 @@
   color: #fff !important;
   background-color: var(--colorPrimaryGlare) !important;
 }
-.upload_img {
+.upload_file {
   width: calc(33.333% - (2rem / 3));
   object-fit: contain;
 }

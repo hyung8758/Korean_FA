@@ -33,6 +33,7 @@
   const handleDrop = event => {
     const dataRefs = getInputAndGalleryRefs(event.target);
     dataRefs.files = event.dataTransfer.files;
+    console.log(dataRefs)
     handleFiles(dataRefs);
   }
 
@@ -74,30 +75,42 @@
     eventHandlers(zone);
   }
 
-
+  // NOTE: we will accept auio file and text.
   // No 'image/gif' or PDF or webp allowed here, but it's up to your use case.
   // Double checks the input "accept" attribute
-  const isImageFile = file => 
-    ['image/jpeg', 'image/png', 'image/svg+xml'].includes(file.type);
-
+  const isRightFile = file => 
+    ['audio/wav', 'text/plain'].includes(file.type);
 
   function previewFiles(dataRefs) {
     if (!dataRefs.gallery) return;
+    window.dataRefs = dataRefs
+    const fileListUpContainer = document.getElementById('fileListUpContainer')
     for (const file of dataRefs.files) {
-      let reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onloadend = function() {
-        let img = document.createElement('img');
-        img.className = 'upload_img mt-2';
-        img.setAttribute('alt', file.name);
-        img.src = reader.result;
-        dataRefs.gallery.appendChild(img);
-      }
+      // add a list.
+      const listItem = document.createElement('li');
+      listItem.textContent = file.name;
+      // append class value.
+      listItem.classList.add('list-group-item','list-group-item-success')
+      // add a span.
+      const spanItem = document.createElement('span');
+      spanItem.textContent = 'ready'
+      spanItem.classList.add('badge', 'alert-success', 'pull-right')
+      listItem.appendChild(spanItem)
+      fileListUpContainer.appendChild(listItem)
+      // let reader = new FileReader();
+      // reader.readAsDataURL(file);
+      // reader.onloadend = function() {
+      //   let img = document.createElement('img');
+      //   img.className = 'upload_file mt-2';
+      //   img.setAttribute('alt', file.name);
+      //   img.src = reader.result;
+      //   dataRefs.gallery.appendChild(img);
+      // }
     }
   }
 
   // Based on: https://flaviocopes.com/how-to-upload-files-fetch/
-  const imageUpload = dataRefs => {
+  const audioUpload = dataRefs => {
 
     // Multiple source routes, so double check validity
     if (!dataRefs.files || !dataRefs.input) return;
@@ -137,17 +150,18 @@
 
     // Remove unaccepted file types
     files = files.filter(item => {
-      if (!isImageFile(item)) {
-        console.log('Not an image, ', item.type);
+      console.log(item)
+      if (!isRightFile(item)) {
+        console.log('Not an auido or text, ', item.type);
       }
-      return isImageFile(item) ? item : null;
+      return isRightFile(item) ? item : null;
     });
 
     if (!files.length) return;
     dataRefs.files = files;
 
     previewFiles(dataRefs);
-    imageUpload(dataRefs);
+    audioUpload(dataRefs);
   }
 
 })();

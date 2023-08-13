@@ -46,19 +46,20 @@
                       </div>
                   </div>
               </nav>
+                <!-- file drag and drop & button handling -->
                 <div class="UploadContainer">
                   <div class="panel panel-default">
                     <div class="panel-heading"><strong>Upload Files</strong></div>
                     <div class="panel-body">
                     <form>
                       <fieldset class="upload_dropZone text-center mb-3 p-4">
-                        <legend class="visually-hidden">Image uploader</legend>
+                        <legend class="visually-hidden">Audio uploader</legend>
                         <svg class="upload_svg" width="60" height="60" aria-hidden="true">
                           <use href="#icon-imageUpload"></use>
                         </svg>
                         <p class="small my-2">Drag &amp; Drop wav or text files inside dashed region<br><i>or</i></p>
-                        <input id="upload_image_background" class="position-absolute invisible" type="file" multiple accept="wav, txt" />
-                        <label class="btn btn-upload mb-3" for="upload_image_background">Choose file(s)</label>
+                        <input id="upload_audio_background" class="position-absolute invisible" type="file" multiple accept="audio/wav, text/plain" />
+                        <label class="btn btn-upload mb-3" for="upload_audio_background">Choose file(s)</label>
                         <div class="upload_gallery d-flex flex-wrap justify-content-center gap-3 mb-0"></div>
                       </fieldset>
                     </form>
@@ -82,9 +83,9 @@
 
                     <!-- Upload Finished -->
                     <div class="js-upload-finished">
-                      <div class="list-group">
-                        <a href="#" class="list-group-item list-group-item-success"><span class="badge alert-success pull-right">Success</span>image-01.jpg</a>
-                        <a href="#" class="list-group-item list-group-item-success"><span class="badge alert-success pull-right">Success</span>image-02.jpg</a>
+                      <div class="list-group", id="fileListUpContainer">
+                        <!-- <li class="list-group-item list-group-item-success"><span class="badge alert-success pull-right">Success</span>image-01.jpg</li>
+                        <li class="list-group-item list-group-item-success"><span class="badge alert-success pull-right">Success</span>image-02.jpg</li> -->
                       </div>
                     </div>
                   </div>
