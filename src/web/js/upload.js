@@ -83,20 +83,24 @@
 
   function previewFiles(dataRefs) {
     if (!dataRefs.gallery) return;
-    window.dataRefs = dataRefs
-    const fileListUpContainer = document.getElementById('fileListUpContainer')
-    for (const file of dataRefs.files) {
+    window.dataRefs = dataRefs;
+    const fileListUpContainer = document.getElementById('fileListUpContainer');
+    // for (const file of dataRefs.files) {
+    dataRefs.files.forEach((eachFile, idx) => {
       // add a list.
       const listItem = document.createElement('li');
-      listItem.textContent = file.name;
+      listItem.textContent = eachFile.name;
       // append class value.
-      listItem.classList.add('list-group-item','list-group-item-success')
+      listItem.classList.add('list-group-item','list-group-item-success');
       // add a span.
       const spanItem = document.createElement('span');
-      spanItem.textContent = 'ready'
-      spanItem.classList.add('badge', 'alert-success', 'pull-right')
-      listItem.appendChild(spanItem)
-      fileListUpContainer.appendChild(listItem)
+      spanItem.id = `file${idx}`
+      spanItem.textContent = 'ready';
+      console.log(spanItem)
+      spanItem.classList.add('badge', 'alert-success', 'pull-right');
+      listItem.appendChild(spanItem);
+      fileListUpContainer.appendChild(listItem);
+    })
       // let reader = new FileReader();
       // reader.readAsDataURL(file);
       // reader.onloadend = function() {
@@ -106,35 +110,30 @@
       //   img.src = reader.result;
       //   dataRefs.gallery.appendChild(img);
       // }
-    }
+    //}
   }
 
   // Based on: https://flaviocopes.com/how-to-upload-files-fetch/
   const audioUpload = dataRefs => {
-
+    const url = '/upload';
     // Multiple source routes, so double check validity
     if (!dataRefs.files || !dataRefs.input) return;
-
-    const url = dataRefs.input.getAttribute('data-post-url');
-    if (!url) return;
-
-    const name = dataRefs.input.getAttribute('data-post-name');
-    if (!name) return;
-
     const formData = new FormData();
-    formData.append(name, dataRefs.files);
-
+    // formData.append(name, dataRefs.files);
+    for (const file of dataRefs.files) {
+      console.log("add up file name: "+file.name);
+      formData.append(file.name, file);
+    }
     fetch(url, {
       method: 'POST',
       body: formData
     })
     .then(response => response.json())
     .then(data => {
-      console.log('posted: ', data);
       if (data.success === true) {
-        previewFiles(dataRefs);
+        console.log('response: ', data);
       } else {
-        console.log('URL: ', url, '  name: ', name)
+        console.log('URL: ', url);
       }
     })
     .catch(error => {
@@ -161,10 +160,50 @@
     dataRefs.files = files;
 
     previewFiles(dataRefs);
-    audioUpload(dataRefs);
+    // audioUpload(dataRefs);
   }
 
 })();
+
+// send a data
+const submitButton = document.querySelector('#js-upload-submit');
+
+submitButton.addEventListener('click', () => {
+  if (typeof dataRefs !== 'undefined') {
+    const url = '/upload';
+    // Multiple source routes, so double check validity
+    if (!dataRefs.files || !dataRefs.input) return;
+    const formData = new FormData();
+    // formData.append(name, dataRefs.files);
+    for (const file of dataRefs.files) {
+      console.log("add up file name: "+file.name);
+      formData.append(file.name, file);
+    }
+    fetch(url, {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log("data: ", data)
+      if (data.success === true) {
+        // if files are succesffuly uploaded. change status to uploaded.
+        const fileListUpContainer = document.getElementById('fileListUpContainer');
+        dataRefs.files.forEach((item, idx) => {
+          const spanContainer = document.getElementById(`file${idx}`);
+          spanContainer.textContent = "uploaded";
+          console.log(spanContainer)
+        })
+        console.log('response: ', data);
+      } else {
+        console.log('URL: ', url);
+      }
+    })
+    .catch(error => {
+      console.error('errored: ', error);
+    });
+  }
+})
 
 // + function($) {
 //     'use strict';
