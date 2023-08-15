@@ -2,3 +2,4 @@
 *.TextGrid
 tmp/
 log/
+__pycache__/
