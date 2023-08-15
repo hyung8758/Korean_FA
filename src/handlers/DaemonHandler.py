@@ -35,7 +35,7 @@ stdout = '/dev/null'
 stderr = '/dev/null'
 
 # pid
-pid_dir = '.pids'
+pid_dir = args.server_pid_path
 pid_path = os.path.join(CURRENT_PATH, pid_dir)
 server_pidfile = args.server_pidfile
 if not os.path.exists(pid_path):
@@ -43,6 +43,17 @@ if not os.path.exists(pid_path):
 # pid folder가 있을경우만 pid 파일 생성.
 pid_file = os.path.join(pid_path, server_pidfile)
 
+# data : save uploaded and processed data(wav, txt, TextGrid)
+data_dir = args.data_path
+data_path = os.path.join(CURRENT_PATH, data_dir)
+if not os.path.exists(data_path):
+    os.makedirs(data_path)
+
+# history log
+history_dir = args.history_path
+history_path = os.path.join(CURRENT_PATH, history_dir)
+if not os.path.exists(history_path):
+    os.makedirs(history_path)
 
 # make pid file.
 def savePidFile(pid, saveName: str):
