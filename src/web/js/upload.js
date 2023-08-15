@@ -1,12 +1,11 @@
 // console.clear();
 ('use strict');
 
-
+const loadingSpinner = document.getElementById('loadingSpinner');
 // Drag and drop - single or multiple image files
 // https://www.smashingmagazine.com/2018/01/drag-drop-file-uploader-vanilla-js/
 // https://codepen.io/joezimjs/pen/yPWQbd?editors=1000
 (function () {
-
   'use strict';
   
   // Four objects of interest: drop zones, input elements, gallery elements, and the files.
@@ -96,7 +95,6 @@
       const spanItem = document.createElement('span');
       spanItem.id = `file${idx}`
       spanItem.textContent = 'ready';
-      console.log(spanItem)
       spanItem.classList.add('badge', 'alert-success', 'pull-right');
       listItem.appendChild(spanItem);
       fileListUpContainer.appendChild(listItem);
@@ -114,32 +112,37 @@
   }
 
   // Based on: https://flaviocopes.com/how-to-upload-files-fetch/
-  const audioUpload = dataRefs => {
-    const url = '/upload';
-    // Multiple source routes, so double check validity
-    if (!dataRefs.files || !dataRefs.input) return;
-    const formData = new FormData();
-    // formData.append(name, dataRefs.files);
-    for (const file of dataRefs.files) {
-      console.log("add up file name: "+file.name);
-      formData.append(file.name, file);
-    }
-    fetch(url, {
-      method: 'POST',
-      body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success === true) {
-        console.log('response: ', data);
-      } else {
-        console.log('URL: ', url);
-      }
-    })
-    .catch(error => {
-      console.error('errored: ', error);
-    });
-  }
+  // const audioUpload = dataRefs => {
+  //   const url = '/upload';
+  //   // Multiple source routes, so double check validity
+  //   if (!dataRefs.files || !dataRefs.input) return;
+  //   const formData = new FormData();
+  //   // 1st. formData.append(name, dataRefs.files);
+  //   for (const file of dataRefs.files) {
+  //     console.log("add up file name: "+file.name);
+  //     formData.append(file.name, file);
+  //   }
+  //   // 2st. additional parameters.
+  //   const selectedLanguage = document.getElementById('selectLanguage').value;
+  //   formData.append("lang", selectedLanguage)
+
+  //   // send the form to a server.
+  //   fetch(url, {
+  //     method: 'POST',
+  //     body: formData
+  //   })
+  //   .then(response => response.json())
+  //   .then(data => {
+  //     if (data.success === true) {
+  //       console.log('response: ', data);
+  //     } else {
+  //       console.log('URL: ', url);
+  //     }
+  //   })
+  //   .catch(error => {
+  //     console.error('errored: ', error);
+  //   });
+  // }
 
 
   // Handle both selected and dropped files
@@ -168,17 +171,29 @@
 // send a data
 const submitButton = document.querySelector('#js-upload-submit');
 
-submitButton.addEventListener('click', () => {
+submitButton.addEventListener('click', function(event) {
+  event.preventDefault();
+  loadingSpinner.style.display = 'flex';
   if (typeof dataRefs !== 'undefined') {
     const url = '/upload';
     // Multiple source routes, so double check validity
     if (!dataRefs.files || !dataRefs.input) return;
     const formData = new FormData();
-    // formData.append(name, dataRefs.files);
+    // 1st. formData.append(name, dataRefs.files);
     for (const file of dataRefs.files) {
       console.log("add up file name: "+file.name);
       formData.append(file.name, file);
     }
+    // 2st. additional parameters.
+    const selectedLanguage = document.getElementById('selectLanguage').value;
+    console.log("selected lang: ",selectedLanguage)
+    formData.append("lang", selectedLanguage)
+    const fileListUpContainer = document.getElementById('fileListUpContainer');
+        dataRefs.files.forEach((item, idx) => {
+          const spanContainer = document.getElementById(`file${idx}`);
+          spanContainer.textContent = "uploading";
+          console.log(spanContainer)
+        })
     fetch(url, {
       method: 'POST',
       body: formData
@@ -188,12 +203,12 @@ submitButton.addEventListener('click', () => {
       console.log("data: ", data)
       if (data.success === true) {
         // if files are succesffuly uploaded. change status to uploaded.
-        const fileListUpContainer = document.getElementById('fileListUpContainer');
         dataRefs.files.forEach((item, idx) => {
           const spanContainer = document.getElementById(`file${idx}`);
           spanContainer.textContent = "uploaded";
           console.log(spanContainer)
         })
+        loadingSpinner.style.display = 'none';
         console.log('response: ', data);
       } else {
         console.log('URL: ', url);

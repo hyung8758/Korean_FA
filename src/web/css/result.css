@@ -12,4 +12,28 @@
 .delete {
     background: transparent;
     border: none;
+    display: flex !important;
+    align-items: center !important;
 }
+
+.download {
+    background: transparent;
+    border: none;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.name-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    clear: both;
+    font-weight: 400;
+    text-align: inherit;
+    color: var(--bs-dropdown-link-color);
+    text-decoration: none;
+    white-space: nowrap;
+    background-color: transparent;
+    border: 0;
+  }
