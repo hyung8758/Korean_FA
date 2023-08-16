@@ -30,6 +30,14 @@
 //     event.preventDefault();
 //     loadHtmlContent("html/result.html");
 //     });
+$(document).ready(function () {
+    var isChrome = !!window.chrome;
+        if(!isChrome)
+        {
+        document.write('<p>Chrome에서 실행하십시오.</p>');
+        return;
+        }
+    });
 
 window.addEventListener('DOMContentLoaded', event => {
 

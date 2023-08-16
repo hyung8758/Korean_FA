@@ -25,18 +25,25 @@ const getData = () => {
     })
     .then(response => response.json())
     .then(data => {
+        console.log("data: ",data)
         if (data.success === true) {
             const history = data.history;
+            console.log("data history length: ",history.length);
             table.clear();
-            for(let i=0; i<history.length; i++)
+            console.log("table clear: ",history);
+            for(let i=0; i<history.length; i++) {
+                console.log("adding table : ",history[i]);
                 table.row.add(history[i]);
+            }
+            console.log("data drawing?: started")
             table.draw();
+            console.log("data drawing?: finished")
         } else {
           console.log('URL: ', url);
         }
     })
     .catch(error => {
-        alert("ERROR: ", error);
+        alert("ERROR getdata: ", error);
     });
 }
 
@@ -48,7 +55,6 @@ $(document).ready(function () {
 	document.write('<p>Chrome에서 실행하십시오.</p>');
 	return;
     }
-    console.log("111")
     var table = $('#resultTable').DataTable({
         columnDefs: [
             {
@@ -81,8 +87,25 @@ $(document).ready(function () {
                 targets: 5,
                 width: "30px",
                 render: function ( data, type, row ) {
+                    // // console.log("data.progress: ", data)
+                    // const isButtonEnabled = data.progress === "100%";
+                    
+                    // const DownloadButton = document.createElement("button");
+                    // DownloadButton.type = "button";
+                    // DownloadButton.className = "download";
+                    // DownloadButton.innerHTML = '<svg width="16" height="16" fill="grey" class="bi bi-file-earmark-arrow-down-fill" viewBox="0 0 16 16">\
+                    //     <path d="M9.293 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.707A1 1 0 0 0 13.707 4L10 .293A1 1 0 0 0 9.293 0zM9.5 3.5v-2l3 3h-2a1 1 0 0 1-1-1zm-1 4v3.793l1.146-1.147a.5.5 0 0 1 .708.708l-2 2a.5.5 0 0 1-.708 0l-2-2a.5.5 0 0 1 .708-.708L7.5 11.293V7.5a.5.5 0 0 1 1 0z"/>\
+                    //     </svg>';
+
+                    // if (!isButtonEnabled) {
+                    //     DownloadButton.disabled = true;
+                    // } else {
+                    //     DownloadButton.addEventListener('click', function (event) { 
+                    //         downloadResult(event);
+                    //     });
+                    // }
                     return BTN_DOWNLOAD;
-                    },
+                }
             },
             {
                 targets: 6,
@@ -94,7 +117,6 @@ $(document).ready(function () {
         ],
 	order: [[1, 'asc']],
     });
-    console.log("222")
     table.on('order.dt search.dt', function () {
         table.column(0, { search: 'applied', order: 'applied' }).nodes().each(function (cell, i) {
             cell.innerHTML = i + 1;
@@ -103,16 +125,56 @@ $(document).ready(function () {
     getData();
 });
 
-
-const stopProcess = e => {
+const downloadResult = (event) => {
     const url = "result"
     const table = $('#resultTable').DataTable();
     
-    const rowitem = $($(e).parent()[0]).parent()[0];
+    const rowitem = $($(event).parent()[0]).parent()[0];
     if(!rowitem) return;
     const row = table.row(rowitem);
-    const date = row.data()['Date'];
-    const language = row.data()['Language'];
+    const date = row.data()['date'];
+    const language = row.data()['langauge'];
+    
+    const result = confirm(`${date}을 다운로드합니다.`);
+    if(!result) return;
+
+    const sendData = {"command":"download", 
+                        "date": date,
+                        "langauge": language};
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+            },
+        body: JSON.stringify(sendData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("data: ", data)
+        if (data.success === true) {
+            const history = data.history;
+            table.clear();
+            for(let i=0; i<history.length; i++)
+                table.row.add(history[i]);
+            table.draw();
+        } else {
+            console.log('URL: ', url);
+        }
+    })
+    .catch(error => {
+        alert("ERROR downloader: ", error);
+    });
+}
+
+const stopProcess = (event) => {
+    const url = "result"
+    const table = $('#resultTable').DataTable();
+    
+    const rowitem = $($(event).parent()[0]).parent()[0];
+    if(!rowitem) return;
+    const row = table.row(rowitem);
+    const date = row.data()['date'];
+    const language = row.data()['langauge'];
     
     const result = confirm(`${date}을 삭제합니다.`);
     if(!result) return;
@@ -141,6 +203,6 @@ const stopProcess = e => {
         }
     })
     .catch(error => {
-        alert("ERROR: ", error);
+        alert("ERROR stopprocess: ", error);
     });
 }

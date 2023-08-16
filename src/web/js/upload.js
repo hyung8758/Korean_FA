@@ -8,6 +8,11 @@ const loadingSpinner = document.getElementById('loadingSpinner');
 (function () {
   'use strict';
   
+  var isChrome = !!window.chrome;
+      if(!isChrome) {
+      document.write('<p>Chrome에서 실행하십시오.</p>');
+      return;
+      }
   // Four objects of interest: drop zones, input elements, gallery elements, and the files.
   // dataRefs = {files: [image files], input: element ref, gallery: element ref}
 
