@@ -22,10 +22,19 @@ class FAhistory:
     Since the OS system is not fixed, using mysql will unstablize this tool. 
     """
     def __init__(self, history_path: str = "log/history"):
+        # history format
+        self.history_form = dict(
+            date="unknown",
+            language="unknown",
+            totalAudio="0",
+            progress="ready"
+        )
+        
         # get history info
         self.history_file = "history.json"
         self.HISTORY_PATH = os.path.join(CURRENT_PATH, history_path)
         self.history_file_path = os.path.join(self.HISTORY_PATH, self.history_file)
+        
         # check history data.
         if not os.path.exists(self.HISTORY_PATH):
             # make history path.
@@ -34,6 +43,9 @@ class FAhistory:
             # make emty history file.
             with open(self.history_file_path, 'w', encoding='utf-8'):
                 pass
+        
+        # history contained variable.
+        self.historyLog = []
         
     def read_history(self):
         with open(self.history_file_path, 'r', encoding='utf-8') as txt:
@@ -44,3 +56,15 @@ class FAhistory:
         json_file = json.dumps(self.historyLog, indent=4)
         with open(self.history_file_path, 'w', encoding='utf-8') as wrt:
             wrt.write(json_file)
+
+    def update_history(self, update_info: dict):
+        # check update_info.
+        for k in update_info.keys():
+            if k not in self.history_form.keys():
+                raise ValueError("{} is not defined".format(k))
+        # if historyLog is not found, read it from a history file.
+        if not self.historyLog:
+            self.historyLog = self.read_history()
+        self.historyLog.append(update_info)
+        # rewrite history file.
+        self.save_history()
