@@ -17,7 +17,7 @@ class DateUtils:
     @staticmethod
     def getCurrentDate(format: bool=False) -> str:
         now = datetime.datetime.now()
-        year = '{:02d}'.format(now.year)
+        year = '{:02d}'.format(now.year)[-2:]
         month = '{:02d}'.format(now.month)
         day = '{:02d}'.format(now.day)
         hour = '{:02d}'.format(now.hour)
