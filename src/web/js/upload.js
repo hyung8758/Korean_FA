@@ -216,7 +216,7 @@ submitButton.addEventListener('click', function(event) {
         loadingSpinner.style.display = 'none';
         console.log('response: ', data);
       } else {
-        console.log('URL: ', url);
+        alert("ERROR downloader: ", data.error);
       }
     })
     .catch(error => {
