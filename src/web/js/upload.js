@@ -151,7 +151,8 @@ submitButton.addEventListener('click', function(event) {
     // Multiple source routes, so double check validity
     if (!dataRefs.files || !dataRefs.input) return;
     const formData = new FormData();
-
+    
+    let shouldExit = false;
     // add formData and additional parameters.
     const selectedLanguage = document.getElementById('selectLanguage').value;
     console.log("selected lang: ",selectedLanguage)
@@ -161,9 +162,7 @@ submitButton.addEventListener('click', function(event) {
       const spanContainer = document.getElementById(`file${idx}`);
       // if this item file is already uploaded? ignore it.
       if (spanContainer.textContent === "uploaded") {
-        alert("uploaded files are found. Please re-upload files.");
-        location.reload();
-        return;
+        shouldExit = true;
         // spanContainer.remove()
       } else {
         console.log(spanContainer)
@@ -171,6 +170,13 @@ submitButton.addEventListener('click', function(event) {
         spanContainer.textContent = "uploading";
       }
     })
+
+    if (shouldExit) {
+      alert("uploaded files are found. Please re-upload files.");
+      location.reload(); // Exit the function
+      return;
+    }
+
     fetch(url, {
       method: 'POST',
       body: formData
