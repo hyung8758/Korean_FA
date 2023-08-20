@@ -32,7 +32,7 @@ class DateUtils:
     @staticmethod
     def dateRaw2Format(rawDate: str) -> str:
         dl = ",".join(rawDate[i:i + 2] for i in range(0, len(rawDate), 2)).split(",")
-        return "{}/{}/{} {}:{}:{}",format(dl[0],dl[1],dl[2],dl[3],dl[4],dl[5])
+        return "{}/{}/{} {}:{}:{}".format(dl[0],dl[1],dl[2],dl[3],dl[4],dl[5])
 
     @staticmethod
     def dateFormat2Raw(formatDate: str) -> str:
