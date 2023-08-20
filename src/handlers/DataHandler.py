@@ -10,6 +10,7 @@ import logging
 import shutil
 import datetime
 import argparse
+from dataclasses import dataclass
 
 CURRENT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../")
 
@@ -27,7 +28,7 @@ class FAhistory:
             date="unknown",
             language="unknown",
             totalAudio="0",
-            progress="ready"
+            progress="0%"
         )
         
         # get history info
@@ -50,12 +51,20 @@ class FAhistory:
     def read_history(self):
         with open(self.history_file_path, 'r', encoding='utf-8') as txt:
             self.historyLog = json.load(txt)
-        return self.historyLog
     
     def save_history(self):
         json_file = json.dumps(self.historyLog, indent=4)
         with open(self.history_file_path, 'w', encoding='utf-8') as wrt:
             wrt.write(json_file)
+
+    def remove_history(self, date: str):
+        # if historyLog is not found, read it from a history file.
+        if not self.historyLog:
+            self.read_history()
+        for idx, each_history in enumerate(self.historyLog):
+            if date == each_history['date']:
+                del self.historyLog[idx]
+                self.save_history()
 
     def update_history(self, update_info: dict):
         # check update_info.
@@ -68,3 +77,9 @@ class FAhistory:
         self.historyLog.append(update_info)
         # rewrite history file.
         self.save_history()
+        
+        
+@dataclass    
+class DataInfo:
+    DATA_PATH = os.path.join(CURRENT_PATH, 'data')
+    
