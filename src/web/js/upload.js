@@ -116,39 +116,6 @@ const loadingSpinner = document.getElementById('loadingSpinner');
     //}
   }
 
-  // Based on: https://flaviocopes.com/how-to-upload-files-fetch/
-  // const audioUpload = dataRefs => {
-  //   const url = '/upload';
-  //   // Multiple source routes, so double check validity
-  //   if (!dataRefs.files || !dataRefs.input) return;
-  //   const formData = new FormData();
-  //   // 1st. formData.append(name, dataRefs.files);
-  //   for (const file of dataRefs.files) {
-  //     console.log("add up file name: "+file.name);
-  //     formData.append(file.name, file);
-  //   }
-  //   // 2st. additional parameters.
-  //   const selectedLanguage = document.getElementById('selectLanguage').value;
-  //   formData.append("lang", selectedLanguage)
-
-  //   // send the form to a server.
-  //   fetch(url, {
-  //     method: 'POST',
-  //     body: formData
-  //   })
-  //   .then(response => response.json())
-  //   .then(data => {
-  //     if (data.success === true) {
-  //       console.log('response: ', data);
-  //     } else {
-  //       console.log('URL: ', url);
-  //     }
-  //   })
-  //   .catch(error => {
-  //     console.error('errored: ', error);
-  //   });
-  // }
-
 
   // Handle both selected and dropped files
   const handleFiles = dataRefs => {
@@ -159,7 +126,7 @@ const loadingSpinner = document.getElementById('loadingSpinner');
     files = files.filter(item => {
       console.log(item)
       if (!isRightFile(item)) {
-        console.log('Not an auido or text, ', item.type);
+        console.log('Not an auido nor text, ', item.type);
       }
       return isRightFile(item) ? item : null;
     });
@@ -184,21 +151,26 @@ submitButton.addEventListener('click', function(event) {
     // Multiple source routes, so double check validity
     if (!dataRefs.files || !dataRefs.input) return;
     const formData = new FormData();
-    // 1st. formData.append(name, dataRefs.files);
-    for (const file of dataRefs.files) {
-      console.log("add up file name: "+file.name);
-      formData.append(file.name, file);
-    }
-    // 2st. additional parameters.
+
+    // add formData and additional parameters.
     const selectedLanguage = document.getElementById('selectLanguage').value;
     console.log("selected lang: ",selectedLanguage)
     formData.append("lang", selectedLanguage)
     const fileListUpContainer = document.getElementById('fileListUpContainer');
-        dataRefs.files.forEach((item, idx) => {
-          const spanContainer = document.getElementById(`file${idx}`);
-          spanContainer.textContent = "uploading";
-          console.log(spanContainer)
-        })
+    dataRefs.files.forEach((item, idx) => {
+      const spanContainer = document.getElementById(`file${idx}`);
+      // if this item file is already uploaded? ignore it.
+      if (spanContainer.textContent === "uploaded") {
+        alert("uploaded files are found. Please re-upload files.");
+        location.reload();
+        return;
+        // spanContainer.remove()
+      } else {
+        console.log(spanContainer)
+        formData.append(item.name, item);
+        spanContainer.textContent = "uploading";
+      }
+    })
     fetch(url, {
       method: 'POST',
       body: formData
@@ -211,17 +183,19 @@ submitButton.addEventListener('click', function(event) {
         dataRefs.files.forEach((item, idx) => {
           const spanContainer = document.getElementById(`file${idx}`);
           spanContainer.textContent = "uploaded";
-          console.log(spanContainer)
         })
-        loadingSpinner.style.display = 'none';
         console.log('response: ', data);
       } else {
         alert("ERROR downloader: ", data.error);
       }
+      loadingSpinner.style.display = 'none';
     })
     .catch(error => {
       console.error('errored: ', error);
     });
+  } else {
+    alert("Nothing to submit")
+    loadingSpinner.style.display = 'none';
   }
 })
 
