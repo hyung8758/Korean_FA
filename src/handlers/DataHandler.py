@@ -52,6 +52,11 @@ class FAhistory:
         with open(self.history_file_path, 'r', encoding='utf-8') as txt:
             self.historyLog = json.load(txt)
     
+    def get_history(self):
+        if not self.historyLog:
+            self.read_history()
+        return self.historyLog
+    
     def save_history(self):
         json_file = json.dumps(self.historyLog, indent=4)
         with open(self.history_file_path, 'w', encoding='utf-8') as wrt:
@@ -67,14 +72,20 @@ class FAhistory:
                 self.save_history()
 
     def update_history(self, update_info: dict):
-        # check update_info.
+        # check update_info. get every requisite info?
         for k in update_info.keys():
             if k not in self.history_form.keys():
                 raise ValueError("{} is not defined".format(k))
         # if historyLog is not found, read it from a history file.
         if not self.historyLog:
-            self.historyLog = self.read_history()
-        self.historyLog.append(update_info)
+            self.read_history()
+        check_list = [ idx for idx, each_log in enumerate(self.historyLog) if update_info["date"] == each_log["date"] ]
+        # if update_info is found in historyLog, then overwrite it.
+        if check_list:
+            self.historyLog[check_list[0]] = update_info
+        else: 
+            # if update info is not found in historyLog, then add it.
+            self.historyLog.append(update_info)
         # rewrite history file.
         self.save_history()
         
