@@ -37,6 +37,8 @@ $(document).ready(function () {
 	document.write('<p>Chrome에서 실행하십시오.</p>');
 	return;
     }
+    const ws = new WebSocket(`ws://${window.location.host}/progress`);
+
     var table = $('#resultTable').DataTable({
         columnDefs: [
             {
@@ -113,6 +115,12 @@ $(document).ready(function () {
         });
     }).draw();
     getData();
+    // websocket listener.
+    // it will update table progress information.
+    ws.addEventListener('message', event => {
+        const progressLog = event.data;
+        console.log(progressLog)
+    });
 });
 
 const downloadResult = (rowValue) => {

@@ -12,6 +12,7 @@ import copy
 import logging
 import json
 import tornado.web
+import tornado.websocket
 
 from src.handlers.AlignHandler import AlignHandler
 from src.handlers.DataHandler import FAhistory, DataInfo
@@ -34,7 +35,21 @@ class MainHanlder(tornado.web.RequestHandler):
         
     def post(self):
         pass
-        
+    
+class progressWebSocketHandler(tornado.websocket.WebSocketHandler):
+    connections = set()
+
+    def open(self):
+        self.connections.add(self)
+
+    def on_close(self):
+        self.connections.remove(self)
+
+    @classmethod
+    def send_progress(cls, progress_data):
+        for connection in cls.connections:
+            connection.write_message(progress_data)
+            
 class resultHandler(tornado.web.RequestHandler):
     def get(self):
         self.render("../web/html/result.html")
@@ -113,7 +128,7 @@ class uploadHandler(tornado.web.RequestHandler):
             lang = self.get_argument('lang')
             # print("data:{}".format(file_list))
             # save downloaded files.
-            dataPath = DateUtils.makeDataDir(lang=self.get_argument('lang'))
+            dataPath = DateUtils.makeDataDir(lang=lang)
             dateInfo = os.path.basename(dataPath).split("-")[0]
             print("data path: {}".format(dataPath))
             if dataPath:
@@ -127,7 +142,7 @@ class uploadHandler(tornado.web.RequestHandler):
                         with io.open(save_path, 'wb') as wrt:
                             wrt.write(file_list[k][0]['body'])
                     else:
-                        logging.info("Unknown tpye: {}".format(k))
+                        print("Unknown tpye: {}".format(k))
             # save it to history.
             fahistory.update_history(update_info=dict(
                                         date=DateUtils.dateRaw2Format(dateInfo),
@@ -155,6 +170,7 @@ class App(tornado.web.Application):
             (r'/', MainHanlder),
             (r'/result', resultHandler),
             (r'/upload', uploadHandler),
+            (r'/progress', progressWebSocketHandler),
             (r'/html/(.*)', tornado.web.StaticFileHandler, {"path": os.path.join(CURRENT_PATH, "../web/html/")}),
             (r'/css/(.*)', tornado.web.StaticFileHandler, {"path": os.path.join(CURRENT_PATH, "../web/css/")}),
             (r'/js/(.*)', tornado.web.StaticFileHandler, {"path": os.path.join(CURRENT_PATH, "../web/js/")}),

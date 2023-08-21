@@ -13,6 +13,7 @@ import tornado
 import yaml
 
 from src.handlers.ServerHandler import App
+from src.handlers.AlignHandler import AlignHandler
 
 # config
 with open("conf/server.yaml") as f:
@@ -80,6 +81,13 @@ def run():
     print("open server port: {}".format(args.server_port))
     server_pid = os.getpid()
     savePidFile(server_pid, server_pidfile)
+    
+    alignHandler = AlignHandler()
+    alignHandler.connectWebsocket(args.server_port)
+    
+    # main job.
+    main_fa_callback = tornado.ioloop.PeriodicCallback(alignHandler.process, 1000)
+    main_fa_callback.start()
 
     tornado.ioloop.IOLoop.current().start()
 
