@@ -28,15 +28,23 @@ def main():
     elif len(sys.argv) == 1:
         import tornado
         import yaml
+        import src.handlers.DaemonHandler as dh
+        from src.handlers.AlignHandler import AlignHandler
         from src.handlers.ServerHandler import App
         # config
         with open("conf/server.yaml") as f:
             server_config = yaml.load(f, Loader=yaml.FullLoader)
         app = App()
         server_port = server_config["server_port"]
+        running_time = server_config["running_time"]
         app.listen(server_port)
         print("open server port: {}".format(server_port))
 
+        alignHandler = AlignHandler()
+        alignHandler.getServerPort(server_port)
+        # main job.
+        main_fa_callback = tornado.ioloop.PeriodicCallback(alignHandler.process, running_time)
+        main_fa_callback.start()
         tornado.ioloop.IOLoop.current().start()
     else:
         print(usageMessage)
