@@ -83,10 +83,10 @@ def run():
     savePidFile(server_pid, server_pidfile)
     
     alignHandler = AlignHandler()
-    alignHandler.connectWebsocket(args.server_port)
+    alignHandler.getServerPort(args.server_port)
     
     # main job.
-    main_fa_callback = tornado.ioloop.PeriodicCallback(alignHandler.process, 1000)
+    main_fa_callback = tornado.ioloop.PeriodicCallback(alignHandler.process, args.running_time)
     main_fa_callback.start()
 
     tornado.ioloop.IOLoop.current().start()
