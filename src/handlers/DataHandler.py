@@ -41,9 +41,9 @@ class FAhistory:
             # make history path.
             os.makedirs(self.HISTORY_PATH)
         if not os.path.exists(self.history_file_path):
-            # make emty history file.
-            with open(self.history_file_path, 'w', encoding='utf-8'):
-                pass
+            # make empty list in history file.
+            with open(self.history_file_path, 'w', encoding='utf-8') as wrt:
+                wrt.write("[]")
         
         # history contained variable.
         self.historyLog = []
