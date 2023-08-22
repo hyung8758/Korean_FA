@@ -16,17 +16,18 @@
 # get variables.
 kaldi=$1
 jidx=$2
-origin_dir=$3
-wav_file=$4
-txt_file=$5
+save_log_dir=$3
+origin_dir=$4
+wav_file=$5
+txt_file=$6
 if [ $6 == "none" ]; then
     tg_word_opt=
 else
-    tg_word_opt=$6; fi
+    tg_word_opt=$7; fi
 if [ $7 == "none" ]; then
     tg_phone_opt=
 else
-    tg_phone_opt=$7; fi
+    tg_phone_opt=$8; fi
 source_dir=`dirname $wav_file`
 work_dir=`dirname $source_dir`
  
@@ -234,18 +235,18 @@ if [ $passing -ne 1 ]; then
 	if [ $align_error -eq 1 ]; then
 		echo "Fail Result Composition: $wav_name might be corrupted." | tee -a $log_dir/process.$log_name.log
 		# write a fail log to history file.
-		echo "$(printf %03d $jidx) FAIL $log_name" >> log/history.log
+		echo "$(printf %03d $jidx) FAIL $log_name" >> $save_log_dir/history.log
 		align_error=0
 		# Redirect log files to main log directory.
-		mv $log_dir log/log_$log_name
+		mv $log_dir $save_log_dir/log_$log_name
 	else
 		echo "$wav_name was successfully aligned." | tee -a $log_dir/process.$log_name.log
 		tg_name=`echo $wav_name | sed 's/.wav//g'`
 		# write a success log to history file.
-		echo "$(printf %03d $jidx) SUCCESS $log_name" >> log/history.log
+		echo "$(printf %03d $jidx) SUCCESS $log_name" >> $save_log_dir/history.log
 		mv $data_dir/tagged_final_ali.TextGrid $origin_dir/$tg_name.TextGrid
 		# Redirect log files to main log directory.
-		mv $log_dir log/log_$log_name
+		mv $log_dir $save_log_dir/log_$log_name
 	fi
 fi
 
