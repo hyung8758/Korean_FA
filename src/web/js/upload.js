@@ -37,7 +37,6 @@ const loadingSpinner = document.getElementById('loadingSpinner');
   const handleDrop = event => {
     const dataRefs = getInputAndGalleryRefs(event.target);
     dataRefs.files = event.dataTransfer.files;
-    console.log(dataRefs)
     handleFiles(dataRefs);
   }
 
@@ -124,7 +123,6 @@ const loadingSpinner = document.getElementById('loadingSpinner');
 
     // Remove unaccepted file types
     files = files.filter(item => {
-      console.log(item)
       if (!isRightFile(item)) {
         console.log('Not an auido nor text, ', item.type);
       }
@@ -165,7 +163,6 @@ submitButton.addEventListener('click', function(event) {
         shouldExit = true;
         // spanContainer.remove()
       } else {
-        console.log(spanContainer)
         formData.append(item.name, item);
         spanContainer.textContent = "uploading";
       }
@@ -190,7 +187,6 @@ submitButton.addEventListener('click', function(event) {
           const spanContainer = document.getElementById(`file${idx}`);
           spanContainer.textContent = "uploaded";
         })
-        console.log('response: ', data);
       } else {
         alert("ERROR downloader: ", data.error);
       }
