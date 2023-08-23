@@ -118,8 +118,15 @@ $(document).ready(function () {
     // websocket listener.
     // it will update table progress information.
     ws.addEventListener('message', event => {
-        const progressLog = event.data;
-        console.log(progressLog)
+        const progressData = JSON.parse(event.data);
+        const table = $('#resultTable').DataTable();
+        table.rows().every(function () {
+            const rowData = this.data(); // Get the data of the current row
+            if (rowData.date === progressData.date) {
+                rowData.progress = progressData.progress;
+                this.data(rowData);
+            };
+        });
     });
 });
 
