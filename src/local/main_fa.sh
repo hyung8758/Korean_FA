@@ -20,11 +20,11 @@ save_log_dir=$3
 origin_dir=$4
 wav_file=$5
 txt_file=$6
-if [ $6 == "none" ]; then
+if [ $7 == "none" ]; then
     tg_word_opt=
 else
     tg_word_opt=$7; fi
-if [ $7 == "none" ]; then
+if [ $8 == "none" ]; then
     tg_phone_opt=
 else
     tg_phone_opt=$8; fi

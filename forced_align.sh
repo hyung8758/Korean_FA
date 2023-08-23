@@ -103,8 +103,9 @@ if [ ! -d $data_dir ]; then
     echo "ERROR: $data_dir is not present. Please check the data directory."  && exit
 fi
 
-log_dir=log
-tmp_dir=tmp
+log_dir=log/fa_log
+tmp_dir=`mktemp -d`
+trap "[ -d $tmp_dir ] && rm -rf $tmp_dir" SIGINT
 # Remove previous log, tmp, and data directories.
 [ -d $log_dir ] && rm -rf $log_dir/*
 [ -d $tmp_dir ] && rm -rf $tmp_dir/*
@@ -203,7 +204,8 @@ for turn in `seq 1 $total_j`; do
     echo "Aligning $subwav_list"
     for sub_wav in $subwav_list; do
 	sub_txt=`echo $sub_wav | sed 's/wav/txt/g'`
-	bash src/local/main_fa.sh $kaldi $job_idx $data_dir $tmp_dir/work_$turn/source/$sub_wav $tmp_dir/work_$turn/source/$sub_txt $tg_word_opt $tg_phone_opt &
+    bash src/local/main_fa.sh $kaldi $job_idx $log_dir $data_dir $tmp_dir/work_$turn/source/$sub_wav $tmp_dir/work_$turn/source/$sub_txt $tg_word_opt $tg_phone_opt &
+    # bash src/local/main_jap_fa.sh $kaldi $job_idx $log_dir $data_dir $tmp_dir/work_$turn/source/$sub_wav $tmp_dir/work_$turn/source/$sub_txt $tg_word_opt $tg_phone_opt &
 	job_idx=$((job_idx+1))
     done
     wait
@@ -222,7 +224,7 @@ echo "Fail        :" $fail_num						      | tee -a $log_dir/result.log
 echo "----------------------------------------------------------------------" | tee -a $log_dir/result.log
 echo "Result      : $((wav_num - fail_num)) / "$wav_num" (Success / Total)"   | tee -a $log_dir/result.log
 if [ $fail_num -gt 0 ]; then 
-    echo "To check the failed results, refer to the ./log directory."
+    echo "To check the failed results, refer to the $log_dir directory."
 fi
 echo
 
@@ -230,6 +232,6 @@ echo "DONE"
 
 # remove processed directoies.
 rm -rf $tmp_dir 
-if [ -d bin ]; then
-    rm -rf bin
-fi
+# if [ -d bin ]; then
+#     rm -rf bin
+# fi
