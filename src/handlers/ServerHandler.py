@@ -14,7 +14,6 @@ import json
 import tornado.web
 import tornado.websocket
 
-from src.handlers.AlignHandler import AlignHandler
 from src.handlers.DataHandler import FAhistory, DataInfo
 from src.utils.DateUtils import DateUtils
 
@@ -41,14 +40,18 @@ class progressWebSocketHandler(tornado.websocket.WebSocketHandler):
 
     def open(self):
         self.connections.add(self)
+        self.write_message("ws is connected!")
 
     def on_close(self):
         self.connections.remove(self)
 
     @classmethod
-    def send_progress(cls, progress_data):
+    def send_message(cls, message):
         for connection in cls.connections:
-            connection.write_message(progress_data)
+            if type(message) == dict:
+                connection.write_message(json.dumps(message))
+            else:
+                connection.write_message(message)
             
 class resultHandler(tornado.web.RequestHandler):
     def get(self):

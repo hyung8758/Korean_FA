@@ -5,24 +5,16 @@ Hyungwon Yang
 23.08.07
 """
 
-import os, sys
-import yaml
-import argparse
+import os
 import logging
-import websocket
 import subprocess
 import threading
 import asyncio
 
-from typing import Union
+from typing import Union, List
 from src.utils.DateUtils import DateUtils
 from src.handlers.DataHandler import FAhistory, DataInfo
 from src.handlers.ServerHandler import progressWebSocketHandler
-
-
-# Create an event loop for the thread
-loop = asyncio.new_event_loop()
-asyncio.set_event_loop(loop)
 
 async def send_progress(message):
     progressWebSocketHandler.send_message(message)
@@ -31,7 +23,7 @@ class AlignHandler:
     
     def __init__(self):
         self.currentJob = None
-        self.workingState = False
+        self.workingState = [False]
         self.faHistory = FAhistory()
         self.dataInfo = DataInfo()
         
@@ -42,7 +34,11 @@ class AlignHandler:
     def run_fa(bash_cmd: str,
                currentJob: dict,
                faHistory: FAhistory,
-               workingState: bool):
+               workingState: List[bool]):
+        # Create an event loop for the thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        # run the job.
         process = subprocess.Popen(bash_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         # log handling.
         audio_num = 0
@@ -56,33 +52,34 @@ class AlignHandler:
             
             if output:
                 line_output = output.strip()
-                send_progress(line_output)
+                # loop.run_until_complete(send_progress(line_output))
                 if line_output.startswith("The number of audio files"):
                     audio_num = int(line_output.split(":")[-1])
                     print("audio num: {}".format(audio_num))
                 if line_output.endswith("successfully aligned."):
                     success_num += 1
                     print(line_output)
-                    progress_val = int(success_num/audio_num * 100)
-                    print("progress: {}".format(progress_val))
+                    currentJob["progress"] = "{}%".format(str(int(success_num/audio_num * 100)))
+                    loop.run_until_complete(send_progress(currentJob))
+                    print("progress: {}".format(currentJob["progress"]))
                 
             # Error log.
             if err:
                 line_err = err.strip()
-                send_progress(line_err)
                 print("Error:", line_err)
         
         # finish the task.
         process.wait() 
         currentJob["progress"] = "100%"
         faHistory.update_history(currentJob)
-        workingState = False
+        workingState[0] = False
+        loop.close()
         print("DONE FA: {}".format(currentJob))
                         
     def process(self, nj: int = 1, no_word: bool = False, no_phone: bool = False):
         # not on the process.
-        print("my working state: {}".format(self.workingState))
-        if self.workingState is False:
+        # print("my working state: {}".format(self.workingState[0]))
+        if self.workingState[0] is False:
             # find a task.
             self.faHistory.read_history()
             historyLog = self.faHistory.historyLog
@@ -92,7 +89,7 @@ class AlignHandler:
                         print("Start FA on {}".format(each_log['date']))
                         # do the job one by one.
                         self.currentJob = each_log
-                        self.workingState = True
+                        self.workingState[0] = True
                         data_name = "{}-{}".format(DateUtils.dateFormat2Raw(each_log["date"]), each_log["language"])
                         # prepare input arguments
                         dataPath = os.path.join(self.dataInfo.DATA_PATH, data_name)
@@ -105,7 +102,7 @@ class AlignHandler:
                         print("bash command : {}".format(bash_cmd))
                         subprocess_thread = threading.Thread(target=AlignHandler.run_fa, args=(bash_cmd, 
                                                                                                self.currentJob, 
-                                                                                               self.faHistory, 
+                                                                                               self.faHistory,
                                                                                                self.workingState))
                         subprocess_thread.start()
                         # process = subprocess.Popen(bash_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
