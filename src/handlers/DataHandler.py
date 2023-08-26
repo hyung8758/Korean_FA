@@ -71,7 +71,7 @@ class FAhistory:
                 del self.historyLog[idx]
                 self.save_history()
 
-    def update_history(self, update_info: dict):
+    def update_history(self, update_info: dict, do_save: bool = True):
         # check update_info. get every requisite info?
         for k in update_info.keys():
             if k not in self.history_form.keys():
@@ -86,8 +86,9 @@ class FAhistory:
         else: 
             # if update info is not found in historyLog, then add it.
             self.historyLog.append(update_info)
-        # rewrite history file.
-        self.save_history()
+        if do_save:
+            # rewrite history file.
+            self.save_history()
         
         
 @dataclass    
