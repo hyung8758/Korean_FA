@@ -10,7 +10,7 @@ Multiple spaces, tabs, and nuw lines will be removed.
 Ex. python check_text.py $data_directory
 """
 
-import os
+import os, sys
 import re
 import time
 import shutil
@@ -44,6 +44,9 @@ tg_list=[]
 for one in data_list:
     if re.findall('txt',one) != []:
         text_list.append(one)
+if not text_list:
+    print("Text files are not found.")
+    sys.exit(1)
 for tg in data_list:
     if re.findall('TextGrid',tg) != []:
         tg_list.append(tg)
