@@ -65,8 +65,8 @@
 3. Run the code with the path of data to forced-align.
 
 	```
-	$ sh forced_align.sh (options) (data directory)
-	$ sh forced_align.sh -nw ./example/readspeech
+	$ bash forced_align.sh (options) (data directory)
+	$ bash forced_align.sh -nw ./example/readspeech
 	```
  	- Options
 	 	1. -h  | --help    : Showing instruction.
