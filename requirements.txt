@@ -1,0 +1,4 @@
+tornado==6.3.3
+websocket==0.2.1
+websocket-client
+psutil
