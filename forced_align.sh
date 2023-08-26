@@ -97,6 +97,7 @@ if [ $# -eq 0 ]; then
 fi
 
 # Check data_dir
+source path.sh $kaldi
 alias realpath="perl -MCwd -e 'print Cwd::realpath(\$ARGV[0]),qq<\n>'"
 data_dir=`realpath $1`
 if [ ! -d $data_dir ]; then
@@ -106,54 +107,61 @@ fi
 log_dir=log/fa_log
 tmp_dir=`mktemp -d`
 trap "[ -d $tmp_dir ] && rm -rf $tmp_dir" SIGINT
-# Remove previous log, tmp, and data directories.
-[ -d $log_dir ] && rm -rf $log_dir/*
-[ -d $tmp_dir ] && rm -rf $tmp_dir/*
+# make log directory with no previous log.
+if [ -d $log_dir ]; then
+    rm -rf $log_dir/*
+else
+    mkdir -p $log_dir
+fi
 
-# Directory check.
-source path.sh $kaldi
-[ ! -d $log_dir ] && mkdir -p $log_dir
-[ ! -d $tmp_dir ] && mkdir -p $tmp_dir
+# Find audio and text files.
+wav_list=`find $data_dir -type f \( -iname "*.wav" \)`
+txt_list=`find $data_dir -type f \( -iname "*.txt" \)`
+[[ -z "$wav_list" ]] && wav_num=0 || wav_num=$(echo "$wav_list" | wc -l)
+[[ -z "$txt_list" ]] && txt_num=0 || txt_num=$(echo "$txt_list" | wc -l)
+[[ $wav_num -eq 0 ]] && echo "Audio files are not found." && exit
+[[ $txt_num -eq 0 ]] && echo "Text files are not found." && exit
+# check the number of files.
 
-# Check the text files.
-wav_list=
-txt_list=
-wav_num=
-txt_num=
-python src/local/check_text.py $tg_skip_opt $data_dir || exit 1
 if [ "$tg_skip_opt" == "--skip" ]; then
     echo -e "Skipping option is activated.\nWave data which already have TextGrid files will be excluded from alignment list."
     # Wave file which has a textgrid will not be aligned.
     # Check wave file list and select files that have not textgrids.
-    tmp_wav_list=`ls $data_dir | grep .wav`
-    tmp_txt_list=`ls $data_dir | grep .txt`
-    for wav in $tmp_wav_list; do
-	tmp_wav=`echo $wav | sed "s/.wav//g"`
-	if [ ! -f $data_dir/$tmp_wav.TextGrid ] && [ -f $data_dir/$tmp_wav.txt ]; then
-	    wav_list+="$tmp_wav.wav "
-	    txt_list+="$tmp_wav.txt "
-	fi
+    for wav in $wav_list; do
+        wav_name=`echo $wav | sed "s/wav$//g"`
+        txt_pair=`echo $wav | sed "s/wav$/txt/g"`
+        # textgird 및 txt가 있을 경우.
+        if [ ! -f $wav_name.TextGrid ] && [ -f $txt_pair ]; then
+            tmp_wav_list+="$wav "
+            tmp_txt_list+="$txt_pair "
+        fi
     done
-    wav_num=`echo $wav_list | wc -w`
-    txt_num=`echo $txt_list | wc -w`
-    if [ $wav_num -eq 0 ]; then 
-	echo -e "No file is remained to be aligned.\nExit alignment." && exit
-    fi
 else
-    wav_list=`ls $data_dir | grep .wav `
-    wav_num=`echo $wav_list | tr ' ' '\n' | wc -l`
-    txt_list=`ls $data_dir | grep .txt `
-    txt_num=`echo $txt_list | tr ' ' '\n' | wc -l`
-    if [ $wav_num -eq 0 ]; then 
-	echo -e "No file is remained to be aligned.\nExit alignment." && exit
-    fi
+    # Find audio and text files.
+    for wav in $wav_list; do
+        txt_pair=`echo $wav | sed "s/wav$/txt/g"`
+        # pair 텍스트가 있는 경우.
+        if [ -f $txt_pair ]; then
+            tmp_wav_list+="$wav "
+            tmp_txt_list+="$txt_pair "
+        fi
+    done
 fi
+# check auio number
+wav_list=$tmp_wav_list
+txt_list=$tmp_txt_list
+[[ -z "$wav_list" ]] && wav_num=0 || wav_num=$(echo $wav_list | sed 's/ /\n/g'| wc -l)
+[[ -z "$txt_list" ]] && txt_num=0 || txt_num=$(echo $txt_list | sed 's/ /\n/g'| wc -l)
+
+# check text file.
+python src/local/check_text.py $tg_skip_opt $data_dir || exit 1
 
 # Check if each audio file has a matching text file.
-if [ $wav_num != $txt_num ]; then
+if [ $wav_num -ne $txt_num ]; then
     echo "ERROR: The number of audio and text files are not matched. Please check the input data." 
     echo "Audio list: "$wav_list
-    echo "Text  list: "$txt_list && exit
+    echo "Text  list: "$txt_list
+    exit
 fi
 
 # Split jobs.
@@ -161,7 +169,7 @@ split_nj=$((wav_num/fa_nj))
 remain=$((wav_num%fa_nj))
 if [ $split_nj -ne 0 ]; then
     for snj in `seq 1 $split_nj`; do
-	mkdir -p $tmp_dir/work_$snj/source
+	    mkdir -p $tmp_dir/work_$snj/source
     done
 fi
 total_j=$split_nj
@@ -170,31 +178,24 @@ if [ $remain -ne 0 ]; then
     total_j=$((total_j+1))
 fi
 
-# distribute source files.
+# distribute source files based on wav info.
 j=1
-for wav in $wav_list; do
-    cp $data_dir/$wav $tmp_dir/work_$j/source
+for each_wav in $wav_list; do 
+    cp $each_wav $tmp_dir/work_$j/source
+    txt_pair=`echo $each_wav | sed 's/wav$/txt/g'`
+    cp $txt_pair $tmp_dir/work_$j/source
     if [ $j -eq $total_j ]; then
-	j=1
+	    j=1
     else
-	j=$((j+1))
-    fi
-done
-j=1
-for txt in $txt_list; do
-    cp $data_dir/$txt $tmp_dir/work_$j/source
-    if [ $j -eq $total_j ]; then
-	j=1
-    else
-	j=$((j+1))
+	    j=$((j+1))
     fi
 done
 
 echo ===================================================================
 echo "                    Korean Forced Aligner                        "    
 echo ===================================================================
-echo The number of audio files: $wav_num
-echo The number of text  files: $txt_num
+echo "The number of audio files: $wav_num"
+echo "The number of text files: $txt_num"
 
 # Main loop for alignment.
 job_idx=1
@@ -205,7 +206,6 @@ for turn in `seq 1 $total_j`; do
     for sub_wav in $subwav_list; do
 	sub_txt=`echo $sub_wav | sed 's/wav/txt/g'`
     bash src/local/main_fa.sh $kaldi $job_idx $log_dir $data_dir $tmp_dir/work_$turn/source/$sub_wav $tmp_dir/work_$turn/source/$sub_txt $tg_word_opt $tg_phone_opt &
-    # bash src/local/main_jap_fa.sh $kaldi $job_idx $log_dir $data_dir $tmp_dir/work_$turn/source/$sub_wav $tmp_dir/work_$turn/source/$sub_txt $tg_word_opt $tg_phone_opt &
 	job_idx=$((job_idx+1))
     done
     wait
