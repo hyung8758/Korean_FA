@@ -25,9 +25,11 @@ class FAhistory:
     def __init__(self, history_path: str = "log/history"):
         # history format
         self.history_form = dict(
-            date="unknown",
-            language="unknown",
+            date=None,
+            language=None,
+            message=None,
             totalAudio="0",
+            totalText="0",
             progress="0%"
         )
         
