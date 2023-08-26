@@ -42,35 +42,52 @@ class AlignHandler:
         process = subprocess.Popen(bash_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         # log handling.
         audio_num = 0
+        text_num = 0
         success_num = 0
         while True:
             output = process.stdout.readline()
-            err = process.stderr.readline()
+            # err = process.stderr.readline()
             # 로그 종료 및 모든 프로세스가 끝났을 경우. 
             if output == '' and process.poll() is not None:
                 break
             
             if output:
                 line_output = output.strip()
-                # loop.run_until_complete(send_progress(line_output))
+                print("LOG: {}".format(line_output))
                 if line_output.startswith("The number of audio files"):
                     audio_num = int(line_output.split(":")[-1])
                     print("audio num: {}".format(audio_num))
+                if line_output.startswith("The number of text files"):
+                    text_num = int(line_output.split(":")[-1])
+                    print("text num: {}".format(text_num))
                 if line_output.endswith("successfully aligned."):
                     success_num += 1
-                    print(line_output)
                     currentJob["progress"] = "{}%".format(str(int(success_num/audio_num * 100)))
                     loop.run_until_complete(send_progress(currentJob))
                     print("progress: {}".format(currentJob["progress"]))
                 
-            # Error log.
-            if err:
-                line_err = err.strip()
-                print("Error:", line_err)
+            # # Error log.
+            # if err:
+            #     line_err = err.strip()
+            #     print("Error:", line_err)
         
         # finish the task.
-        process.wait() 
-        currentJob["progress"] = "100%"
+        process.wait()
+
+        # failed.
+        if success_num == 0:
+            if line_output.endswith("Audio files are not found."):
+                currentJob["progress"] = "Audio not found."
+                currentJob["message"] = "Audio files are not provided."
+            elif line_output.endswith("Text files are not found."):
+                currentJob["progress"] = "Text not found."
+                currentJob["message"] = "Text files are not provided."
+            else:
+                currentJob["progress"] = line_output
+                currentJob["message"] = line_output
+        else:
+            currentJob["progress"] = "100%"
+        loop.run_until_complete(send_progress(currentJob))
         faHistory.update_history(currentJob)
         workingState[0] = False
         loop.close()
@@ -88,7 +105,7 @@ class AlignHandler:
                     try:
                         print("Start FA on {}".format(each_log['date']))
                         # do the job one by one.
-                        self.currentJob = each_log
+                        # self.currentJob = each_log
                         self.workingState[0] = True
                         data_name = "{}-{}".format(DateUtils.dateFormat2Raw(each_log["date"]), each_log["language"])
                         # prepare input arguments
@@ -101,45 +118,11 @@ class AlignHandler:
                         bash_cmd = "bash forced_align.sh {} {}".format(options, dataPath)
                         print("bash command : {}".format(bash_cmd))
                         subprocess_thread = threading.Thread(target=AlignHandler.run_fa, args=(bash_cmd, 
-                                                                                               self.currentJob, 
+                                                                                               each_log, 
                                                                                                self.faHistory,
                                                                                                self.workingState))
                         subprocess_thread.start()
-                        # process = subprocess.Popen(bash_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                        # # log handling.
-                        # audio_num = 0
-                        # success_num = 0
-                        # while True:
-                        #     output = process.stdout.readline()
-                        #     err = process.stderr.readline()
-                        #     # 로그 종료 및 모든 프로세스가 끝났을 경우. 
-                        #     if output == '' and process.poll() is not None:
-                        #         break
-                            
-                        #     if output:
-                        #         line_output = output.strip()
-                        #         progressWebSocketHandler.send_message(line_output)
-                        #         if line_output.startswith("The number of audio files"):
-                        #             audio_num = int(line_output.split(":")[-1])
-                        #             print("audio num: {}".format(audio_num))
-                        #         if line_output.endswith("successfully aligned."):
-                        #             success_num += 1
-                        #             print(line_output)
-                        #             progress_val = int(success_num/audio_num * 100)
-                        #             print("progress: {}".format(progress_val))
-                                
-                        #     # Error log.
-                        #     if err:
-                        #         line_err = err.strip()
-                        #         progressWebSocketHandler.send_message(line_err)
-                        #         print("Error:", line_err)
                         
-                        # # finish the task.
-                        # # process.wait() 
-                        # self.currentJob["progress"] = "100%"
-                        # self.faHistory.update_history(self.currentJob)
-                        # self.workingState = False
-                        # print("DONE FA: {}".format(self.currentJob))
                     except Exception as e:
                         print(e)
                     finally:
