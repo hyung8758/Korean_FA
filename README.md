@@ -1,16 +1,12 @@
 # Korean_FA: Korean Forced-Aligner  
 
 - v.1.6.2(01.03.21)
-- NAMZ Labs
 
-
-### MacOSX and Linux
+### OS
 ---
 - Mac OSX 11.0.1(recent Big Sur): Stable.
 - Linux (recent Ubuntu 18.04): Stable.
-- Windows: Unstable. (Not tested)
-- Python 3.5 ~ (python2 is unavailable)
-
+- Windows: unstable  (Not tested)
 
 ### PREREQUISITE
 ---
@@ -24,13 +20,14 @@
  	- Read INSTALL and follow the direction written there.
 
 2. **Install Packages**
- 	- Install list: Sox, coreutils, xlrd.
+	- python 3.8 ~ 
+ 	- pip install 
 	-  On mac
 
 		```
-		$ brew install sox
-		$ brew install coreutils
-		$ pip3 install xlrd 
+		$ brew install sox coreutils xlrd 
+		$ brew install 
+		$ pip3 install 
     	```
 	- On Ubuntu
 	
