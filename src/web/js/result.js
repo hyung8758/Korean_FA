@@ -64,11 +64,16 @@ $(document).ready(function () {
             },
             {
                 targets: 4,
+		        data: "totalText",
+                width: '100px',
+            },
+            {
+                targets: 5,
 		        data: "progress",
                 width: '50px',
             },
             {
-                targets: 5,
+                targets: 6,
                 width: "30px",
                 render: function ( data, type, row ) {
                     // values are stored in row.
@@ -91,7 +96,7 @@ $(document).ready(function () {
                 }
             },
             {
-                targets: 6,
+                targets: 7,
                 width: "30px",
                 render: function ( data, type, row ) {
 
@@ -118,15 +123,21 @@ $(document).ready(function () {
     // websocket listener.
     // it will update table progress information.
     ws.addEventListener('message', event => {
-        const progressData = JSON.parse(event.data);
-        const table = $('#resultTable').DataTable();
-        table.rows().every(function () {
-            const rowData = this.data(); // Get the data of the current row
-            if (rowData.date === progressData.date) {
-                rowData.progress = progressData.progress;
-                this.data(rowData);
-            };
-        });
+        try{
+            const progressData = JSON.parse(event.data);
+            const table = $('#resultTable').DataTable();
+            table.rows().every(function () {
+                const rowData = this.data(); // Get the data of the current row
+                if (rowData.date === progressData.date) {
+                    rowData.progress = progressData.progress;
+                    this.data(rowData);
+                    // check message:
+                    console.log("log message",progressData.message);
+                };
+            });
+        } catch (error){
+            console.log(event.data)
+        }
     });
 });
 

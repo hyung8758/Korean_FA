@@ -59,6 +59,7 @@ class resultHandler(tornado.web.RequestHandler):
         
     def post(self):
         try:
+            # get POST when downloading request is recieved.
             curSendData = copy.deepcopy(sendData)
             # extract information.
             data = json.loads(self.request.body)
@@ -136,10 +137,13 @@ class uploadHandler(tornado.web.RequestHandler):
             print("data path: {}".format(dataPath))
             if dataPath:
                 audio_num = 0
+                text_num = 0
                 for k in file_list.keys():
                     if k.endswith(".wav") or k.endswith(".txt"):
                         if k.endswith(".wav"):
                             audio_num += 1
+                        if k.endswith(".txt"):
+                            text_num += 1
                         save_path = os.path.join(dataPath, k)
                         print("save file: {}".format(k))
                         with io.open(save_path, 'wb') as wrt:
@@ -151,6 +155,7 @@ class uploadHandler(tornado.web.RequestHandler):
                                         date=DateUtils.dateRaw2Format(dateInfo),
                                         language=lang,
                                         totalAudio=str(audio_num),
+                                        totalText=str(text_num),
                                         progress="0%"
                                     ))
             curSendData["message"] = "Upload successful"
