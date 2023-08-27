@@ -44,6 +44,7 @@ class AlignHandler:
         audio_num = 0
         text_num = 0
         success_num = 0
+        line_output = ""
         while True:
             output = process.stdout.readline()
             # err = process.stderr.readline()
@@ -53,27 +54,26 @@ class AlignHandler:
             
             if output:
                 line_output = output.strip()
-                print("LOG: {}".format(line_output))
+                # logging.info("LOG: {}".format(line_output))
                 if line_output.startswith("The number of audio files"):
                     audio_num = int(line_output.split(":")[-1])
-                    print("audio num: {}".format(audio_num))
+                    logging.info("audio num: {}".format(audio_num))
                 if line_output.startswith("The number of text files"):
                     text_num = int(line_output.split(":")[-1])
-                    print("text num: {}".format(text_num))
+                    logging.info("text num: {}".format(text_num))
                 if line_output.endswith("successfully aligned."):
                     success_num += 1
                     currentJob["progress"] = "{}%".format(str(int(success_num/audio_num * 100)))
                     loop.run_until_complete(send_progress(currentJob))
-                    print("progress: {}".format(currentJob["progress"]))
+                    logging.info("progress: {}".format(currentJob["progress"]))
                 
             # # Error log.
             # if err:
             #     line_err = err.strip()
-            #     print("Error:", line_err)
+            #     logging.error("Error:", line_err)
         
         # finish the task.
         process.wait()
-
         # failed.
         if success_num == 0:
             if line_output.endswith("Audio files are not found."):
@@ -91,11 +91,11 @@ class AlignHandler:
         faHistory.update_history(currentJob)
         workingState[0] = False
         loop.close()
-        print("DONE FA: {}".format(currentJob))
+        logging.info("DONE FA: {}".format(currentJob))
                         
     def process(self, nj: int = 1, no_word: bool = False, no_phone: bool = False):
         # not on the process.
-        # print("my working state: {}".format(self.workingState[0]))
+        # logging.info("my working state: {}".format(self.workingState[0]))
         if self.workingState[0] is False:
             # find a task.
             self.faHistory.read_history()
@@ -103,7 +103,7 @@ class AlignHandler:
             for each_log in historyLog:
                 if each_log["progress"] == "0%":
                     try:
-                        print("Start FA on {}".format(each_log['date']))
+                        logging.info("Start FA on {}".format(each_log['date']))
                         # do the job one by one.
                         # self.currentJob = each_log
                         self.workingState[0] = True
@@ -116,7 +116,7 @@ class AlignHandler:
                         if no_phone:
                             options += " -np "
                         bash_cmd = "bash forced_align.sh {} {}".format(options, dataPath)
-                        print("bash command : {}".format(bash_cmd))
+                        logging.info("bash command : {}".format(bash_cmd))
                         subprocess_thread = threading.Thread(target=AlignHandler.run_fa, args=(bash_cmd, 
                                                                                                each_log, 
                                                                                                self.faHistory,
@@ -124,7 +124,7 @@ class AlignHandler:
                         subprocess_thread.start()
                         
                     except Exception as e:
-                        print(e)
+                        logging.error(e)
                     finally:
                         break 
                 

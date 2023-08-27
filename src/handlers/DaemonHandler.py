@@ -14,12 +14,14 @@ import yaml
 
 from src.handlers.ServerHandler import App
 from src.handlers.AlignHandler import AlignHandler
+from src.utils.LogUtils import initLog
 
 # config
 with open("conf/server.yaml") as f:
     server_config = yaml.load(f, Loader=yaml.FullLoader)
 parser = argparse.ArgumentParser()
-args =  parser.parse_args(namespace=argparse.Namespace(**server_config))
+args, unknwon = parser.parse_known_args(namespace=argparse.Namespace(**server_config))
+# args =  parser.parse_args(namespace=argparse.Namespace(**server_config))
 _version = args.version
 CURRENT_PATH = "/".join([os.path.dirname(os.path.abspath(__file__)), "../.."])
 
@@ -56,6 +58,9 @@ history_path = os.path.join(CURRENT_PATH, history_dir)
 if not os.path.exists(history_path):
     os.makedirs(history_path)
 
+print("open server port: {}".format(args.server_port))
+initLog(args.log_path, args.log_in_date, args.log_file_name, args.log_format)
+
 # make pid file.
 def savePidFile(pid, saveName: str):
     if ".pid" in saveName:
@@ -75,10 +80,11 @@ def removePidFile(fileName: str):
         os.remove(filePath)
         
 def run():
+    os.chdir(CURRENT_PATH)
     # open connection.
     app = App()
     app.listen(args.server_port)
-    print("open server port: {}".format(args.server_port))
+    logging.info("open server port: {}".format(args.server_port))
     server_pid = os.getpid()
     savePidFile(server_pid, server_pidfile)
     

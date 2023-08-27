@@ -63,7 +63,7 @@ class resultHandler(tornado.web.RequestHandler):
             curSendData = copy.deepcopy(sendData)
             # extract information.
             data = json.loads(self.request.body)
-            print("received: {}".format(data))
+            logging.info("received: {}".format(data))
             cmd = data.get("command", None)
             dateInfo = data.get("date", None)
             langInfo = data.get("language", None)
@@ -85,7 +85,7 @@ class resultHandler(tornado.web.RequestHandler):
                     raise ValueError("Neither date: {} nor lang: {} is provided.".format(dateInfo, langInfo))
                 data_name = "{}-{}".format(DateUtils.dateFormat2Raw(dateInfo), langInfo)
                 folder_path = os.path.join(dataInfo.DATA_PATH, data_name)
-                print("zip {} files...".format(folder_path))
+                logging.info("zip {} files...".format(folder_path))
                 # Create an in-memory byte stream to store the zip archive
                 zip_stream = io.BytesIO()
                 with zipfile.ZipFile(zip_stream, 'w') as zipf:
@@ -100,14 +100,14 @@ class resultHandler(tornado.web.RequestHandler):
                 self.set_header('Content-Disposition', 'attachment; filename="{}.zip"'.format(data_name))
 
                 # Write the zip archive to the response
-                print("sending it to a client.")
+                logging.info("sending it to a client.")
                 self.write(zip_stream.getvalue())
-                print("done")
+                logging.info("done")
                 return
             else:
                 # if you need to add up more commands then use this line.
                 pass
-            print("history log: {}".format(fahistory.historyLog))
+            # logging.info("history log: {}".format(fahistory.historyLog))
             self.set_header("Content-Type", "application/json")
             curSendData["history"] = fahistory.historyLog
         except Exception as e:
@@ -126,7 +126,7 @@ class uploadHandler(tornado.web.RequestHandler):
         try:
             curSendData = copy.deepcopy(sendData)
             file_list = dict()
-            print("file number: {}".format(self.request.files.keys()))
+            logging.info("files: {}".format(self.request.files.keys()))
             for each_key in self.request.files.keys():
                 file_list[each_key] = self.request.files[each_key]
             lang = self.get_argument('lang')
@@ -134,7 +134,7 @@ class uploadHandler(tornado.web.RequestHandler):
             # save downloaded files.
             dataPath = DateUtils.makeDataDir(lang=lang)
             dateInfo = os.path.basename(dataPath).split("-")[0]
-            print("data path: {}".format(dataPath))
+            logging.info("data path: {}".format(dataPath))
             if dataPath:
                 audio_num = 0
                 text_num = 0
@@ -145,11 +145,11 @@ class uploadHandler(tornado.web.RequestHandler):
                         if k.endswith(".txt"):
                             text_num += 1
                         save_path = os.path.join(dataPath, k)
-                        print("save file: {}".format(k))
+                        logging.info("save file: {}".format(k))
                         with io.open(save_path, 'wb') as wrt:
                             wrt.write(file_list[k][0]['body'])
                     else:
-                        print("Unknown tpye: {}".format(k))
+                        logging.error("Unknown tpye: {}".format(k))
             # save it to history.
             fahistory.update_history(update_info=dict(
                                         date=DateUtils.dateRaw2Format(dateInfo),
@@ -160,12 +160,12 @@ class uploadHandler(tornado.web.RequestHandler):
                                     ))
             curSendData["message"] = "Upload successful"
             self.set_status(200)
-            print("successful!")
+            logging.info("successful!")
         except Exception as e:
             self.set_status(400)
             curSendData["error"] = str(e)
             curSendData["success"] = False
-            print("failed!: {}".format(e))
+            logging.error("failed!: {}".format(e))
             # remove previous generated data dir.
             if os.path.exists(dataPath):
                 shutil.rmtree(dataPath)
