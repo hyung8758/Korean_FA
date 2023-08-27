@@ -7,8 +7,10 @@ Hyungwon Yang
 import os
 import shutil
 import datetime
+import logging
 from typing import Union
 
+CURRENT_PATH = "/".join([os.path.dirname(os.path.abspath(__file__)), "../.."])
 class DateUtils:
     
     def __init__(self):
@@ -44,12 +46,12 @@ class DateUtils:
             if curTime is None:
                 curTime = DateUtils.getCurrentDate(format=dateFormat)
             dir_name = "{}-{}".format(curTime, lang)
-            data_file_path = os.path.join(dataDir, dir_name)
+            data_file_path = os.path.join(CURRENT_PATH, dataDir, dir_name)
             if os.path.exists(data_file_path):
                 # it should not exist... but if it is there? remove it first.
                 shutil.rmtree(data_file_path)
             os.makedirs(data_file_path)
             return data_file_path
         except Exception as e:
-            print(e)
+            logging.info(e)
             return None
