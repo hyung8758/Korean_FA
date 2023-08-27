@@ -16,7 +16,7 @@ valgrind=no
 # ( grep 'ERROR SUMMARY' exp/*/*.log | grep -v '0 errors' ;  grep 'definitely lost' exp/*/*.log | grep -v -w 0 )
 
 if [ $valgrind == "no" ]; then
-  export PATH=${root}/src/bin:${root}/tools/openfst/bin:${root}/src/fstbin/:${root}/src/gmmbin/:${root}/src/featbin/:${root}/src/fgmmbin:${root}/src/sgmmbin:${root}/src/lm:${root}/src/latbin:$PATH  
+  export PATH=${root}/src/bin:${root}/tools/openfst/bin:${root}/src/fstbin/:${root}/src/gmmbin/:${root}/src/featbin/:${root}/src/fgmmbin:${root}/src/sgmmbin:${root}/src/lm:${root}/src/latbin:${root}/src/online2bin:${root}/src/nnet3bin:$PATH  
 else 
   mkdir bin
   for x in ${root}/src/{bin,fstbin,gmmbin,featbin,fgmmbin,sgmmbin,lm,latbin}; do
@@ -33,4 +33,4 @@ fi
 
 LC_ALL=ko_KR.UTF-8
 LC_LOCALE_ALL=ko_KR.UTF-8
-export PATH=$PATH:$PWD/utils:$PWD/steps:$root/src/nnet2bin:$root/src/sgmm2bin
+export PATH=$PATH:$PWD/src/local:$PWD/src/local/core:$root/src/nnet2bin:$root/src/sgmm2bin
