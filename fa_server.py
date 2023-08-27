@@ -5,8 +5,7 @@ Hyungwon Yang
 23.08.07
 """
 
-import os, sys
-
+import sys
 
 def main():
     usageMessage = f"Usage: {sys.argv[0]} (start|stop|status|version)"
@@ -38,7 +37,6 @@ def main():
         server_port = server_config["server_port"]
         running_time = server_config["running_time"]
         app.listen(server_port)
-        print("open server port: {}".format(server_port))
 
         alignHandler = AlignHandler()
         alignHandler.getServerPort(server_port)
@@ -48,9 +46,6 @@ def main():
         tornado.ioloop.IOLoop.current().start()
     else:
         print(usageMessage)
-
-
-
 
 if __name__ == "__main__":
     main()
