@@ -59,9 +59,60 @@
                     </div>
                 </nav>
                 <!-- Page content-->
-                <div class="container-fluid" id="contentContainer">
-                    <h1 class="mt-4">Korean Forced Alingment</h1>
-                    <p>By simply connecting to a Korean FA web site, the user is now able to align audio data with ease.</p>
+                <div class="gap-handler container-fluid" id="contentContainer">
+                    <h1>Korean Forced Alignment</h1>
+
+                    <p><strong>Version:</strong> 1.7.0</p>
+
+                    <h2>Purpose</h2>
+                    <ul>
+                        <p>Speech and text alignment information have been crucial for various researchers, providing insights into how written words are realized in human speech. However, manual alignment is time-consuming and often inaccurate due to varying human decisions. Automatic forced alignment, developed by researchers, overcomes these issues, offering fast and consistent alignment results.</p>
+                        <p>The <strong>Korean Forced Aligner</strong> (Korean FA) automates the alignment of Korean speech signals and their orthographic transcriptions at the word and phone levels. This aligner utilizes Kaldi to create the best-performing model by training and evaluating multiple models generated using various algorithms.</p>
+                    </ul>
+
+                    <h2>Model</h2>
+                    <ul>
+                        <p>The Korean FA model was trained using the Kaldi toolkit based on a 1000-hour speech corpus
+                           recorded from diverse speaker groups encompassing different ages, regions, and sexes.</p>
+                    </ul>
+
+                    <h2>Data Preparation</h2>
+                    <ol>
+                        <li><strong>Audio files (.wav) (with a sampling rate of 16,000Hz)</strong>
+                            <ul>
+                                <li>Provide audio file(s) in WAV format ('.wav') with a 16,000Hz sampling rate.<br>
+                               Korean FA assumes an input audio file(s) sampling rate of 16,000Hz.</li>
+                               <li>Name your audio files following specific rules (e.g., name01.wav, name02.wav, ...).</li>
+                            </ul>
+                        </li>
+                        <li><strong>Text files (.txt)</strong>
+                        <ul>
+                            <li>Name your transcription text files with ordered numbers as suffixes, and they should be identical to your audio files as pairs (e.g., name01.txt, name02.txt, ...).</li>
+                            <li>Each text file should contain a complete sentence written in Korean characters.</li>
+                            <li>Do not include punctuation marks such as periods ('.') or commas (',') in the text file.</li>
+                            <li>Remove any trailing white spaces (or tabs) at the end of lines.</li>
+                        </ul>
+                        </li>
+                        <li><strong>Recommendations for Better Performance</strong>
+                        <ul>
+                            <li>Use fewer white spaces between characters.</li>
+                            <li>Leave spaces between words in the transcription as per the speaker's reading pace.</li>
+                            <li>Avoid strict adherence to prescriptive spacing rules; use whitespace for pauses.</li>
+                        </ul>
+                        </li>
+                    </ol>
+
+                    <h2>Features Soon to be Updated</h2>
+                    <ul>
+                        <li>English and Japanese language support.</li>
+                        <li>User-friendly Web UI update.</li>
+                    </ul>
+
+                    <h2>Questions and Contact</h2>
+                    <ul>
+                        <p>If you have any questions about the Korean_FA toolkit or suggestions for improvements,<br> 
+                           feel free to contact me at <a href="mailto:hyung8758@gmail.com">hyung8758@gmail.com</a>.</p>
+                    </ul>
                 </div>
             </div>
         </div>
