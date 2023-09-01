@@ -1,0 +1,18 @@
+# korean_fa docker file for building an image. 
+
+# base image: kaldiasr
+FROM kaldiasr/kaldi:latest
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# update dependencies and install more if needed.
+RUN apt-get update
+
+# copy python packages.
+COPY . /app
+
+# install python package using pip
+RUN pip install -r requirements.txt
+
+# set the entry point for the container
