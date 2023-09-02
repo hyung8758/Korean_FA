@@ -3,4 +3,5 @@
 *.TextGrid
 tmp/
 log/
+data/
 __pycache__
