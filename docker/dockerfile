@@ -2,17 +2,51 @@
 
 # base image: kaldiasr
 FROM kaldiasr/kaldi:latest
+LABEL maintainer "Hyungwon Yang <hyung8758@gmail.com>"
+
+# update dependencies and install python3 and pip3.
+RUN apt-get update && apt-get install -y \
+    wget \
+    build-essential \
+    zlib1g-dev \
+    libffi-dev \
+    libssl-dev \
+    libncurses5-dev \
+    libsqlite3-dev \
+    libreadline-dev \
+    libtk8.6 \
+    libgdm-dev \
+    libdb4o-cil-dev \
+    libpcap-dev \
+    liblzma-dev \
+    libbz2-dev \
+    libffi-dev \
+    tk-dev \
+    sox \
+    coreutils
+
+RUN wget https://www.python.org/ftp/python/3.10.0/Python-3.10.0.tgz && \
+    tar -xf Python-3.10.0.tgz && \
+    cd Python-3.10.0 && \
+    ./configure --enable-optimizations && \
+    make -j $(nproc) && \
+    make install
+
+# Create symlinks to make pip and python point to Python 3.10.
+RUN unlink /usr/bin/python && \
+    ln -s /opt/kaldi /home/kaldi && \
+    ln -s /usr/local/bin/python3.10 /usr/bin/python 
+    # ln -s /usr/bin/pip3 /usr/local/bin/pip
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# update dependencies and install more if needed.
-RUN apt-get update
-
-# copy python packages.
+# copy local python packages to a docke image /app directory.
 COPY . /app
 
-# install python package using pip
-RUN pip install -r requirements.txt
+# # install python package using pip
+RUN python -m pip install --upgrade pip && \
+    pip install -r requirements.txt
 
 # set the entry point for the container
+CMD ["python", "fa_server.py"]
