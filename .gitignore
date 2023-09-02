@@ -4,4 +4,5 @@
 tmp/
 log/
 data/
+bin/
 __pycache__
