@@ -2,34 +2,46 @@
 
 - v.1.7.0(09.03.23)
 
-## DOCKER
----
+## Docker
 - Korean Forced Aligner (Korean_FA) can now be executed within a Docker image. When you run this Docker image, Korean_FA becomes accessible via a user-friendly web interface. This interface enables users to effortlessly upload audio and text pairs and subsequently download the resulting TextGrid files. Please follow the instructions below.
 - If Docker is not already installed on your computer system, please download and install it from [Docker's official website.](https://docs.docker.com/desktop/)
 #### Installation
 1. (recommended) pulling a docker image
 	- To utilize the recommended method, follow the step in your terminal (macOS, Linux, or Windows WSL).
+		```bash
 		$ docker pull hyung8758/koreanfa
+		```
 2. building a docker image
 	- To build a Docker image, navigate to the Korean_FA directory and execute the following command.
+		```bash
 		$ bash ./build.sh
+		```
 	- Inside the "build.sh" file, you can customize values for the USE_BUILDX and USE_SUDO variables if needed. While running the script as-is should work fine, system-specific errors may occur.
 	- Upon successful completion of the building process, you should see "korean_fa_app" listed in the Docker image inventory.
+		```bash
 		$ docker images # Displays a list of Docker images.
+		```
 ##### Usage
 - Starting the Container from the Image.
+	```bash
 	$ docker run -d -p 31066:31066 --name korean_fa_web_server hyung8758/koreanfa
+	```
 - Once you've executed the command, you can access the Korean_FA web UI at http://localhost:31066
 - Stopping a Docker Container.
+	```bash
 	$ docker stop korean_fa_web_server
+	```
 - Restarting a Docker Container.
+	```bash
 	$ docker start korean_fa_web_server
+	```
 - Removing Korean_FA Container and Image.
+	```bash
 	$ docker rm korean_fa_web_server # remove a container. ensure it is stopped first.
-	# docker rmi hyung8758/koreanfa # remove an image.
+	$ docker rmi hyung8758/koreanfa # remove an image.
+	```
 
-## ON LOCAL
----
+## Local Environment
 - It is highly recommended to utilize a Docker image for running the Korean_FA application. Nevertheless, for those who prefer running the application directly in a terminal, please proceed with the following steps.
 
 ### OS
@@ -38,31 +50,31 @@
 - Linux (recent Ubuntu 18.04): Stable.
 - Windows: unstable (Not tested)
 
-### PREREQUISITE
+### Prerequisite
 ---
-1. **Install Kaldi**
+1. Installing Kaldi
 	- Type below in command line.
-		```
+		```bash
 		$ git clone https://github.com/kaldi-asr/kaldi.git kaldi --origin upstream
 		$ cd kaldi
 		$ git pull
 		``` 
  	- Read INSTALL and follow the direction written there.
 
-2. **Install Packages**
+2. Installing Dependencies
 	- You will need Python 3.8 or a more recent version. You can achieve this by using Conda and setting up a virtual environment.
 	- On mac terminal
-		```
+		```bash
 		$ brew install sox coreutils
 		$ pip install -r requirements.txt
     	```
 	- On Ubuntu terminal
-		```
+		```bash
 		$ apt-get install sox coreutilss
 		$ pip install -r requirements.txt
 		```
 
-### MATERIALS (Data Preparation)
+### Materials (Data Preparation)
 ---
 1. **Audio files (.wav)** (sampling rate at 16,000Hz)
 	- Please ensure that your audio file(s) are in WAV format ('.wav') and have a sampling rate of 16,000Hz.
@@ -75,23 +87,23 @@
 	- The sentences should be written in the target language.
 	- Ensure there are no trailing white spaces or tabs at the end of each line.
 
-### DIRECTION
+### Direction
 ---
 1. Navigate to the 'Korean_FA' directory.
 2. Open the 'forced_align.sh' file with any text editor to specify the user path of the Kaldi directory.
 	- Change 'kaldi' name variable. (initial setting: kaldi=/home/kaldi)
 3. Run the code with the path to the data for forced alignment.
 
-	```
+	```bash
 	$ bash forced_align.sh (options) (data directory)
 	$ bash forced_align.sh -nw ./example/readspeech
-	```
  	- Options
 	 	1. -h  | --help    : display instruction.
 	 	2. -nj | --num-job : Parallel alignment to speed up.
 	 	3. -s  | --skip    : Skip alignment for already aligned data.
 	 	4. -nw | --no-word : remove word tier.
 	 	5. -np | --no-phone: remove phone tier.
+	```
 
 4. Textgrid(s) will be saved in the data directory.
 
