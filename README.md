@@ -1,12 +1,42 @@
 # Korean_FA: Korean Forced-Aligner  
 
-- v.1.6.2(01.03.21)
+- v.1.7.0(09.03.23)
+
+## DOCKER
+---
+- Korean Forced Aligner (Korean_FA) can now be executed within a Docker image. When you run this Docker image, Korean_FA becomes accessible via a user-friendly web interface. This interface enables users to effortlessly upload audio and text pairs and subsequently download the resulting TextGrid files. Please follow the instructions below.
+- If Docker is not already installed on your computer system, please download and install it from [Docker's official website.](https://docs.docker.com/desktop/)
+#### Installation
+1. (recommended) pulling a docker image
+	- To utilize the recommended method, follow the step in your terminal (macOS, Linux, or Windows WSL).
+		$ docker pull hyung8758/koreanfa
+2. building a docker image
+	- To build a Docker image, navigate to the Korean_FA directory and execute the following command.
+		$ bash ./build.sh
+	- Inside the "build.sh" file, you can customize values for the USE_BUILDX and USE_SUDO variables if needed. While running the script as-is should work fine, system-specific errors may occur.
+	- Upon successful completion of the building process, you should see "korean_fa_app" listed in the Docker image inventory.
+		$ docker images # Displays a list of Docker images.
+##### Usage
+- Starting the Container from the Image.
+	$ docker run -d -p 31066:31066 --name korean_fa_web_server hyung8758/koreanfa
+- Once you've executed the command, you can access the Korean_FA web UI at http://localhost:31066
+- Stopping a Docker Container.
+	$ docker stop korean_fa_web_server
+- Restarting a Docker Container.
+	$ docker start korean_fa_web_server
+- Removing Korean_FA Container and Image.
+	$ docker rm korean_fa_web_server # remove a container. ensure it is stopped first.
+	# docker rmi hyung8758/koreanfa # remove an image.
+
+## ON LOCAL
+---
+- It is highly recommended to utilize a Docker image for running the Korean_FA application. Nevertheless, for those who prefer running the application directly in a terminal, please proceed with the following steps.
 
 ### OS
 ---
 - Mac OSX 11.0.1(recent Big Sur): Stable.
 - Linux (recent Ubuntu 18.04): Stable.
-- Windows: unstable  (Not tested)
+- Windows: unstable (Not tested)
 
 ### PREREQUISITE
 ---
@@ -20,100 +50,64 @@
  	- Read INSTALL and follow the direction written there.
 
 2. **Install Packages**
-	- python 3.8 ~ 
- 	- pip install 
-	-  On mac
-
+	- You will need Python 3.8 or a more recent version. You can achieve this by using Conda and setting up a virtual environment.
+	- On mac terminal
 		```
-		$ brew install sox coreutils xlrd 
-		$ brew install 
-		$ pip3 install 
+		$ brew install sox coreutils
+		$ pip install -r requirements.txt
     	```
-	- On Ubuntu
-	
+	- On Ubuntu terminal
 		```
-		apt-get install sox
-		apt-get install coreutils
-		pip3 install xlrd
+		$ apt-get install sox coreutilss
+		$ pip install -r requirements.txt
 		```
 
 ### MATERIALS (Data Preparation)
 ---
-1. **Audio files (.wav)** (of sampling rate at 16,000Hz)
-	- Please provide audio file(s) in WAV format ('.wav') at 16,000Hz sampling rate.
-	- Korean_FA is applied assuming that the sampling rate of input audio file(s) is 16,000Hz.
+1. **Audio files (.wav)** (sampling rate at 16,000Hz)
+	- Please ensure that your audio file(s) are in WAV format ('.wav') and have a sampling rate of 16,000Hz.
+	- Korean_FA is designed to work with audio files that have a sampling rate of 16,000Hz.
 2. **Text files (.txt)**
-	- Name your transcription text files suffixed by ordered numbers
+	- When naming your transcription text files, please use ordered numbers as suffixes.
 		- ex) name01.txt, name02.txt, ...
-	- Each text file should contain one full sentence.
-	- **DO NOT** include any punctuation marks such as a period ('.') or a comma (',') in the text file.
-	- Sentences should be written in Korean letters.
-	- Remove every white space (or tab) in the end of the line.
-	- Recommendations for better performance:
-	- Less usage of white spaces between characters is strongly recommended.
-	- Leave spaces between words in the transcription according to the way the speaker reads. Strict compliance with prescriptive spacing rules is not recommended.
-		- i.e. Put a whitespace when a pause is present.
-		- ex) If a speaker reads: "나는 그시절 사람들과 사는것이 좋았어요"
-		   - Bad example: 나는 그 시절 사람들과 사는 것이 좋았어요
-		   - Good example: 나는 그시절 사람들과 사는것이 좋았어요
+	- Each text file should contain one complete sentence.
+	- **Refrain** from including any punctuation marks such as periods ('.') or commas (',') in the text file.
+	- The sentences should be written in the target language.
+	- Ensure there are no trailing white spaces or tabs at the end of each line.
 
 ### DIRECTION
 ---
-1. Navigate to 'Korean_FA' directory.
-2. Open forced_align.sh with any text editor to specify user path of kaldi directory.
+1. Navigate to the 'Korean_FA' directory.
+2. Open the 'forced_align.sh' file with any text editor to specify the user path of the Kaldi directory.
 	- Change 'kaldi' name variable. (initial setting: kaldi=/home/kaldi)
-3. Run the code with the path of data to forced-align.
+3. Run the code with the path to the data for forced alignment.
 
 	```
 	$ bash forced_align.sh (options) (data directory)
 	$ bash forced_align.sh -nw ./example/readspeech
 	```
  	- Options
-	 	1. -h  | --help    : Showing instruction.
+	 	1. -h  | --help    : display instruction.
 	 	2. -nj | --num-job : Parallel alignment to speed up.
 	 	3. -s  | --skip    : Skip alignment for already aligned data.
-	 	4. -nw | --no-word : Deleting word tier.
-	 	5. -np | --no-phone: Deleting phone tier.
+	 	4. -nw | --no-word : remove word tier.
+	 	5. -np | --no-phone: remove phone tier.
 
-4. Textgrid(s) will be saved into a data directory.
-
-### NOTICE
----
-1. **DO NOT** copy or use audio files in the example directory for other purposes.
-2. Report bugs or provide any recommendation to us through the developer's email address.
-
-### DEVELOPER
----
-
-- [Hyungwon Yang](https://hyungwonsnotebook.blogspot.kr/) / hyung8758@gmail.com
-
-### CONTRIBUTORS
----
-In order to improve forced alignment performance, all contributors named below participate in this project.
-
-#### Coworkers
-- Jaekoo Kang / jaekoo.jk@gmail.com
-- Yejin Cho / scarletcho@korea.ac.kr
-- Yeonjung Hong / yvonne.yj.hong@gmail.com
-- Youngsun Cho / youngsunhere@gmail.com
-- Sung Hah Hwang / hshsun@gmail.com
-
-#### Advisor
-- [Hosung Nam](http://www.haskins.yale.edu/staff/nam.html)
-
+4. Textgrid(s) will be saved in the data directory.
 
 ### VERSION HISTORY
 ---
-- v.1.0(08/27/16): gmm, sgmm_mmi, and dnn based Korean FA is released.
-- v.1.1(09/06/16): g2p updated. monophone model is added.
-- v.1.2(10/10/16): phoneset is simplified. Choosing model such as dnn or gmm for forced alignment is no longer available. 
-- v.1.3(10/24/16): Selecting specific labels in TextGrid is available. Procedure of alignment is changed. Audio files collected in the directory will be aligned one by one. Due to this change, alignment takes more time, but its accuracy is increased. Log directory will show the alignment process in detail. More useful information is provided during alignment on the command line. 
-- v.1.4(01.14.16): It will catch more errors. The name of log files will be tagged with respect to each wave file name. 
-- v.1.5(02.08.17): Main g2p was changed and it is now compatible with the new g2p system. Skipping option is added and it will skip alignment of audio files that have TextGrdis. A few minor bugs are fixed.
-- v.1.5.1(02.26.17): bug reports. Time mismatch in the word tier. fixed.
-- v.1.5.2(05.17.17): change return to exit, option errors, minor bug fixed. skip option is added.
-- v.1.5.3(07.10.17): Long audio files are now available to be aligned. print more information on the screen. Floating error which caused time mismatch betweeen start and end points of each phone segment is fixed.
-- v.1.5.4(11.14.17): Floatting error is occurred in kaldi code. This error will be solved as post-processing. Hopely, from now on, time mismatch error will not appear any longer.
-- v.1.6(01.18.18): num-jb option is provided and this option will split multiple files into sub groups and align multiple files at once. This will speed up the alignment process. The way of printing log histories and the structure of main script are changed.
-- v.1.6.1(10.28.20): lexicon process was unstable and it has been fixed. remove redundant jobs in main_fa.sh and fa_prep_data.sh. 
-- **v1.6.2(01.03.21)**: adjust audio process part(sr=16000, channel=1, bit=16) and change log variables. 
+- v.1.0(08/27/16): Introduced gmm, sgmm_mmi, and dnn-based Korean FA.
+- v.1.1(09/06/16): Updated g2p. Added the monophone model.
+- v.1.2(10/10/16): Simplified phoneset. Removed the option to choose models like dnn or gmm for forced alignment.
+- v.1.3(10/24/16): Introduced the ability to select specific labels in TextGrid. Changed the alignment procedure to align audio files one by one in the directory. This change increased alignment time but improved accuracy. Detailed alignment process information is now available in the log directory, along with more useful command-line information.
+- v.1.4(01.14.16): Improved error handling. Log files are now tagged with respect to each wave file name.
+- v.1.5(02.08.17): Major changes in the g2p system to make it compatible with the new g2p system. Added a skipping option to skip alignment of audio files with existing TextGrids. Fixed a few minor bugs.
+- v.1.5.1(02.26.17): Addressed bug reports, particularly related to time mismatch in the word tier. Fixed the issue.
+- v.1.5.2(05.17.17): Made changes to return and exit procedures, resolved option errors, and fixed minor bugs. Added a skip option.
+- v.1.5.3(07.10.17): Enabled the alignment of long audio files. Increased information printing on the screen. Resolved a floating error causing time mismatch between the start and end points of each phone segment.
+- v.1.5.4(11.14.17): Addressed a floating error in the Kaldi code. This error will be resolved during post-processing, and it's expected that time mismatch errors will no longer occur
+- v.1.6(01.18.18): Introduced the num-jb option to split multiple files into subgroups and align multiple files simultaneously, speeding up the alignment process. Made changes to how log histories are printed and adjusted the structure of the main script.
+- v.1.6.1(10.28.20):Stabilized the lexicon process. Removed redundant jobs in main_fa.sh and fa_prep_data.sh.
+- v1.6.2(01.03.21): Adjusted the audio processing part (sampling rate = 16,000, channel = 1, bit = 16) and changed log variables.
+- **v.1.7.0(09.03.23)**: Introduced a web UI available in a Docker image.
