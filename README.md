@@ -5,7 +5,7 @@
 ## Docker
 - Korean Forced Aligner (Korean_FA) can now be executed within a Docker image. When you run this Docker image, Korean_FA becomes accessible via a user-friendly web interface. This interface enables users to effortlessly upload audio and text pairs and subsequently download the resulting TextGrid files. Please follow the instructions below.
 - If Docker is not already installed on your computer system, please download and install it from [Docker's official website.](https://docs.docker.com/desktop/)
-#### Installation
+### Installation
 1. (recommended) pulling a docker image
 	- To utilize the recommended method, follow the step in your terminal (macOS, Linux, or Windows WSL).
 		```bash
@@ -21,7 +21,7 @@
 		```bash
 		$ docker images # Displays a list of Docker images.
 		```
-##### Usage
+### Usage
 - Starting the Container from the Image.
 	```bash
 	$ docker run -d -p 31066:31066 --name korean_fa_web_server hyung8758/koreanfa
@@ -45,13 +45,11 @@
 - It is highly recommended to utilize a Docker image for running the Korean_FA application. Nevertheless, for those who prefer running the application directly in a terminal, please proceed with the following steps.
 
 ### OS
----
 - Mac OSX 11.0.1(recent Big Sur): Stable.
 - Linux (recent Ubuntu 18.04): Stable.
 - Windows: unstable (Not tested)
 
 ### Prerequisite
----
 1. Installing Kaldi
 	- Type below in command line.
 		```bash
@@ -74,21 +72,7 @@
 		$ pip install -r requirements.txt
 		```
 
-### Materials (Data Preparation)
----
-1. **Audio files (.wav)** (sampling rate at 16,000Hz)
-	- Please ensure that your audio file(s) are in WAV format ('.wav') and have a sampling rate of 16,000Hz.
-	- Korean_FA is designed to work with audio files that have a sampling rate of 16,000Hz.
-2. **Text files (.txt)**
-	- When naming your transcription text files, please use ordered numbers as suffixes.
-		- ex) name01.txt, name02.txt, ...
-	- Each text file should contain one complete sentence.
-	- **Refrain** from including any punctuation marks such as periods ('.') or commas (',') in the text file.
-	- The sentences should be written in the target language.
-	- Ensure there are no trailing white spaces or tabs at the end of each line.
-
-### Direction
----
+### Usage
 1. Navigate to the 'Korean_FA' directory.
 2. Open the 'forced_align.sh' file with any text editor to specify the user path of the Kaldi directory.
 	- Change 'kaldi' name variable. (initial setting: kaldi=/home/kaldi)
@@ -107,8 +91,19 @@
 
 4. Textgrid(s) will be saved in the data directory.
 
-### VERSION HISTORY
----
+## Materials (Data Preparation)
+1. **Audio files (.wav)** (sampling rate at 16,000Hz)
+	- Please ensure that your audio file(s) are in WAV format ('.wav') and have a sampling rate of 16,000Hz.
+	- Korean_FA is designed to work with audio files that have a sampling rate of 16,000Hz.
+2. **Text files (.txt)**
+	- When naming your transcription text files, please use ordered numbers as suffixes.
+		- ex) name01.txt, name02.txt, ...
+	- Each text file should contain one complete sentence.
+	- **Refrain** from including any punctuation marks such as periods ('.') or commas (',') in the text file.
+	- The sentences should be written in the target language.
+	- Ensure there are no trailing white spaces or tabs at the end of each line.
+
+## VERSION HISTORY
 - v.1.0(08/27/16): Introduced gmm, sgmm_mmi, and dnn-based Korean FA.
 - v.1.1(09/06/16): Updated g2p. Added the monophone model.
 - v.1.2(10/10/16): Simplified phoneset. Removed the option to choose models like dnn or gmm for forced alignment.
