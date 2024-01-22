@@ -4,3 +4,4 @@ websocket-client
 psutil
 pyyaml
 xlrd
+python-daemon
