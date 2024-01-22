@@ -5,11 +5,16 @@ Hyungwon Yang
 24.01.19
 """
 
-import os
+import os, sys
 import json
 import wave
+import signal
 import tempfile
 import subprocess
+import logging
+import argparse
+import daemon
+from daemon import pidfile
 from tornado.web import Application, RequestHandler
 from tornado.ioloop import IOLoop
 
@@ -32,8 +37,8 @@ FA return:
     'log' : 'log message'
     'result':
 }
-
 """
+
 SEND_FORM = dict(success=True, log='', result='')
 CURRENT_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(CURRENT_PATH, "data")
@@ -41,7 +46,18 @@ DATA_DIR = os.path.join(CURRENT_PATH, "data")
 AUDIO_CHANNEL = 1
 AUDIO_SAMPLEWIDTH = 2
 
-server_port = 30010
+def sigint_handler(signal, frame):
+    logging.info('Interrupted. Stop Processing.')
+    sys.exit(0)
+signal.signal(signal.SIGINT, sigint_handler)
+
+def umask_type(value):
+    try:
+        # Convert the input string to an octal integer
+        umask_value = int(value, 8)
+        return umask_value
+    except ValueError:
+        raise argparse.ArgumentTypeError("Invalid umask value. Must be an octal number.")
 
 
 class FAtaskHandler(RequestHandler):
@@ -50,64 +66,56 @@ class FAtaskHandler(RequestHandler):
 
     def post(self):
         try:
-            # data = json.loads(self.request.body)
-            # print("recevied message: {}".format(data))
             
             # get the values
-            # audio_file_path = self.get_argument("audio_file",'')
-            # text_file_path = self.get_argument("text_file",'')
-            # print("audio_file_path: {}".format(audio_file_path))
-            # print("text_file_path: {}".format(text_file_path))
-            # audio_name = os.path.basename(audio_file_path)
-            # text_name = os.path.basename(text_file_path)
-            # print("audio, text name: {}/{}".format(audio_name, text_name))
             sr = self.get_argument("sr",16000)
             nj = self.get_argument("nj",1)
             no_word = self.get_argument("no_word",False)
             no_phone = self.get_argument("no_phone",False)
-            # print(f"[information] audio_file: {audio_file_path}, nj: {nj}, no_word: {no_word}, no_phone: {no_phone}")
             
             # read and save auido file.
-            # print("request.file: {}".format(self.request.files))
             audio_f = self.request.files.get('audio_file',[])
             text_f = self.request.files.get('text_file', [])
             audio_file_path = audio_f[0]['filename']
             text_file_path = text_f[0]['filename']
-            print("audio_file_path: {}".format(audio_file_path))
-            print("text_file_path: {}".format(text_file_path))
+            logging.info("audio_file_path: {}".format(audio_file_path))
+            logging.info("text_file_path: {}".format(text_file_path))
             audio_name = os.path.basename(audio_file_path)
             text_name = os.path.basename(text_file_path)
-            print("audio, text name: {}/{}".format(audio_name, text_name))
-            print(f"[information] audio_file: {audio_file_path}, nj: {nj}, no_word: {no_word}, no_phone: {no_phone}")
+            logging.info("audio, text name: {}/{}".format(audio_name, text_name))
+            logging.info(f"[information] audio_file: {audio_file_path}, nj: {nj}, no_word: {no_word}, no_phone: {no_phone}")
             if audio_f and text_f:
                 # save auido file in a tmp directory and do FA.
                 with tempfile.TemporaryDirectory() as tmpdirname:
-                    print("generated tmp dir: {}".format(tmpdirname))
                     # save audio file
                     with wave.open(os.path.join(tmpdirname, audio_name), 'wb') as wav_file:
                         wav_file.setnchannels(AUDIO_CHANNEL)
                         wav_file.setsampwidth(AUDIO_SAMPLEWIDTH)
                         wav_file.setframerate(sr)
                         wav_file.writeframes(audio_f[0]['body'])
-                    print(f"{audio_name} is successfully saved.")
+                    logging.info(f"{audio_name} is successfully saved.")
                     # save text file.
-                    print("text file: {}".format(text_f[0]['body'].decode('utf-8')))
+                    logging.info("text file: {}".format(text_f[0]['body'].decode('utf-8')))
                     with open(os.path.join(tmpdirname, text_name), 'w') as txt_file:
                         txt_file.write(text_f[0]['body'].decode('utf-8'))
-                    print(f"{text_name} is successfully saved.")
+                    logging.info(f"{text_name} is successfully saved.")
                     
                     # do FA
                     bash_cmd = f"bash forced_align.sh {tmpdirname} -nj {nj}"
-                    print("FA command line: {}".format(bash_cmd))
+                    if no_word:
+                        bash_cmd += " -nw"
+                    if no_phone:
+                        bash_cmd += " -np"
+                    logging.info("FA command line: {}".format(bash_cmd))
                     process = subprocess.Popen(bash_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                    print("start FA")
+                    logging.info("start FA")
                     process.wait()
-                    print("FA DONE")
+                    logging.info("FA DONE")
                     
                     # save result
-                    print("save reuslt")
+                    logging.info("save reuslt")
                     tg_file = f"{audio_name[:-4]}.TextGrid"
-                    with open(tg_file, 'r') as tg:
+                    with open(os.path.join(tmpdirname,tg_file), 'r') as tg:
                         SEND_FORM['result'] = tg.read()
             
             SEND_FORM['log'] = 'DONE!'
@@ -116,7 +124,7 @@ class FAtaskHandler(RequestHandler):
             SEND_FORM['success'] = False
             SEND_FORM['log']= e
         finally:
-            print("json to back: {}".format(SEND_FORM))
+            logging.info("json to back: {}".format(SEND_FORM))
             self.write(json.dumps(SEND_FORM))
             
         
@@ -128,10 +136,97 @@ class App(Application):
         ]
         Application.__init__(self, handlers)
 
-  
-if __name__ == '__main__':
+def run_app(port: int,
+            logformat: str,
+            logfile: str):
+    logging.basicConfig(level=logging.INFO, format=logformat, filename=logfile)
     app = App()
-    app.listen(server_port)
+    app.listen(port)
+    logging.info("Open PORT: {}".format(port))
     IOLoop.instance().start()
+    
 
+def start_daemon(daemon_pidfile:str, 
+               port:int,
+               logformat:str,
+               logfile:str,
+               working_directory:str='/tmp',
+               umask:umask_type=0o002):
+    with daemon.DaemonContext(
+                    working_directory = working_directory,
+                    umask = umask,
+                    pidfile = pidfile.TimeoutPIDLockFile(daemon_pidfile),
+                    ):
+        run_app(port=port,
+                logformat=logformat,
+                logfile=logfile)
+    
+def stop_daemon(daemon_pidfile: str,
+                logformat:str,
+                logfile:str):
+    logging.basicConfig(level=logging.INFO, format=logformat, filename=logfile)
+    try:
+        with open(daemon_pidfile, 'r') as pidfile:
+            pid = int(pidfile.read().strip())
+        logging.info(f"Stopping daemon with PID: {pid}")
+        # Send a SIGTERM signal to the daemon
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)  # Ignore SIGTERM while checking
+        os.kill(pid, signal.SIGTERM)
+    except FileNotFoundError:
+        logging.info("Cannot find running daemon.")
+    except ProcessLookupError:
+        logging.info("Daemon not running.")    
+
+if __name__ == '__main__':
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port",
+                        type=int,
+                        default=31065,
+                        help="FA api server port.")
+    parser.add_argument("--start",
+                        action="store_true",
+                        help="START command: FA api server running as a daemon")
+    parser.add_argument("--stop",
+                        action="store_true",
+                        help="STOP command: FA api server running as a daemon")
+    parser.add_argument("--working_directory",
+                        type=str,
+                        default=CURRENT_PATH,
+                        help="daemon working directory")
+    parser.add_argument("--umask",
+                        type=umask_type,
+                        default=0o002,
+                        help="daemon umask")
+    parser.add_argument("--pidfile",
+                        type=str,
+                        default=os.path.join(CURRENT_PATH,".pid/fa_restapi.pid"))
+    parser.add_argument("--logfile",
+                        type=str,
+                        default=os.path.join(CURRENT_PATH,"log/fa_restapi.log"))
+    parser.add_argument("--logformat",
+                        type=str,
+                        default="%(asctime)s(%(module)s:%(lineno)d)%(levelname)s:%(message)s")
+    
+    args = parser.parse_args()
+    
+    # start가 여러번 발생해도 중복실행 안함.
+    print("LOG path: {}".format(args.logfile))
+    if args.start:
+        start_daemon(daemon_pidfile=args.pidfile,
+                     port=args.port,
+                     logformat=args.logformat,
+                     logfile=args.logfile,
+                     working_directory=args.working_directory,
+                     umask=args.umask
+                     )
+    elif args.stop:
+        stop_daemon(daemon_pidfile=args.pidfile,
+                    logformat=args.logformat,
+                    logfile=args.logfile)
+    else:
+        print("Open PORT: {}".format(args.port))
+        run_app(port=args.port,
+                logformat=args.logformat,
+                logfile=args.logfile)
 
