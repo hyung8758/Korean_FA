@@ -39,7 +39,6 @@ FA return:
 }
 """
 
-SEND_FORM = dict(success=True, log='', result='')
 CURRENT_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_DIR = os.path.join(CURRENT_PATH, "data")
 
@@ -65,8 +64,8 @@ class FAtaskHandler(RequestHandler):
         pass
 
     def post(self):
+        SEND_FORM = dict(success=True, log='', result='')
         try:
-            
             # get the values
             sr = self.get_argument("sr",16000)
             nj = self.get_argument("nj",1)
@@ -115,14 +114,18 @@ class FAtaskHandler(RequestHandler):
                     # save result
                     logging.info("save reuslt")
                     tg_file = f"{audio_name[:-4]}.TextGrid"
-                    with open(os.path.join(tmpdirname,tg_file), 'r') as tg:
-                        SEND_FORM['result'] = tg.read()
-            
-            SEND_FORM['log'] = 'DONE!'
+                    tg_file_path = os.path.join(tmpdirname,tg_file)
+                    if os.path.exists(tg_file_path):
+                        with open(tg_file_path, 'r') as tg:
+                            SEND_FORM['result'] = tg.read()
+                        SEND_FORM['log'] = 'DONE!'
+                    else:
+                        SEND_FORM['log'] = "FA was unsuccessful. Audio might be too long or noisy to force align."
+                        SEND_FORM['success'] = False
         except Exception as e:
             self.set_status(400)
             SEND_FORM['success'] = False
-            SEND_FORM['log']= e
+            SEND_FORM['log']= str(e)
         finally:
             logging.info("json to back: {}".format(SEND_FORM))
             self.write(json.dumps(SEND_FORM))
@@ -144,7 +147,6 @@ def run_app(port: int,
     app.listen(port)
     logging.info("Open PORT: {}".format(port))
     IOLoop.instance().start()
-    
 
 def start_daemon(daemon_pidfile:str, 
                port:int,
@@ -184,12 +186,9 @@ if __name__ == '__main__':
                         type=int,
                         default=31065,
                         help="FA api server port.")
-    parser.add_argument("--start",
-                        action="store_true",
-                        help="START command: FA api server running as a daemon")
-    parser.add_argument("--stop",
-                        action="store_true",
-                        help="STOP command: FA api server running as a daemon")
+    parser.add_argument("action",
+                        choices=['start', 'stop', 'standalone'],
+                        help="Action for start or stop FA api server daemon. standalone for running the server right away.")
     parser.add_argument("--working_directory",
                         type=str,
                         default=CURRENT_PATH,
@@ -212,7 +211,7 @@ if __name__ == '__main__':
     
     # start가 여러번 발생해도 중복실행 안함.
     print("LOG path: {}".format(args.logfile))
-    if args.start:
+    if args.action == 'start':
         start_daemon(daemon_pidfile=args.pidfile,
                      port=args.port,
                      logformat=args.logformat,
@@ -220,7 +219,7 @@ if __name__ == '__main__':
                      working_directory=args.working_directory,
                      umask=args.umask
                      )
-    elif args.stop:
+    elif args.action == 'stop':
         stop_daemon(daemon_pidfile=args.pidfile,
                     logformat=args.logformat,
                     logfile=args.logfile)
