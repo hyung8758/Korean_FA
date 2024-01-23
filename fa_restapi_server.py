@@ -211,18 +211,23 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    # start가 여러번 발생해도 중복실행 안함.
-    print("LOG path: {}".format(args.logfile))
+    # directory 생성
     logdir = os.path.dirname(args.logfile)
     if not os.path.exists(logdir):
         os.makedirs(logdir)
+    piddir = os.path.dirname(args.pidfile)
+    if not os.path.exits(piddir):
+        os.makedirs(piddir)
     
+    print("LOG path: {}".format(args.logfile))
+    # handling logger
     logging.basicConfig(level=logging.INFO, format=args.logformat)
     file_logger = logging.FileHandler(args.logfile, "a")
-
     logger = logging.getLogger()
     logger.addHandler(file_logger)
+    
     if args.action == 'start':
+        # start가 여러번 발생해도 중복실행 안함.
         start_daemon(daemon_pidfile=args.pidfile,
                      port=args.port,
                      logformat=args.logformat,
