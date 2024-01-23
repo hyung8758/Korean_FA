@@ -105,7 +105,7 @@ class FAtaskHandler(RequestHandler):
                         bash_cmd += " -nw"
                     if no_phone:
                         bash_cmd += " -np"
-                    logging.info("FA command line: {}".format(bash_cmd))
+                    logging.info("FA command: {}".format(bash_cmd))
                     process = subprocess.Popen(bash_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                     logging.info("start FA")
                     process.wait()
@@ -157,7 +157,7 @@ def start_daemon(daemon_pidfile:str,
     with daemon.DaemonContext(
                     working_directory = working_directory,
                     umask = umask,
-                    pidfile = pidfile.TimeoutPIDLockFile(daemon_pidfile),
+                    pidfile = pidfile.TimeoutPIDLockFile(daemon_pidfile)
                     ):
         run_app(port=port,
                 logformat=logformat,
@@ -211,6 +211,9 @@ if __name__ == '__main__':
     
     # start가 여러번 발생해도 중복실행 안함.
     print("LOG path: {}".format(args.logfile))
+    logdir = os.path.dirname(args.logfile)
+    if not os.path.exists(logdir):
+        os.makedirs(logdir)
     if args.action == 'start':
         start_daemon(daemon_pidfile=args.pidfile,
                      port=args.port,
