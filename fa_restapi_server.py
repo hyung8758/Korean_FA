@@ -216,7 +216,7 @@ if __name__ == '__main__':
     if not os.path.exists(logdir):
         os.makedirs(logdir)
     piddir = os.path.dirname(args.pidfile)
-    if not os.path.exits(piddir):
+    if not os.path.exists(piddir):
         os.makedirs(piddir)
     
     print("LOG path: {}".format(args.logfile))
