@@ -106,7 +106,7 @@ class FAtaskHandler(RequestHandler):
                     if no_phone:
                         bash_cmd += " -np"
                     logging.info("FA command: {}".format(bash_cmd))
-                    process = subprocess.Popen(bash_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    process = subprocess.Popen(bash_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                     logging.info("start FA")
                     process.wait()
                     logging.info("FA DONE")
@@ -142,7 +142,7 @@ class App(Application):
 def run_app(port: int,
             logformat: str,
             logfile: str):
-    logging.basicConfig(level=logging.INFO, format=logformat, filename=logfile)
+    # logging.basicConfig(level=logging.INFO, format=logformat, filename=logfile)
     app = App()
     app.listen(port)
     logging.info("Open PORT: {}".format(port))
@@ -152,12 +152,14 @@ def start_daemon(daemon_pidfile:str,
                port:int,
                logformat:str,
                logfile:str,
+               file_logger:logging.FileHandler,
                working_directory:str='/tmp',
                umask:umask_type=0o002):
     with daemon.DaemonContext(
                     working_directory = working_directory,
                     umask = umask,
-                    pidfile = pidfile.TimeoutPIDLockFile(daemon_pidfile)
+                    pidfile = pidfile.TimeoutPIDLockFile(daemon_pidfile),
+                    files_preserve=[file_logger.stream.fileno()]
                     ):
         run_app(port=port,
                 logformat=logformat,
@@ -166,7 +168,7 @@ def start_daemon(daemon_pidfile:str,
 def stop_daemon(daemon_pidfile: str,
                 logformat:str,
                 logfile:str):
-    logging.basicConfig(level=logging.INFO, format=logformat, filename=logfile)
+    # logging.basicConfig(level=logging.INFO, format=logformat, filename=logfile)
     try:
         with open(daemon_pidfile, 'r') as pidfile:
             pid = int(pidfile.read().strip())
@@ -214,13 +216,20 @@ if __name__ == '__main__':
     logdir = os.path.dirname(args.logfile)
     if not os.path.exists(logdir):
         os.makedirs(logdir)
+    
+    logging.basicConfig(level=logging.INFO, format=args.logformat)
+    file_logger = logging.FileHandler(args.logfile, "a")
+
+    logger = logging.getLogger()
+    logger.addHandler(file_logger)
     if args.action == 'start':
         start_daemon(daemon_pidfile=args.pidfile,
                      port=args.port,
                      logformat=args.logformat,
                      logfile=args.logfile,
                      working_directory=args.working_directory,
-                     umask=args.umask
+                     umask=args.umask,
+                     file_logger=file_logger
                      )
     elif args.action == 'stop':
         stop_daemon(daemon_pidfile=args.pidfile,
