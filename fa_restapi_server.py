@@ -131,7 +131,6 @@ class FAtaskHandler(RequestHandler):
             self.write(json.dumps(SEND_FORM))
             
         
-
 class App(Application):
     def __init__(self):
         handlers = [
@@ -139,9 +138,7 @@ class App(Application):
         ]
         Application.__init__(self, handlers)
 
-def run_app(port: int,
-            logformat: str,
-            logfile: str):
+def run_app(port: int):
     # logging.basicConfig(level=logging.INFO, format=logformat, filename=logfile)
     app = App()
     app.listen(port)
@@ -150,8 +147,6 @@ def run_app(port: int,
 
 def start_daemon(daemon_pidfile:str, 
                port:int,
-               logformat:str,
-               logfile:str,
                file_logger:logging.FileHandler,
                working_directory:str='/tmp',
                umask:umask_type=0o002):
@@ -161,13 +156,9 @@ def start_daemon(daemon_pidfile:str,
                     pidfile = pidfile.TimeoutPIDLockFile(daemon_pidfile),
                     files_preserve=[file_logger.stream.fileno()]
                     ):
-        run_app(port=port,
-                logformat=logformat,
-                logfile=logfile)
+        run_app(port=port)
     
-def stop_daemon(daemon_pidfile: str,
-                logformat:str,
-                logfile:str):
+def stop_daemon(daemon_pidfile: str):
     # logging.basicConfig(level=logging.INFO, format=logformat, filename=logfile)
     try:
         with open(daemon_pidfile, 'r') as pidfile:
@@ -184,13 +175,13 @@ def stop_daemon(daemon_pidfile: str,
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
+    parser.add_argument("action",
+                        choices=['start', 'stop', 'standalone'],
+                        help="Action to start or stop FA api server daemon. standalone action will run the server right away.")
     parser.add_argument("--port",
                         type=int,
                         default=31065,
                         help="FA api server port.")
-    parser.add_argument("action",
-                        choices=['start', 'stop', 'standalone'],
-                        help="Action for start or stop FA api server daemon. standalone for running the server right away.")
     parser.add_argument("--working_directory",
                         type=str,
                         default=CURRENT_PATH,
@@ -230,8 +221,6 @@ if __name__ == '__main__':
         # start가 여러번 발생해도 중복실행 안함.
         start_daemon(daemon_pidfile=args.pidfile,
                      port=args.port,
-                     logformat=args.logformat,
-                     logfile=args.logfile,
                      working_directory=args.working_directory,
                      umask=args.umask,
                      file_logger=file_logger
