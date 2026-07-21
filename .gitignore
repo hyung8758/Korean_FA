@@ -6,3 +6,6 @@ log/
 data/
 bin/
 __pycache__
+build/
+dist/
+*.egg-info/
