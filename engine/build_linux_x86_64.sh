@@ -40,7 +40,7 @@ git -C "$kaldi_source" checkout --detach "$kaldi_revision"
 # Kaldi's Makefile still downloads OpenFST through an endpoint that rejects
 # GitHub Actions' wget user agent.  Pre-seed the exact archive with curl so
 # the pinned Kaldi build remains reproducible.
-curl --fail --location --silent --show-error --user-agent "KoreanFA engine builder" \
+curl --fail --location --silent --show-error --user-agent "Mozilla/5.0" \
   --output "$kaldi_source/tools/openfst-1.8.4.tar.gz" \
   https://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.8.4.tar.gz
 make -C "$kaldi_source/tools" -j"$(nproc)"
