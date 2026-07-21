@@ -37,6 +37,12 @@ ipadic_archive="$work_directory/mecab-ipadic.tar.gz"
 
 git clone --filter=blob:none https://github.com/kaldi-asr/kaldi.git "$kaldi_source"
 git -C "$kaldi_source" checkout --detach "$kaldi_revision"
+# Kaldi's Makefile still downloads OpenFST through an endpoint that rejects
+# GitHub Actions' wget user agent.  Pre-seed the exact archive with curl so
+# the pinned Kaldi build remains reproducible.
+curl --fail --location --silent --show-error --user-agent "KoreanFA engine builder" \
+  --output "$kaldi_source/tools/openfst-1.8.4.tar.gz" \
+  https://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.8.4.tar.gz
 make -C "$kaldi_source/tools" -j"$(nproc)"
 (
   cd "$kaldi_source/src"

@@ -25,7 +25,7 @@ jobs:
       - name: Install native build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes autoconf automake build-essential ca-certificates curl gfortran libtool libtool-bin \
+          sudo apt-get install --yes autoconf automake build-essential ca-certificates curl gfortran libtool libtool-bin sox \
             libopenblas-dev libsndfile1-dev pkg-config zlib1g-dev
       - name: Resolve engine version
         id: version

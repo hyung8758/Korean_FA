@@ -77,7 +77,8 @@ def test_engine_install_rejects_checksum_mismatch(tmp_path: Path) -> None:
 
 
 def test_alignment_runtime_uses_installed_engine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    engine_root = tmp_path / "cache" / "0.3.0" / status().platform
+    expected = status()
+    engine_root = tmp_path / "cache" / expected.version / expected.platform
     binary = engine_root / "kaldi" / "src" / "bin" / "ali-to-phones"
     binary.parent.mkdir(parents=True)
     binary.write_text("", encoding="utf-8")
