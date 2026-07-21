@@ -2,7 +2,8 @@
 
 from .aligner import Aligner
 from .api import align, align_directory, discover_pairs
-from .errors import AlignmentError, EngineNotFoundError, KoreanFAError, PairingError
+from .engine import ensure_installed, install as install_engine
+from .errors import AlignmentError, EngineNotFoundError, EngineUnavailableError, KoreanFAError, PairingError
 from .result import AlignmentResult, BatchAlignmentResult, InputPair
 
 __all__ = [
@@ -14,9 +15,12 @@ __all__ = [
     "AlignmentResult",
     "BatchAlignmentResult",
     "EngineNotFoundError",
+    "EngineUnavailableError",
     "InputPair",
     "KoreanFAError",
     "PairingError",
+    "ensure_installed",
+    "install_engine",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

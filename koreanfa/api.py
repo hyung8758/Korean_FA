@@ -10,8 +10,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
-from .errors import AlignmentError, EngineNotFoundError, PairingError
 from .audio import normalize_wav
+from .engine import installed_engine
+from .errors import AlignmentError, EngineNotFoundError, PairingError
 from .language import detect_language, normalize_language
 from .resources import runtime_root
 from .result import AlignmentResult, BatchAlignmentResult, InputPair
@@ -99,7 +100,7 @@ def _align_pairs(
         raise ValueError("num_jobs must be at least 1")
     if not word_tier and not phone_tier:
         raise ValueError("At least one of word_tier or phone_tier must be enabled")
-    runtime, resources = _resolve_kaldi_dir(kaldi_dir), runtime_root()
+    (runtime, engine_env), resources = _resolve_kaldi_dir(kaldi_dir), runtime_root()
     output_dir.mkdir(parents=True, exist_ok=True)
     grouped: dict[str, list[InputPair]] = defaultdict(list)
     for pair in pairs:
@@ -107,14 +108,16 @@ def _align_pairs(
     all_results: list[AlignmentResult] = []
     batch_workdir: Path | None = None
     for language, group in grouped.items():
-        results, work_dir = _run_language_group(tuple(group), language, output_dir, runtime, resources, num_jobs, word_tier, phone_tier, keep_workdir)
+        results, work_dir = _run_language_group(
+            tuple(group), language, output_dir, runtime, engine_env, resources, num_jobs, word_tier, phone_tier, keep_workdir
+        )
         all_results.extend(results)
         batch_workdir = work_dir or batch_workdir
     return BatchAlignmentResult(tuple(sorted(all_results, key=lambda item: str(item.audio))), output_dir, batch_workdir)
 
 
 def _run_language_group(
-    pairs: tuple[InputPair, ...], language: str, output_dir: Path, runtime: Path, resources: Path,
+    pairs: tuple[InputPair, ...], language: str, output_dir: Path, runtime: Path, engine_env: dict[str, str], resources: Path,
     num_jobs: int, word_tier: bool, phone_tier: bool, keep_workdir: bool,
 ) -> tuple[list[AlignmentResult], Path | None]:
     work_dir = Path(tempfile.mkdtemp(prefix=f"koreanfa-{language}-"))
@@ -134,6 +137,11 @@ def _run_language_group(
         command.append(str(input_dir))
         env = os.environ.copy()
         env.update({"KOREANFA_KALDI_DIR": str(runtime), "KOREANFA_LOG_DIR": str(log_dir), "KOREANFA_LANG": language})
+        for key, value in engine_env.items():
+            if key == "LD_LIBRARY_PATH":
+                env[key] = ":".join(filter(None, (value, env.get(key))))
+            else:
+                env.setdefault(key, value)
         completed = subprocess.run(command, cwd=resources, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
         missing = [stem for _, stem in staged if not (input_dir / f"{stem}.TextGrid").is_file()]
         if completed.returncode != 0 or missing:
@@ -165,11 +173,20 @@ def _validate_pair(audio: Path, transcript: Path) -> None:
         raise PairingError(f"Transcript must be an existing TXT file: {transcript}")
 
 
-def _resolve_kaldi_dir(kaldi_dir: str | Path | None) -> Path:
+def _resolve_kaldi_dir(kaldi_dir: str | Path | None) -> tuple[Path, dict[str, str]]:
     candidate = kaldi_dir or os.environ.get("KOREANFA_KALDI_DIR")
-    if not candidate:
-        raise EngineNotFoundError("Kaldi is not configured. Set KOREANFA_KALDI_DIR or install the future koreanfa-engine wheel.")
-    root = Path(candidate).expanduser().resolve()
+    if candidate:
+        return _validate_kaldi_dir(Path(candidate).expanduser().resolve()), {}
+    engine = installed_engine()
+    if engine is None:
+        raise EngineNotFoundError(
+            "KoreanFA native engine is required but not installed. Run 'koreanfa engine install' or call "
+            "'from koreanfa.engine import install; install()'."
+        )
+    return engine.kaldi_dir, engine.environment
+
+
+def _validate_kaldi_dir(root: Path) -> Path:
     if not (root / "src" / "bin" / "ali-to-phones").is_file():
         raise EngineNotFoundError(f"No usable Kaldi runtime at {root}")
     return root

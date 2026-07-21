@@ -17,6 +17,10 @@ class EngineNotFoundError(KoreanFAError):
     """No compatible Kaldi runtime was provided."""
 
 
+class EngineUnavailableError(EngineNotFoundError):
+    """An engine is supported but has not been published for installation."""
+
+
 class AlignmentError(KoreanFAError):
     """The Kaldi pipeline did not create all requested TextGrid files."""
 

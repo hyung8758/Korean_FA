@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "koreanfa"
-version = "0.2.0"
+version = "0.3.0"
 description = "Korean and Japanese forced alignment with a Python API and command-line interface"
 requires-python = ">=3.12"
 dependencies = [
@@ -38,6 +38,9 @@ koreanfa = "koreanfa.cli:main"
 [tool.setuptools]
 packages = ["koreanfa"]
 include-package-data = true
+
+[tool.setuptools.package-data]
+koreanfa = ["engine_manifest.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
