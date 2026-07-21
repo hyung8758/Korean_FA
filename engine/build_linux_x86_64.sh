@@ -98,11 +98,11 @@ mkdir -p "$engine_root/kaldi/src" "$engine_root/kaldi/tools/openfst"
 while IFS= read -r directory; do
   cp -a "$directory" "$engine_root/kaldi/src/"
 done < <(find "$kaldi_source/src" -maxdepth 1 -mindepth 1 -type d -name '*bin' -print | sort)
-cp -a "$kaldi_source/src/lib" "$engine_root/kaldi/src/"
+cp -aL "$kaldi_source/src/lib" "$engine_root/kaldi/src/"
 cp -a "$kaldi_source/src/lm" "$engine_root/kaldi/src/"
 cp -a "$kaldi_source/tools/openfst/bin" "$engine_root/kaldi/tools/openfst/"
 if [[ -d $kaldi_source/tools/openfst/lib ]]; then
-  cp -a "$kaldi_source/tools/openfst/lib" "$engine_root/kaldi/tools/openfst/"
+  cp -aL "$kaldi_source/tools/openfst/lib" "$engine_root/kaldi/tools/openfst/"
 fi
 
 # Kaldi is built against OpenBLAS on the release runner.  Bundle every
