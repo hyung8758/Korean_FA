@@ -1,0 +1,85 @@
+name: Build Linux engine
+
+on:
+  push:
+    tags:
+      - "koreanfa-engine-v*"
+  workflow_dispatch:
+    inputs:
+      engine_version:
+        description: "Engine version to build (for example 0.3.0)"
+        required: true
+        default: "0.3.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux-x86_64:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes autoconf automake build-essential ca-certificates curl gfortran libtool libtool-bin \
+            libopenblas-dev libsndfile1-dev pkg-config zlib1g-dev
+      - name: Resolve engine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#koreanfa-engine-v}"
+          else
+            version="${{ inputs.engine_version }}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+      - name: Build engine archive
+        run: bash engine/build_linux_x86_64.sh "$RUNNER_TEMP/koreanfa-engine" "${{ steps.version.outputs.value }}"
+      - name: Smoke-test engine archive
+        run: python3 engine/verify_linux_x86_64.py "$RUNNER_TEMP/koreanfa-engine/koreanfa-engine-v${{ steps.version.outputs.value }}-linux-x86_64.tar.gz"
+      - name: Verify Korean and Japanese alignment with the bundled engine
+        env:
+          ENGINE_VERSION: ${{ steps.version.outputs.value }}
+          ENGINE_CACHE: ${{ runner.temp }}/koreanfa-engine-cache
+        run: |
+          python -m pip install .
+          stage="$RUNNER_TEMP/koreanfa-engine-stage"
+          mkdir -p "$stage" "$ENGINE_CACHE/$ENGINE_VERSION"
+          tar --extract --gzip --file "$RUNNER_TEMP/koreanfa-engine/koreanfa-engine-v$ENGINE_VERSION-linux-x86_64.tar.gz" --directory "$stage"
+          mv "$stage/koreanfa-engine-v$ENGINE_VERSION-linux-x86_64" "$ENGINE_CACHE/$ENGINE_VERSION/linux-x86_64"
+          KOREANFA_ENGINE_HOME="$ENGINE_CACHE" python - <<'PY'
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+
+          from koreanfa import align
+
+          root = Path.cwd()
+          with TemporaryDirectory(prefix="koreanfa-engine-integration-") as output:
+              destination = Path(output)
+              kor = align(
+                  root / "example" / "kor_files" / "fv01_t01_s01.wav",
+                  root / "example" / "kor_files" / "fv01_t01_s01.txt",
+                  output_dir=destination / "kor",
+              )
+              japanese_wav = next((root / "example" / "jap_files").glob("*.wav"))
+              jap = align(japanese_wav, japanese_wav.with_suffix(".txt"), output_dir=destination / "jap")
+              assert kor.textgrid.is_file()
+              assert jap.textgrid.is_file()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: koreanfa-engine-v${{ steps.version.outputs.value }}-linux-x86_64
+          path: ${{ runner.temp }}/koreanfa-engine/*
+          if-no-files-found: error
+      - name: Publish immutable GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/koreanfa-engine"/* \
+            --title "KoreanFA engine ${{ steps.version.outputs.value }}" \
+            --notes "Linux x86_64 Kaldi and MeCab runtime for KoreanFA."
