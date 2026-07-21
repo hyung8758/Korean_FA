@@ -28,17 +28,15 @@ set -e
 set -u
 # set -o pipefail
 
-# Kaldi directory ./kaldi
-kaldi=/home/kaldi
+# Kaldi directory.  KoreanFA's Python package sets this variable when it
+# launches the legacy pipeline; keeping /home/kaldi preserves the historical
+# command-line behaviour for existing users.
+kaldi="${KOREANFA_KALDI_DIR:-/home/kaldi}"
+language="${KOREANFA_LANG:-kor}"
 
 # Number of jobs(just fix it to one)
 fa_nj=1
 fail_num=0
-
-# Check kaldi directory.
-if [ ! -d $kaldi ]; then
-	echo -e "ERROR: Kaldi directory is not found. Please reset the kaldi directory by editing force_align.sh.\nCurrent kaldi directory : $kaldi" && exit 1
-fi
 
 # Option Parsing and checking. 
 # Option default.
@@ -60,7 +58,7 @@ File directory. ex) example/my_record\n\n\
 bash forced_align.sh [option] [data directory]\n\
 bash forced_align.sh -np example/my_record\n"
 
-if [ $# -gt 5 ] || [ $# -lt 1 ]; then
+if [ $# -lt 1 ]; then
    echo -e $usage  && exit
 fi
 
@@ -85,6 +83,18 @@ while [ $arg_num -gt 0 ] ; do
     esac
 done
 
+# Check Kaldi only after option parsing so that --help works on a machine
+# without a Kaldi runtime installed.
+if [ ! -d "$kaldi" ]; then
+    echo -e "ERROR: Kaldi directory is not found. Set KOREANFA_KALDI_DIR or install a KoreanFA engine.\nCurrent Kaldi directory : $kaldi" && exit 1
+fi
+
+case "$language" in
+    kor) align_script="runtime/pipeline/main_fa.sh" ;;
+    jap) align_script="runtime/pipeline/main_jap_fa.sh" ;;
+    *) echo "ERROR: KOREANFA_LANG must be kor or jap. Current value: $language" && exit 1 ;;
+esac
+
 # num job variable should contain integer.
 if ! [[ $fa_nj =~ ^[0-9]+$ ]] ; then
     echo "ERROR: -nj or --num-jb is not a number. Please provide a number for this option."; exit 1
@@ -104,7 +114,9 @@ if [ ! -d $data_dir ]; then
     echo "ERROR: $data_dir is not present. Please check the data directory."  && exit
 fi
 
-log_dir=log/fa_log
+# Package callers supply an isolated log directory.  The historical default
+# remains unchanged for direct invocations of this script.
+log_dir=${KOREANFA_LOG_DIR:-log/fa_log}
 tmp_dir=`mktemp -d`
 trap "[ -d $tmp_dir ] && rm -rf $tmp_dir" SIGINT
 # make log directory with no previous log.
@@ -154,7 +166,7 @@ txt_list=$tmp_txt_list
 [[ -z "$txt_list" ]] && txt_num=0 || txt_num=$(echo $txt_list | sed 's/ /\n/g'| wc -l)
 
 # check text file.
-python src/local/check_text.py $tg_skip_opt $data_dir || exit 1
+python runtime/pipeline/check_text.py $tg_skip_opt $data_dir || exit 1
 
 # Check if each audio file has a matching text file.
 if [ $wav_num -ne $txt_num ]; then
@@ -192,7 +204,7 @@ for each_wav in $wav_list; do
 done
 
 echo ===================================================================
-echo "                    Korean Forced Aligner                        "    
+echo "                    ${language} Forced Aligner                        "
 echo ===================================================================
 echo "The number of audio files: $wav_num"
 echo "The number of text files: $txt_num"
@@ -205,7 +217,7 @@ for turn in `seq 1 $total_j`; do
     echo "Aligning $subwav_list"
     for sub_wav in $subwav_list; do
 	sub_txt=`echo $sub_wav | sed 's/wav/txt/g'`
-    bash src/local/main_fa.sh $kaldi $job_idx $log_dir $data_dir $tmp_dir/work_$turn/source/$sub_wav $tmp_dir/work_$turn/source/$sub_txt $tg_word_opt $tg_phone_opt &
+    bash $align_script $kaldi $job_idx $log_dir $data_dir $tmp_dir/work_$turn/source/$sub_wav $tmp_dir/work_$turn/source/$sub_txt $tg_word_opt $tg_phone_opt &
 	job_idx=$((job_idx+1))
     done
     wait
