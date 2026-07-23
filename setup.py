@@ -35,15 +35,7 @@ def runtime_data_files() -> list[tuple[str, list[str]]]:
             if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
         )
         for file_path in files:
-            # ``RUNTIME_ROOT`` already ends in ``runtime``.  Resources from
-            # the source ``runtime/`` directory must therefore drop that
-            # leading path component; otherwise a wheel installs them below
-            # ``share/koreanfa/runtime/runtime`` and the pipeline cannot find
-            # its configuration or scripts.
-            if file_path.is_relative_to(ROOT / "runtime"):
-                relative_parent = file_path.relative_to(ROOT / "runtime").parent
-            else:
-                relative_parent = file_path.relative_to(ROOT).parent
+            relative_parent = file_path.relative_to(ROOT).parent
             files_by_destination[RUNTIME_ROOT / relative_parent].append(str(file_path.relative_to(ROOT)))
     return [(str(destination), files) for destination, files in sorted(files_by_destination.items())]
 

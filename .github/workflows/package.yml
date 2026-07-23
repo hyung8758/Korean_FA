@@ -40,7 +40,7 @@ jobs:
           from koreanfa.resources import runtime_root
 
           root = runtime_root()
-          for relative in ("forced_align.sh", "pipeline/text2lexicon.py", "model/kor_model/final.mdl", "model/jap_model/final.mdl"):
+          for relative in ("forced_align.sh", "runtime/pipeline/text2lexicon.py", "model/kor_model/final.mdl", "model/jap_model/final.mdl"):
               assert (root / relative).exists(), root / relative
           print(__version__)
           PY
