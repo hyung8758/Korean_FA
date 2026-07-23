@@ -1,13 +1,11 @@
 name: Python package CI
 
 on:
-  push:
-    branches: [feat/pip-package-foundation]
   pull_request:
     branches: [master]
 
-# A PR and a branch push from the same source branch share one queue. A newer
-# commit therefore cancels an obsolete run instead of consuming another runner.
+# Run one package check for each update to a pull request targeting master.
+# A newer commit cancels an obsolete run from the same pull request.
 concurrency:
   group: python-package-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
