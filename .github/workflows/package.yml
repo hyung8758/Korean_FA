@@ -1,11 +1,11 @@
 name: Python package CI
 
 on:
-  pull_request:
-    branches: [master]
+  push:
+    branches: ["feat/**"]
 
-# Run one package check for each update to a pull request targeting master.
-# A newer commit cancels an obsolete run from the same pull request.
+# Run the lightweight package checks for every feature-branch update. A newer
+# commit cancels an obsolete run from the same branch.
 concurrency:
   group: python-package-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
