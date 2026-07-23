@@ -2,7 +2,7 @@
 # Build the native Linux x86_64 runtime distributed by ``koreanfa engine``.
 #
 # Run this on an Ubuntu build host after installing the packages listed in
-# .github/workflows/engine-release.yml.  Users never run this script: they
+# .github/workflows/engine-candidate.yml. Users never run this script: they
 # download its verified archive through the KoreanFA CLI or Python API.
 
 set -euo pipefail
@@ -17,7 +17,10 @@ output_directory=$(realpath "$1")
 engine_version=$2
 platform=linux-x86_64
 kaldi_revision=e02e35f0254bb033fab73d1df99fc34123e31d56
-openfst_revision=dfb45be3f66e28d351889669b62e851d23d4307f
+openfst_version=1.8.4
+openfst_url=https://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.8.4.tar.gz
+openfst_sha256=a8ebbb6f3d92d07e671500587472518cfc87cb79b9a654a5a8abb2d0eb298016
+openblas_revision=d2b11c47774b9216660e76e2fc67e87079f26fa1
 mecab_revision=cd22ce53d855a1cda1acfcb680c9e82c5de39a94
 ipadic_url=https://downloads.sourceforge.net/project/mecab/mecab-ipadic/2.7.0-20070801/mecab-ipadic-2.7.0-20070801.tar.gz
 ipadic_sha256=b62f527d881c504576baed9c6ef6561554658b175ce6ae0096a60307e49e3523
@@ -33,7 +36,9 @@ trap 'rm -rf "$work_directory"' EXIT
 engine_name="koreanfa-engine-v${engine_version}-${platform}"
 engine_root="$work_directory/$engine_name"
 kaldi_source="$work_directory/kaldi"
-openfst_source="$work_directory/openfst"
+openfst_archive="$work_directory/openfst-${openfst_version}.tar.gz"
+openfst_source="$work_directory/openfst-${openfst_version}"
+openblas_source="$work_directory/openblas-source"
 mecab_source="$work_directory/mecab"
 ipadic_archive="$work_directory/mecab-ipadic.tar.gz"
 openblas_root="$work_directory/openblas"
@@ -41,11 +46,13 @@ openblas_root="$work_directory/openblas"
 git clone --filter=blob:none https://github.com/kaldi-asr/kaldi.git "$kaldi_source"
 git -C "$kaldi_source" checkout --detach "$kaldi_revision"
 
-# Kaldi's tools Makefile downloads OpenFST from a legacy host that rejects
-# GitHub Actions requests.  Build the pinned OpenFST source directly instead,
-# placing it in the layout Kaldi expects without relying on that host.
-git clone --filter=blob:none https://github.com/kkm000/openfst.git "$openfst_source"
-git -C "$openfst_source" checkout --detach "$openfst_revision"
+# Kaldi expects OpenFST 1.8.4.  Download the official source archive directly
+# and verify it before compiling, instead of relying on Kaldi's legacy wget
+# path or an unrelated Git mirror.
+curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+  --output "$openfst_archive" "$openfst_url"
+printf '%s  %s\n' "$openfst_sha256" "$openfst_archive" | sha256sum --check --status
+tar --extract --gzip --file "$openfst_archive" --directory "$work_directory"
 (
   cd "$openfst_source"
   ./configure --prefix="$kaldi_source/tools/openfst" --enable-static --enable-shared
@@ -53,21 +60,19 @@ git -C "$openfst_source" checkout --detach "$openfst_revision"
   make install
 )
 
-# Ubuntu's OpenBLAS package is multi-arch, while Kaldi expects a conventional
-# include/ and lib/ prefix.  Make a private view of the system development
-# files so Kaldi can be configured reproducibly without its tools downloader.
-mkdir -p "$openblas_root/include" "$openblas_root/lib"
-cblas_header=$(find /usr/include -name cblas.h -print -quit)
-openblas_library=$(find /usr/lib -name libopenblas.so -print -quit)
-if [[ -z $cblas_header || -z $openblas_library ]]; then
-  echo "OpenBLAS development files are required (install libopenblas-dev)." >&2
-  exit 1
-fi
-ln -s "$cblas_header" "$openblas_root/include/cblas.h"
-ln -s "$openblas_library" "$openblas_root/lib/libopenblas.so"
+# Build the matching OpenBLAS headers and shared library from the version used
+# by this Kaldi revision's own installer.  Do not mix distribution LAPACKE
+# headers with it: their Fortran ABI declarations differ from Kaldi's wrappers.
+git clone --filter=blob:none https://github.com/OpenMathLib/OpenBLAS.git "$openblas_source"
+git -C "$openblas_source" checkout --detach "$openblas_revision"
+(
+  cd "$openblas_source"
+  make -j"$(nproc)" PREFIX="$openblas_root" DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 NO_SHARED=0 all
+  make PREFIX="$openblas_root" DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 NO_SHARED=0 install
+)
 (
   cd "$kaldi_source/src"
-  OPENFST_VER=1.8.1 ./configure --mathlib=OPENBLAS --openblas-root="$openblas_root" --shared
+  OPENFST_VER="$openfst_version" ./configure --mathlib=OPENBLAS --openblas-root="$openblas_root" --shared
   make -j"$(nproc)"
 )
 
@@ -129,6 +134,7 @@ printf '# KoreanFA supplies the dictionary with -d.\n' > "$engine_root/mecab/etc
 mkdir -p "$engine_root/licenses"
 cp "$kaldi_source/COPYING" "$engine_root/licenses/KALDI.txt"
 cp "$openfst_source/COPYING" "$engine_root/licenses/OPENFST.txt"
+cp "$openblas_source/LICENSE" "$engine_root/licenses/OPENBLAS.txt"
 cp "$mecab_source/mecab/COPYING" "$engine_root/licenses/MECAB.txt"
 cp "$work_directory/mecab-ipadic-2.7.0-20070801/COPYING" "$engine_root/licenses/IPADIC.txt"
 cat > "$engine_root/engine.json" <<EOF
@@ -140,7 +146,9 @@ cat > "$engine_root/engine.json" <<EOF
   "mecabrc": "mecab/etc/mecabrc",
   "library_paths": ["lib", "kaldi/src/lib", "kaldi/tools/openfst/lib"],
   "kaldi_revision": "${kaldi_revision}",
-  "openfst_revision": "${openfst_revision}",
+  "openfst_version": "${openfst_version}",
+  "openfst_sha256": "${openfst_sha256}",
+  "openblas_revision": "${openblas_revision}",
   "mecab_revision": "${mecab_revision}",
   "ipadic_sha256": "${ipadic_sha256}"
 }

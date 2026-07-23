@@ -1,18 +1,19 @@
-name: Build Linux engine
+name: Build Linux engine candidate
 
+# This workflow is deliberately manual. It creates a verified, downloadable
+# candidate artifact, but cannot create a tag, GitHub Release, or PyPI upload.
 on:
-  push:
-    tags:
-      - "koreanfa-engine-v*"
   workflow_dispatch:
-    inputs:
-      engine_version:
-        description: "Engine version to build (for example 0.3.0)"
-        required: true
-        default: "0.3.0"
+
+concurrency:
+  group: linux-engine-candidate-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  ENGINE_VERSION: "0.3.0"
 
 jobs:
   build-linux-x86_64:
@@ -25,25 +26,19 @@ jobs:
       - name: Install native build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes autoconf automake build-essential ca-certificates curl gfortran libtool libtool-bin sox \
-            liblapacke-dev libopenblas-dev libsndfile1-dev pkg-config zlib1g-dev
-      - name: Resolve engine version
-        id: version
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-            version="${GITHUB_REF_NAME#koreanfa-engine-v}"
-          else
-            version="${{ inputs.engine_version }}"
-          fi
-          echo "value=$version" >> "$GITHUB_OUTPUT"
+          sudo apt-get install --yes autoconf automake build-essential ca-certificates curl gettext gfortran libtool libtool-bin sox \
+            libsndfile1-dev pkg-config zlib1g-dev
       - name: Build engine archive
-        run: bash engine/build_linux_x86_64.sh "$RUNNER_TEMP/koreanfa-engine" "${{ steps.version.outputs.value }}"
+        run: bash engine/build_linux_x86_64.sh "$RUNNER_TEMP/koreanfa-engine" "$ENGINE_VERSION"
+      - name: Record archive checksum
+        run: |
+          cd "$RUNNER_TEMP/koreanfa-engine"
+          sha256sum "koreanfa-engine-v$ENGINE_VERSION-linux-x86_64.tar.gz" \
+            > "koreanfa-engine-v$ENGINE_VERSION-linux-x86_64.tar.gz.sha256"
       - name: Smoke-test engine archive
-        run: python3 engine/verify_linux_x86_64.py "$RUNNER_TEMP/koreanfa-engine/koreanfa-engine-v${{ steps.version.outputs.value }}-linux-x86_64.tar.gz"
+        run: python3 engine/verify_linux_x86_64.py "$RUNNER_TEMP/koreanfa-engine/koreanfa-engine-v$ENGINE_VERSION-linux-x86_64.tar.gz"
       - name: Verify Korean and Japanese alignment with the bundled engine
         env:
-          ENGINE_VERSION: ${{ steps.version.outputs.value }}
           ENGINE_CACHE: ${{ runner.temp }}/koreanfa-engine-cache
         run: |
           python -m pip install .
@@ -70,16 +65,12 @@ jobs:
               assert kor.textgrid.is_file()
               assert jap.textgrid.is_file()
           PY
-      - uses: actions/upload-artifact@v4
+      - name: Upload verified candidate
+        uses: actions/upload-artifact@v4
         with:
-          name: koreanfa-engine-v${{ steps.version.outputs.value }}-linux-x86_64
-          path: ${{ runner.temp }}/koreanfa-engine/*
+          name: koreanfa-engine-v${{ env.ENGINE_VERSION }}-linux-x86_64
+          path: |
+            ${{ runner.temp }}/koreanfa-engine/*.tar.gz
+            ${{ runner.temp }}/koreanfa-engine/*.sha256
           if-no-files-found: error
-      - name: Publish immutable GitHub Release
-        if: github.ref_type == 'tag'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/koreanfa-engine"/* \
-            --title "KoreanFA engine ${{ steps.version.outputs.value }}" \
-            --notes "Linux x86_64 Kaldi and MeCab runtime for KoreanFA."
+          retention-days: 14
