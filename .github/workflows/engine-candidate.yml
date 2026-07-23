@@ -1,12 +1,26 @@
 name: Build Linux engine candidate
 
-# This workflow is deliberately manual. It creates a verified, downloadable
-# candidate artifact, but cannot create a tag, GitHub Release, or PyPI upload.
+# This workflow validates native-engine changes before a PR is merged. It can
+# also be run manually after merge, but cannot create a tag, GitHub Release,
+# or PyPI upload.
 on:
+  pull_request:
+    branches: [master]
+    paths:
+      - ".github/workflows/engine-candidate.yml"
+      - "engine/**"
+      - "forced_align.sh"
+      - "path.sh"
+      - "runtime/**"
+      - "model/**"
+      - "koreanfa/**"
+      - "example/**"
+      - "pyproject.toml"
+      - "setup.py"
   workflow_dispatch:
 
 concurrency:
-  group: linux-engine-candidate-${{ github.ref }}
+  group: linux-engine-candidate-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: false
 
 permissions:

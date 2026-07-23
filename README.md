@@ -152,10 +152,11 @@ engine.
 - `model/`: Korean and Japanese acoustic models
 - `engine/`: reproducible Linux engine builder and archive verifier
 
-The Linux engine workflow is a manual candidate build. It builds and verifies
-the `0.3.0` archive, then retains both the archive and its SHA-256 file as a
-GitHub Actions artifact for 14 days. It does not create a tag, GitHub Release,
-or PyPI publication.
+The Linux engine workflow runs for engine-related pull requests targeting
+`master` and can also be started manually. It builds and verifies the `0.3.0`
+archive, then retains both the archive and its SHA-256 file as a GitHub Actions
+artifact for 14 days. It does not create a tag, GitHub Release, or PyPI
+publication.
 
 The legacy Docker/Web API implementation is preserved in the `docker_api`
 branch and the `docker-api-v1.7.0` tag.

@@ -146,9 +146,10 @@ koreanfa engine remove --yes     # 호환 엔진 삭제
 - `model/`: 한국어·일본어 음향 모델
 - `engine/`: Linux 엔진 재현 빌더와 archive 검증기
 
-Linux 엔진 workflow는 수동 후보 빌드입니다. `0.3.0` archive를 만들고 한국어·일본어
-정렬까지 검증한 뒤, archive와 SHA-256 파일을 GitHub Actions artifact로 14일 동안
-보관합니다. 이 workflow는 tag, GitHub Release, PyPI 배포를 만들지 않습니다.
+Linux 엔진 workflow는 `master` 대상 PR에서 엔진 관련 파일이 바뀌면 자동으로 후보 빌드를
+실행하며, 수동 실행도 지원합니다. `0.3.0` archive를 만들고 한국어·일본어 정렬까지
+검증한 뒤, archive와 SHA-256 파일을 GitHub Actions artifact로 14일 동안 보관합니다.
+이 workflow는 tag, GitHub Release, PyPI 배포를 만들지 않습니다.
 
 기존 Docker/Web API 버전은 `docker_api` 브랜치와 `docker-api-v1.7.0` 태그에 보존돼
 있습니다.
