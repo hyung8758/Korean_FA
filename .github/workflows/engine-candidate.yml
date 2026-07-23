@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 env:
-  ENGINE_VERSION: "0.3.0"
+  ENGINE_VERSION: "2.0.0"
 
 jobs:
   build-linux-x86_64:

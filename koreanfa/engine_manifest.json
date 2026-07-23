@@ -2,7 +2,7 @@
   "schema_version": 1,
   "engines": {
     "linux-x86_64": {
-      "version": "0.3.0",
+      "version": "2.0.0",
       "url": null,
       "sha256": null
     }
