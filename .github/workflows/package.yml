@@ -1,9 +1,19 @@
-name: Package
+name: Python package CI
 
 on:
-  pull_request:
   push:
-    branches: [master, feat/pip-package-foundation]
+    branches: [feat/pip-package-foundation]
+  pull_request:
+    branches: [master]
+
+# A PR and a branch push from the same source branch share one queue. A newer
+# commit therefore cancels an obsolete run instead of consuming another runner.
+concurrency:
+  group: python-package-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   test-and-build:
@@ -16,4 +26,29 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install . pytest
       - run: python -m pytest
-      - run: python -m pip wheel --no-deps . --wheel-dir dist
+      - name: Build wheel
+        run: python -m pip wheel --no-deps . --wheel-dir dist
+      - name: Install the built wheel in an isolated environment
+        run: |
+          python -m venv "$RUNNER_TEMP/koreanfa-wheel-check"
+          "$RUNNER_TEMP/koreanfa-wheel-check/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/koreanfa-wheel-check/bin/pip" install dist/*.whl
+          (
+            cd "$RUNNER_TEMP"
+            "$RUNNER_TEMP/koreanfa-wheel-check/bin/python" - <<'PY'
+          from koreanfa import __version__
+          from koreanfa.resources import runtime_root
+
+          root = runtime_root()
+          for relative in ("forced_align.sh", "pipeline/text2lexicon.py", "model/kor_model/final.mdl", "model/jap_model/final.mdl"):
+              assert (root / relative).exists(), root / relative
+          print(__version__)
+          PY
+          )
+      - name: Save wheel for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: koreanfa-wheel-py312
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 14
