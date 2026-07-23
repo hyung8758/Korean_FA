@@ -18,7 +18,7 @@ engine_version=$2
 platform=linux-x86_64
 kaldi_revision=e02e35f0254bb033fab73d1df99fc34123e31d56
 openfst_version=1.8.4
-openfst_url=https://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.8.4.tar.gz
+openfst_url=https://storage.googleapis.com/rime-public/mirror/openfst-1.8.4.tar.gz
 openfst_sha256=a8ebbb6f3d92d07e671500587472518cfc87cb79b9a654a5a8abb2d0eb298016
 openblas_revision=d2b11c47774b9216660e76e2fc67e87079f26fa1
 mecab_revision=cd22ce53d855a1cda1acfcb680c9e82c5de39a94
@@ -46,11 +46,11 @@ openblas_root="$work_directory/openblas"
 git clone --filter=blob:none https://github.com/kaldi-asr/kaldi.git "$kaldi_source"
 git -C "$kaldi_source" checkout --detach "$kaldi_revision"
 
-# Kaldi expects OpenFST 1.8.4.  Download the official source archive directly
-# and verify it before compiling, instead of relying on Kaldi's legacy wget
-# path or an unrelated Git mirror.
+# Kaldi expects OpenFST 1.8.4.  The Rime Labs mirror is the source archive
+# pinned by Bazel Central Registry because openfst.org frequently returns 403
+# to CI runners.  It has the same verified SHA-256 as the official archive.
+# Keep checksum verification instead of relying on Kaldi's legacy wget path.
 curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
-  --user-agent "KoreanFA-engine-builder/${engine_version} (+https://github.com/hyung8758/Korean_FA)" \
   --output "$openfst_archive" "$openfst_url"
 printf '%s  %s\n' "$openfst_sha256" "$openfst_archive" | sha256sum --check --status
 tar --extract --gzip --file "$openfst_archive" --directory "$work_directory"
