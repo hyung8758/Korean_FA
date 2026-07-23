@@ -152,10 +152,10 @@ engine.
 - `model/`: Korean and Japanese acoustic models
 - `engine/`: reproducible Linux engine builder and archive verifier
 
-Pushing a `koreanfa-engine-v*` tag runs the Linux engine workflow. It builds,
-tests Korean and Japanese alignment, and publishes the immutable archive and
-checksum as GitHub Release assets. The matching package release pins their URL
-and SHA-256 in `koreanfa/engine_manifest.json`.
+The Linux engine workflow is a manual candidate build. It builds and verifies
+the `0.3.0` archive, then retains both the archive and its SHA-256 file as a
+GitHub Actions artifact for 14 days. It does not create a tag, GitHub Release,
+or PyPI publication.
 
 The legacy Docker/Web API implementation is preserved in the `docker_api`
 branch and the `docker-api-v1.7.0` tag.
