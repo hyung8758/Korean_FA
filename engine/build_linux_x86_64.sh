@@ -50,6 +50,7 @@ git -C "$kaldi_source" checkout --detach "$kaldi_revision"
 # and verify it before compiling, instead of relying on Kaldi's legacy wget
 # path or an unrelated Git mirror.
 curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+  --user-agent "KoreanFA-engine-builder/${engine_version} (+https://github.com/hyung8758/Korean_FA)" \
   --output "$openfst_archive" "$openfst_url"
 printf '%s  %s\n' "$openfst_sha256" "$openfst_archive" | sha256sum --check --status
 tar --extract --gzip --file "$openfst_archive" --directory "$work_directory"
