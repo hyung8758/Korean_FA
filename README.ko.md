@@ -116,4 +116,5 @@ koreanfa engine remove --yes
 
 ## 라이선스
 
-KoreanFA는 [Apache-2.0](license)으로 배포됩니다.
+KoreanFA 코드 자체는 [Apache-2.0](license)으로 배포됩니다. 포함 소스와 별도
+다운로드되는 엔진의 고지는 [제3자 고지](THIRD_PARTY_NOTICES.md)를 확인하세요.

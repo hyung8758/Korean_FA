@@ -119,4 +119,6 @@ Kaldi runtime instead.
 
 ## License
 
-KoreanFA is licensed under [Apache-2.0](license).
+KoreanFA code is licensed under [Apache-2.0](license). See the
+[third-party notices](THIRD_PARTY_NOTICES.md) for bundled source material and
+the separately downloaded engine.

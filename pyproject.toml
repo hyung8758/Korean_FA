@@ -1,11 +1,15 @@
 [build-system]
-requires = ["setuptools>=69"]
+# PEP 639 SPDX license expressions and ``license-files`` require setuptools
+# 77.0.3 or later.  Pin the build requirement accordingly so every isolated
+# PyPI/CI build interprets the project metadata consistently.
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "koreanfa"
-version = "2.0.0"
+dynamic = ["version"]
 description = "Korean and Japanese forced alignment with a Python API and command-line interface"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=1.26",
@@ -13,7 +17,7 @@ dependencies = [
     "soxr>=0.3",
 ]
 license = "Apache-2.0"
-license-files = ["license"]
+license-files = ["license", "THIRD_PARTY_NOTICES.md"]
 authors = [{ name = "Hyungwon Yang" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -38,6 +42,9 @@ koreanfa = "koreanfa.cli:main"
 [tool.setuptools]
 packages = ["koreanfa"]
 include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "koreanfa._version.__version__"}
 
 [tool.setuptools.package-data]
 koreanfa = ["engine_manifest.json"]
