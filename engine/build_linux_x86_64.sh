@@ -33,6 +33,21 @@ if [[ $(uname -s) != Linux || $(uname -m) != x86_64 ]]; then
   exit 2
 fi
 
+# The manylinux2014 image intentionally installs RPMs with ``tsflags=nodocs``.
+# The workflow restores these two files from the pinned devtoolset GCC RPM
+# before invoking this builder.  Fail before downloading or compiling anything
+# if that preparation step changes or is omitted.
+gcc_runtime_notice=$(find /opt/rh -type f -path '*/share/doc/*gcc-*/COPYING.RUNTIME' -print -quit)
+if [[ -z $gcc_runtime_notice ]]; then
+  echo 'Missing GCC Runtime Library Exception notice; restore devtoolset GCC documentation before building.' >&2
+  exit 1
+fi
+gcc_notice_directory=$(dirname "$gcc_runtime_notice")
+if [[ ! -f $gcc_notice_directory/COPYING3 ]]; then
+  echo "Missing GCC GPLv3 notice beside $gcc_runtime_notice." >&2
+  exit 1
+fi
+
 mkdir -p "$output_directory"
 work_directory=$(mktemp -d)
 trap 'rm -rf "$work_directory"' EXIT
@@ -207,14 +222,7 @@ cp "$work_directory/mecab-ipadic-2.7.0-20070801/COPYING" "$engine_root/licenses/
 # The selected Kaldi programs pull the GCC runtime libraries (libgcc_s,
 # libstdc++, libgfortran, and libquadmath) and zlib into the archive.  Keep
 # their notices with the matching binaries instead of assuming the target
-# Linux distribution provides them.  manylinux2014 supplies the GCC documents
-# from the devtoolset package used by its GCC 10 compiler.
-gcc_runtime_notice=$(find /opt/rh -type f -path '*/share/doc/*gcc-*/COPYING.RUNTIME' -print -quit)
-if [[ -z $gcc_runtime_notice ]]; then
-  echo 'Could not locate the GCC Runtime Library Exception in the build image.' >&2
-  exit 1
-fi
-gcc_notice_directory=$(dirname "$gcc_runtime_notice")
+# Linux distribution provides them.
 {
   cat "$gcc_notice_directory/COPYING3"
   printf '\n\n--- GCC Runtime Library Exception 3.1 ---\n\n'

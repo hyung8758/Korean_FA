@@ -51,6 +51,14 @@ jobs:
             bash -lc '
               set -euo pipefail
               yum install -y autoconf automake ca-certificates curl gcc gcc-c++ gcc-gfortran gettext-devel git libtool make patch perl pkgconfig tar which zlib-devel
+              # manylinux2014 sets tsflags=nodocs, but the redistributed GCC
+              # runtime needs its GPLv3 and Runtime Library Exception notices.
+              # Reinstalling this pinned image package with documentation
+              # enabled restores those files deterministically.
+              yum --setopt=tsflags= reinstall -y devtoolset-10-gcc
+              gcc_runtime_notice=$(find /opt/rh -type f -path "*/share/doc/*gcc-*/COPYING.RUNTIME" -print -quit)
+              test -n "$gcc_runtime_notice"
+              test -f "$(dirname "$gcc_runtime_notice")/COPYING3"
               export PATH="/opt/python/cp312-cp312/bin:$PATH"
               bash engine/build_linux_x86_64.sh /output "$ENGINE_VERSION"
             '
