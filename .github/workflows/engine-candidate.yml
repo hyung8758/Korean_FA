@@ -1,19 +1,33 @@
 name: Build Linux engine candidate
 
-# This workflow is deliberately manual. It creates a verified, downloadable
-# candidate artifact, but cannot create a tag, GitHub Release, or PyPI upload.
+# This workflow validates native-engine changes before a PR is merged. It can
+# also be run manually after merge, but cannot create a tag, GitHub Release,
+# or PyPI upload.
 on:
+  pull_request:
+    branches: [master]
+    paths:
+      - ".github/workflows/engine-candidate.yml"
+      - "engine/**"
+      - "forced_align.sh"
+      - "path.sh"
+      - "runtime/**"
+      - "model/**"
+      - "koreanfa/**"
+      - "example/**"
+      - "pyproject.toml"
+      - "setup.py"
   workflow_dispatch:
 
 concurrency:
-  group: linux-engine-candidate-${{ github.ref }}
-  cancel-in-progress: false
+  group: linux-engine-candidate-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 env:
-  ENGINE_VERSION: "0.3.0"
+  ENGINE_VERSION: "2.0.0"
 
 jobs:
   build-linux-x86_64:
@@ -23,13 +37,32 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install native build dependencies
+      - name: Build engine archive in the manylinux2014 (glibc 2.17) builder
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes autoconf automake build-essential ca-certificates curl gettext gfortran libtool libtool-bin sox \
-            libsndfile1-dev pkg-config zlib1g-dev
-      - name: Build engine archive
-        run: bash engine/build_linux_x86_64.sh "$RUNNER_TEMP/koreanfa-engine" "$ENGINE_VERSION"
+          mkdir -p "$RUNNER_TEMP/koreanfa-engine"
+          docker run --rm \
+            --env ENGINE_VERSION="$ENGINE_VERSION" \
+            --env KOREANFA_GLIBC_BASELINE=2.17 \
+            --env KOREANFA_BUILD_JOBS=4 \
+            --volume "$GITHUB_WORKSPACE:/workspace:ro" \
+            --volume "$RUNNER_TEMP/koreanfa-engine:/output" \
+            --workdir /workspace \
+            quay.io/pypa/manylinux2014_x86_64@sha256:0d25b049964b2549b83384036abdff06789a8c0b1e9ff003ec80f0d531f79e50 \
+            bash -lc '
+              set -euo pipefail
+              yum install -y autoconf automake ca-certificates curl gcc gcc-c++ gcc-gfortran gettext-devel git libtool make patch perl pkgconfig tar which zlib-devel
+              # manylinux2014 sets tsflags=nodocs, but the redistributed GCC
+              # runtime needs its GPLv3 and Runtime Library Exception notices.
+              # Reinstalling this pinned image package with documentation
+              # enabled restores those files deterministically.
+              yum --setopt=tsflags= reinstall -y devtoolset-10-gcc
+              gcc_runtime_notice=$(find /opt/rh -type f -path "*/share/doc/*gcc-*/COPYING.RUNTIME" -print -quit)
+              test -n "$gcc_runtime_notice"
+              test -f "$(dirname "$gcc_runtime_notice")/COPYING3"
+              export PATH="/opt/python/cp312-cp312/bin:$PATH"
+              bash engine/build_linux_x86_64.sh /output "$ENGINE_VERSION"
+            '
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/koreanfa-engine"
       - name: Record archive checksum
         run: |
           cd "$RUNNER_TEMP/koreanfa-engine"

@@ -1,13 +1,40 @@
 import hashlib
 import json
 import tarfile
+from contextlib import contextmanager
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
+from typing import Iterator
 
 import pytest
 
 from koreanfa import api
 from koreanfa.engine import install, remove, status
 from koreanfa.errors import EngineNotFoundError, EngineUnavailableError
+
+
+class _QuietArchiveHandler(SimpleHTTPRequestHandler):
+    """Serve a test archive without writing request logs during pytest."""
+
+    def log_message(self, format: str, *args: object) -> None:
+        return None
+
+
+@contextmanager
+def _serve_directory(directory: Path) -> Iterator[str]:
+    handler = partial(_QuietArchiveHandler, directory=str(directory))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        yield f"http://{host}:{port}"
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
 
 
 def _write_engine_archive(tmp_path: Path) -> tuple[Path, str]:
@@ -43,11 +70,16 @@ def _write_engine_archive(tmp_path: Path) -> tuple[Path, str]:
     return archive, checksum
 
 
-def _write_manifest(tmp_path: Path, archive: Path, checksum: str) -> Path:
+def _write_manifest(tmp_path: Path, archive: Path, checksum: str, *, url: str | None = None) -> Path:
     platform = status().platform
     manifest = tmp_path / "manifest.json"
     manifest.write_text(
-        json.dumps({"schema_version": 1, "engines": {platform: {"version": "test-1", "url": archive.as_uri(), "sha256": checksum}}}),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "engines": {platform: {"version": "test-1", "url": url or archive.as_uri(), "sha256": checksum}},
+            }
+        ),
         encoding="utf-8",
     )
     return manifest
@@ -68,12 +100,49 @@ def test_engine_install_verifies_and_locates_runtime(tmp_path: Path) -> None:
     assert remove(engine_home=tmp_path / "cache", manifest_path=manifest) is True
 
 
+def test_engine_install_downloads_and_verifies_http_archive(tmp_path: Path) -> None:
+    archive, checksum = _write_engine_archive(tmp_path)
+    with _serve_directory(archive.parent) as base_url:
+        manifest = _write_manifest(tmp_path, archive, checksum, url=f"{base_url}/{archive.name}")
+        installed = install(engine_home=tmp_path / "cache", manifest_path=manifest)
+
+    assert installed.installed is True
+    assert installed.root == tmp_path / "cache" / "test-1" / status().platform
+
+
 def test_engine_install_rejects_checksum_mismatch(tmp_path: Path) -> None:
     archive, _ = _write_engine_archive(tmp_path)
     manifest = _write_manifest(tmp_path, archive, "0" * 64)
 
     with pytest.raises(EngineUnavailableError, match="checksum mismatch"):
         install(engine_home=tmp_path / "cache", manifest_path=manifest)
+
+
+def test_force_install_preserves_a_working_engine_when_replacement_fails(tmp_path: Path) -> None:
+    archive, checksum = _write_engine_archive(tmp_path)
+    manifest = _write_manifest(tmp_path, archive, checksum)
+    cache = tmp_path / "cache"
+    install(engine_home=cache, manifest_path=manifest)
+    broken_manifest = tmp_path / "broken-manifest.json"
+    broken_manifest.write_text(
+        json.dumps({"schema_version": 1, "engines": {status().platform: {"version": "test-1", "url": archive.as_uri(), "sha256": "0" * 64}}}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(EngineUnavailableError, match="checksum mismatch"):
+        install(force=True, engine_home=cache, manifest_path=broken_manifest)
+
+    assert status(engine_home=cache, manifest_path=manifest).installed is True
+
+
+def test_engine_status_rejects_missing_japanese_runtime(tmp_path: Path) -> None:
+    archive, checksum = _write_engine_archive(tmp_path)
+    manifest = _write_manifest(tmp_path, archive, checksum)
+    cache = tmp_path / "cache"
+    installed = install(engine_home=cache, manifest_path=manifest)
+    (installed.root / "mecab" / "lib" / "mecab" / "dic" / "ipadic").rmdir()
+
+    assert status(engine_home=cache, manifest_path=manifest).installed is False
 
 
 def test_alignment_runtime_uses_installed_engine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -85,6 +154,22 @@ def test_alignment_runtime_uses_installed_engine(monkeypatch: pytest.MonkeyPatch
     mecab = engine_root / "mecab" / "bin" / "mecab"
     mecab.parent.mkdir(parents=True)
     mecab.write_text("", encoding="utf-8")
+    (engine_root / "mecab" / "lib" / "mecab" / "dic" / "ipadic").mkdir(parents=True)
+    (engine_root / "mecab" / "etc").mkdir(parents=True)
+    (engine_root / "mecab" / "etc" / "mecabrc").write_text("", encoding="utf-8")
+    (engine_root / "lib").mkdir(parents=True)
+    (engine_root / "engine.json").write_text(
+        json.dumps(
+            {
+                "kaldi_dir": "kaldi",
+                "mecab_command": "mecab/bin/mecab",
+                "mecab_dict": "mecab/lib/mecab/dic/ipadic",
+                "mecabrc": "mecab/etc/mecabrc",
+                "library_paths": ["lib"],
+            }
+        ),
+        encoding="utf-8",
+    )
     monkeypatch.setenv("KOREANFA_ENGINE_HOME", str(tmp_path / "cache"))
 
     runtime, environment = api._resolve_kaldi_dir(None)

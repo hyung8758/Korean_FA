@@ -1,8 +1,8 @@
 """Build configuration for KoreanFA's Python distribution.
 
-The Kaldi runtime is deliberately not bundled yet.  Korean/Japanese models
-and the pipeline resources that drive an installed Kaldi runtime are installed
-as data so that a wheel has no dependency on a source checkout.
+The native Kaldi runtime is distributed as a separate, managed engine archive.
+Korean/Japanese models and the pipeline resources that drive that engine are
+installed as data so a wheel has no dependency on a source checkout.
 """
 
 from __future__ import annotations

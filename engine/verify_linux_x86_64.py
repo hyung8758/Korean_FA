@@ -24,6 +24,8 @@ def main() -> int:
             raise RuntimeError("Engine archive must contain exactly one top-level directory.")
         engine = engine_roots[0]
         metadata = json.loads((engine / "engine.json").read_text(encoding="utf-8"))
+        if metadata.get("glibc_baseline") != "2.17":
+            raise RuntimeError("Release engines must be built for the glibc 2.17 baseline.")
         kaldi = engine / metadata["kaldi_dir"] / "src" / "bin" / "ali-to-phones"
         mecab = engine / metadata["mecab_command"]
         dictionary = engine / metadata["mecab_dict"]
@@ -31,6 +33,19 @@ def main() -> int:
         for required in (kaldi, mecab, dictionary, mecabrc):
             if not required.exists():
                 raise RuntimeError(f"Missing required engine path: {required}")
+        required_notices = (
+            "KALDI.txt",
+            "OPENFST.txt",
+            "OPENBLAS.txt",
+            "MECAB.txt",
+            "IPADIC.txt",
+            "GCC-RUNTIME.txt",
+            "ZLIB.txt",
+        )
+        for notice in required_notices:
+            notice_path = engine / "licenses" / notice
+            if not notice_path.is_file() or notice_path.stat().st_size == 0:
+                raise RuntimeError(f"Missing or empty bundled license notice: {notice_path}")
         env = os.environ | {
             "MECABRC": str(mecabrc),
             "LD_LIBRARY_PATH": ":".join(str(engine / path) for path in metadata["library_paths"]),

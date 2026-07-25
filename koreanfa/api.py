@@ -102,18 +102,29 @@ def _align_pairs(
         raise ValueError("At least one of word_tier or phone_tier must be enabled")
     (runtime, engine_env), resources = _resolve_kaldi_dir(kaldi_dir), runtime_root()
     output_dir.mkdir(parents=True, exist_ok=True)
+    staging_output = Path(tempfile.mkdtemp(prefix=".koreanfa-output-", dir=output_dir))
     grouped: dict[str, list[InputPair]] = defaultdict(list)
     for pair in pairs:
         grouped[pair.language].append(pair)
     all_results: list[AlignmentResult] = []
     batch_workdir: Path | None = None
-    for language, group in grouped.items():
-        results, work_dir = _run_language_group(
-            tuple(group), language, output_dir, runtime, engine_env, resources, num_jobs, word_tier, phone_tier, keep_workdir
-        )
-        all_results.extend(results)
-        batch_workdir = work_dir or batch_workdir
-    return BatchAlignmentResult(tuple(sorted(all_results, key=lambda item: str(item.audio))), output_dir, batch_workdir)
+    try:
+        for language, group in grouped.items():
+            results, work_dir = _run_language_group(
+                tuple(group), language, staging_output, runtime, engine_env, resources, num_jobs, word_tier, phone_tier, keep_workdir
+            )
+            all_results.extend(results)
+            batch_workdir = work_dir or batch_workdir
+        published: list[AlignmentResult] = []
+        for result in all_results:
+            relative = result.textgrid.relative_to(staging_output)
+            destination = output_dir / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(result.textgrid, destination)
+            published.append(AlignmentResult(result.audio, result.transcript, destination, result.language, result.work_dir))
+        return BatchAlignmentResult(tuple(sorted(published, key=lambda item: str(item.audio))), output_dir, batch_workdir)
+    finally:
+        shutil.rmtree(staging_output, ignore_errors=True)
 
 
 def _run_language_group(

@@ -15,6 +15,7 @@ import platform
 import shutil
 import tarfile
 import tempfile
+import uuid
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -86,12 +87,11 @@ def install(*, force: bool = False, engine_home: str | Path | None = None, manif
         raise EngineUnavailableError(
             f"An incomplete KoreanFA engine exists at {target}. Run 'koreanfa engine install --force' to replace it."
         )
-    if target.exists() and force:
-        shutil.rmtree(target)
-
     home.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix="koreanfa-engine-", dir=home))
     archive = staging / "engine.tar.gz"
+    replacement = target.parent / f".{target.name}.new-{uuid.uuid4().hex}"
+    backup: Path | None = None
     try:
         _download(spec.url, archive)
         _verify_checksum(archive, spec.sha256)
@@ -100,12 +100,26 @@ def install(*, force: bool = False, engine_home: str | Path | None = None, manif
         _safe_extract(archive, extracted)
         source = _find_engine_root(extracted)
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(source), str(target))
+        shutil.move(str(source), str(replacement))
+        candidate = _status_from_root(spec, replacement)
+        if not candidate.installed:
+            raise EngineNotFoundError(f"Downloaded KoreanFA engine is invalid: {replacement}")
+        if target.exists():
+            backup = target.parent / f".{target.name}.backup-{uuid.uuid4().hex}"
+            target.rename(backup)
+        try:
+            replacement.rename(target)
+        except Exception:
+            if backup and backup.exists():
+                backup.rename(target)
+            raise
     except Exception:
-        shutil.rmtree(target, ignore_errors=True)
+        shutil.rmtree(replacement, ignore_errors=True)
         raise
     finally:
         shutil.rmtree(staging, ignore_errors=True)
+        if backup and backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
 
     installed = _status_for(spec, home)
     if not installed.installed:
@@ -190,36 +204,47 @@ def _engine_home(override: str | Path | None = None) -> Path:
 
 def _status_for(spec: EngineSpec, home: Path) -> EngineStatus:
     root = home / spec.version / spec.platform
+    return _status_from_root(spec, root)
+
+
+def _status_from_root(spec: EngineSpec, root: Path) -> EngineStatus:
     metadata_path = root / "engine.json"
-    kaldi_dir = root / "kaldi"
-    mecab_command: Path | None = root / "mecab" / "bin" / "mecab"
-    mecab_dict: Path | None = root / "mecab" / "lib" / "mecab" / "dic" / "ipadic"
-    mecabrc: Path | None = root / "mecab" / "etc" / "mecabrc"
-    library_paths = (root / "kaldi" / "src" / "lib", root / "kaldi" / "tools" / "openfst" / "lib")
-    if metadata_path.is_file():
+    if not metadata_path.is_file():
+        return _missing_status(spec, root)
+    try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        kaldi_dir = root / metadata.get("kaldi_dir", "kaldi")
-        command = metadata.get("mecab_command")
-        mecab_command = root / command if command else None
-        dictionary = metadata.get("mecab_dict")
-        mecab_dict = root / dictionary if dictionary else None
-        rc_file = metadata.get("mecabrc")
-        mecabrc = root / rc_file if rc_file else None
-        library_paths = tuple(root / path for path in metadata.get("library_paths", []))
-    valid_kaldi = (kaldi_dir / "src" / "bin" / "ali-to-phones").is_file()
-    if not valid_kaldi:
-        return EngineStatus(spec.platform, spec.version, root, False, None, None, None, None, ())
+        kaldi_dir = root / str(metadata["kaldi_dir"])
+        mecab_command = root / str(metadata["mecab_command"])
+        mecab_dict = root / str(metadata["mecab_dict"])
+        mecabrc = root / str(metadata["mecabrc"])
+        library_paths = tuple(root / str(path) for path in metadata["library_paths"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError):
+        return _missing_status(spec, root)
+    required = (
+        (kaldi_dir / "src" / "bin" / "ali-to-phones").is_file(),
+        mecab_command.is_file(),
+        mecab_dict.is_dir(),
+        mecabrc.is_file(),
+        bool(library_paths),
+        all(path.is_dir() for path in library_paths),
+    )
+    if not all(required):
+        return _missing_status(spec, root)
     return EngineStatus(
         spec.platform,
         spec.version,
         root,
         True,
         kaldi_dir,
-        mecab_command if mecab_command and mecab_command.is_file() else None,
-        mecab_dict if mecab_dict and mecab_dict.is_dir() else None,
-        mecabrc if mecabrc and mecabrc.is_file() else None,
-        tuple(path for path in library_paths if path.is_dir()),
+        mecab_command,
+        mecab_dict,
+        mecabrc,
+        library_paths,
     )
+
+
+def _missing_status(spec: EngineSpec, root: Path) -> EngineStatus:
+    return EngineStatus(spec.platform, spec.version, root, False, None, None, None, None, ())
 
 
 def _download(url: str, destination: Path) -> None:
