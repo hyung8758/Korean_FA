@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.input.is_dir():
             options["recursive"] = args.recursive
             options["strict"] = not args.allow_unmatched
-        result = aligner.align(args.input, args.transcript, **options)
+        result = aligner.align(args.input, getattr(args, "transcript", None), **options)
         if hasattr(result, "results"):
             for item in result.results:
                 print(item.textgrid)
