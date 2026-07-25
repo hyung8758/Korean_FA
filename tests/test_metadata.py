@@ -24,6 +24,7 @@ def test_engine_candidate_uses_the_supported_glibc_baseline() -> None:
 
     assert "quay.io/pypa/manylinux2014_x86_64" in workflow
     assert "KOREANFA_GLIBC_BASELINE=2.17" in workflow
+    assert "yum --setopt=tsflags= reinstall -y devtoolset-10-gcc" in workflow
 
 
 def test_release_legal_documents_are_declared_in_package_metadata() -> None:

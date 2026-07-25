@@ -33,6 +33,19 @@ def main() -> int:
         for required in (kaldi, mecab, dictionary, mecabrc):
             if not required.exists():
                 raise RuntimeError(f"Missing required engine path: {required}")
+        required_notices = (
+            "KALDI.txt",
+            "OPENFST.txt",
+            "OPENBLAS.txt",
+            "MECAB.txt",
+            "IPADIC.txt",
+            "GCC-RUNTIME.txt",
+            "ZLIB.txt",
+        )
+        for notice in required_notices:
+            notice_path = engine / "licenses" / notice
+            if not notice_path.is_file() or notice_path.stat().st_size == 0:
+                raise RuntimeError(f"Missing or empty bundled license notice: {notice_path}")
         env = os.environ | {
             "MECABRC": str(mecabrc),
             "LD_LIBRARY_PATH": ":".join(str(engine / path) for path in metadata["library_paths"]),
