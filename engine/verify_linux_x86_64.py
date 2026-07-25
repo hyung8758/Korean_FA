@@ -24,6 +24,8 @@ def main() -> int:
             raise RuntimeError("Engine archive must contain exactly one top-level directory.")
         engine = engine_roots[0]
         metadata = json.loads((engine / "engine.json").read_text(encoding="utf-8"))
+        if metadata.get("glibc_baseline") != "2.17":
+            raise RuntimeError("Release engines must be built for the glibc 2.17 baseline.")
         kaldi = engine / metadata["kaldi_dir"] / "src" / "bin" / "ali-to-phones"
         mecab = engine / metadata["mecab_command"]
         dictionary = engine / metadata["mecab_dict"]
