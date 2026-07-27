@@ -1,0 +1,182 @@
+name: Publish KoreanFA package
+
+# This workflow never runs on push, pull request, or tag creation. A maintainer
+# must select the immutable vX.Y.Z tag in Actions and explicitly request a
+# dry-run or PyPI publication.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version without the v prefix (for example, 2.0.0)"
+        required: true
+        type: string
+      publish:
+        description: "Publish to PyPI after every verification step succeeds"
+        required: true
+        default: false
+        type: boolean
+
+run-name: KoreanFA ${{ inputs.version }} (publish=${{ inputs.publish }})
+
+concurrency:
+  group: koreanfa-package-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  verify:
+    name: Verify tagged package
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the selected version tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          expected_ref="refs/tags/v${VERSION}"
+          test "${GITHUB_REF_TYPE}" = "tag"
+          test "${GITHUB_REF}" = "${expected_ref}"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Require tag and package versions to match
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          test "$(git describe --exact-match --tags HEAD)" = "v${VERSION}"
+          python -m pip install --upgrade pip
+          python -m pip install .
+          test "$(python -c 'from koreanfa import __version__; print(__version__)')" = "${VERSION}"
+
+      - name: Run unit tests
+        run: |
+          python -m pip install build pytest twine
+          python -m pytest
+
+      - name: Build and validate distributions
+        run: |
+          set -euo pipefail
+          python -m build --outdir dist
+          twine check dist/*
+          python - <<'PY'
+          from pathlib import Path
+
+          maximum_size = 100 * 1024 * 1024
+          for artifact in Path("dist").iterdir():
+              assert artifact.stat().st_size < maximum_size, (
+                  f"PyPI default file limit exceeded: {artifact}"
+              )
+          PY
+
+      - name: Install the wheel and exercise the documented API and CLI
+        run: |
+          set -euo pipefail
+          wheel_venv="$RUNNER_TEMP/koreanfa-release-wheel"
+          engine_home="$RUNNER_TEMP/koreanfa-release-engine"
+          output="$RUNNER_TEMP/koreanfa-release-output"
+          python -m venv "$wheel_venv"
+          "$wheel_venv/bin/python" -m pip install --upgrade pip
+          "$wheel_venv/bin/python" -m pip install dist/*.whl
+          "$wheel_venv/bin/python" -m pip check
+
+          for relative in \
+            forced_align.sh \
+            runtime/pipeline/main_fa.sh \
+            model/kor_model/final.mdl \
+            model/kor_model/NOTICE.md \
+            model/jap_model/final.mdl \
+            model/jap_model/NOTICE.md; do
+            "$wheel_venv/bin/python" - "$relative" <<'PY'
+          import sys
+          from koreanfa.resources import runtime_root
+
+          resource = runtime_root() / sys.argv[1]
+          assert resource.exists(), resource
+          PY
+          done
+
+          KOREANFA_ENGINE_HOME="$engine_home" "$wheel_venv/bin/koreanfa" engine install
+          KOREANFA_ENGINE_HOME="$engine_home" \
+            KOREANFA_RELEASE_OUTPUT="$output" \
+            "$wheel_venv/bin/python" - <<'PY'
+          import os
+          from pathlib import Path
+
+          from koreanfa import Aligner, align, align_directory
+
+          root = Path.cwd()
+          output = Path(os.environ["KOREANFA_RELEASE_OUTPUT"])
+          korean = root / "example" / "kor_files"
+          japanese = root / "example" / "jap_files"
+
+          assert align(
+              korean / "fv01_t01_s01.wav",
+              korean / "fv01_t01_s01.txt",
+              output_dir=output / "api-kor-single",
+          ).textgrid.is_file()
+          assert len(align_directory(korean, output_dir=output / "api-kor-dir").results) == 3
+
+          japanese_wav = japanese / "csj-0001-me-0001.wav"
+          assert align(
+              japanese_wav,
+              japanese_wav.with_suffix(".txt"),
+              output_dir=output / "api-jap-single",
+          ).textgrid.is_file()
+          assert len(Aligner().align(japanese, output_dir=output / "api-jap-dir").results) == 5
+          PY
+
+          KOREANFA_ENGINE_HOME="$engine_home" "$wheel_venv/bin/koreanfa" align \
+            example/kor_files/fv01_t01_s01.wav \
+            example/kor_files/fv01_t01_s01.txt \
+            --output-dir "$output/cli-kor-single"
+          KOREANFA_ENGINE_HOME="$engine_home" "$wheel_venv/bin/koreanfa" align \
+            example/kor_files --output-dir "$output/cli-kor-dir"
+          KOREANFA_ENGINE_HOME="$engine_home" "$wheel_venv/bin/koreanfa" align \
+            example/jap_files/csj-0001-me-0001.wav \
+            example/jap_files/csj-0001-me-0001.txt \
+            --output-dir "$output/cli-jap-single"
+          KOREANFA_ENGINE_HOME="$engine_home" "$wheel_venv/bin/koreanfa" align \
+            example/jap_files --output-dir "$output/cli-jap-dir"
+          test "$(find "$output" -type f -name '*.TextGrid' | wc -l)" -eq 20
+
+      - name: Save verified distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: koreanfa-${{ inputs.version }}-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish verified distributions to PyPI
+    needs: verify
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/project/koreanfa/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: koreanfa-${{ inputs.version }}-distributions
+          path: dist
+
+      - name: Publish to PyPI with Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
