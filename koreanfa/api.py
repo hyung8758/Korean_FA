@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from collections import defaultdict
 from pathlib import Path
@@ -147,7 +148,12 @@ def _run_language_group(
         if not phone_tier: command.append("-np")
         command.append(str(input_dir))
         env = os.environ.copy()
-        env.update({"KOREANFA_KALDI_DIR": str(runtime), "KOREANFA_LOG_DIR": str(log_dir), "KOREANFA_LANG": language})
+        env.update({
+            "KOREANFA_KALDI_DIR": str(runtime),
+            "KOREANFA_LOG_DIR": str(log_dir),
+            "KOREANFA_LANG": language,
+            "KOREANFA_PYTHON_EXECUTABLE": sys.executable,
+        })
         for key, value in engine_env.items():
             if key == "LD_LIBRARY_PATH":
                 env[key] = ":".join(filter(None, (value, env.get(key))))
