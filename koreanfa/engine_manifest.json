@@ -3,8 +3,8 @@
   "engines": {
     "linux-x86_64": {
       "version": "2.0.0",
-      "url": null,
-      "sha256": null
+      "url": "https://github.com/hyung8758/Korean_FA/releases/download/koreanfa-engine-v2.0.0/koreanfa-engine-v2.0.0-linux-x86_64.tar.gz",
+      "sha256": "df54fb8fa903db7c925e6e0469eb592efb2027c0550691ab6af445e7f7326314"
     }
   }
 }
