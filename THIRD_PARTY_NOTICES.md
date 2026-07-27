@@ -13,6 +13,21 @@ the applicable upstream licence texts.
   for Tokyo Institute of Technology and Mitsubishi Electric Research
   Laboratories are retained in the source file.
 
+## Python runtime dependencies
+
+Korean pronunciation conversion is installed as a normal Python dependency,
+not copied into the KoreanFA wheel:
+
+- **`ko-speech-tools` 0.1.0** — Apache License 2.0. Korean G2P implementation
+  adapted by its upstream project from Apache-licensed sources; its wheel
+  contains its own third-party notices, including CMUdict reader attribution.
+- **`mecab-ko`** — MeCab Korean Python binding. KoreanFA uses its BSD licence
+  option; its installed distribution retains the upstream MeCab notices.
+- **`mecab-ko-dic`** — Apache License 2.0 Korean MeCab dictionary package.
+
+These dependencies are distinct from the Japanese MeCab and IPADIC resources
+contained in the managed Linux engine below.
+
 ## Linux engine (`koreanfa engine install`)
 
 The separately downloaded engine archive is a different distributable from the

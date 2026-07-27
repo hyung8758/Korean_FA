@@ -100,6 +100,8 @@ for result in batch.results:
 - WAV마다 짝이 되는 UTF-8 `.txt` 전사가 필요합니다.
 - TXT 한 파일에는 한 문장을 넣는 방식을 권장합니다.
 - 음성은 임시 작업 공간에서 mono, 16 kHz PCM WAV로 정규화됩니다.
+- 한국어 발음 변환에는 `ko-speech-tools`와 한국어 MeCab 사전이 패키지 의존성으로
+  함께 설치되므로, 별도의 한국어 G2P 설치는 필요하지 않습니다.
 - 일본어 정렬에 필요한 MeCab과 IPADIC은 관리형 엔진에 포함됩니다.
 
 ## 엔진 관리
@@ -116,5 +118,8 @@ koreanfa engine remove --yes
 
 ## 라이선스
 
-KoreanFA 코드 자체는 [Apache-2.0](license)으로 배포됩니다. 포함 소스와 별도
-다운로드되는 엔진의 고지는 [제3자 고지](THIRD_PARTY_NOTICES.md)를 확인하세요.
+KoreanFA 코드와 일본어 음향 모델은 [Apache-2.0](license)으로 배포됩니다.
+한국어 음향 모델은 Mediazen의 proprietary 자산으로 KoreanFA에서만 사용할 수
+있으며, 이용 조건은 [모델 고지](model/kor_model/NOTICE.md)를 확인하세요. 포함
+소스와 별도 다운로드되는 엔진의 고지는 [제3자 고지](THIRD_PARTY_NOTICES.md)를
+확인하세요.
