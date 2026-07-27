@@ -101,6 +101,9 @@ for result in batch.results:
 - Each WAV file needs a matching UTF-8 `.txt` transcript.
 - One sentence per transcript is recommended.
 - Audio is normalized to mono 16 kHz PCM WAV in a temporary workspace.
+- Korean pronunciation conversion is provided by the package dependency
+  `ko-speech-tools` and its Korean MeCab dictionary; no separate Korean G2P
+  installation is required.
 - Japanese support includes the required MeCab and IPADIC resources in the
   managed engine.
 
@@ -119,6 +122,9 @@ Kaldi runtime instead.
 
 ## License
 
-KoreanFA code is licensed under [Apache-2.0](license). See the
+KoreanFA code and the Japanese acoustic model are licensed under
+[Apache-2.0](license). The Korean acoustic model is proprietary to Mediazen
+and may be used only as part of KoreanFA; see its
+[model notice](model/kor_model/NOTICE.md). See the
 [third-party notices](THIRD_PARTY_NOTICES.md) for bundled source material and
 the separately downloaded engine.

@@ -94,9 +94,9 @@ cat $raw_sent_dir/$txt_rename >> $log_dir/process.$log_name.log
 ## For Generating new_lexicon file.
 # g2p conversion.
 echo "Initiating g2p process." >> $log_dir/process.$log_name.log
-for div in $words; do
-	python runtime/pipeline/g2p.py $div >> $prono_dir/prono_list
-done
+"${KOREANFA_PYTHON_EXECUTABLE:-python}" -m koreanfa._korean_g2p \
+	--input "$raw_sent_dir/$txt_rename" \
+	--output "$prono_dir/prono_list" >> "$log_dir/process.$log_name.log" || exit 1
 paste -d ' ' $raw_sent_dir/$txt_rename $prono_dir/prono_list >> $prono_dir/tmp_lexicon.txt
 cat $prono_dir/tmp_lexicon.txt | sort -u > $dict_dir/lexicon.txt
 echo "Lexicon: " >> $log_dir/process.$log_name.log

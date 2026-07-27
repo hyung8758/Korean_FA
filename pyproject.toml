@@ -12,12 +12,13 @@ description = "Korean and Japanese forced alignment with a Python API and comman
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "ko-speech-tools[g2p]==0.1.0",
     "numpy>=1.26",
     "soundfile>=0.12",
     "soxr>=0.3",
 ]
-license = "Apache-2.0"
-license-files = ["license", "THIRD_PARTY_NOTICES.md"]
+license = "Apache-2.0 AND LicenseRef-Proprietary"
+license-files = ["license", "THIRD_PARTY_NOTICES.md", "model/kor_model/NOTICE.md"]
 authors = [{ name = "Hyungwon Yang" }]
 classifiers = [
     "Development Status :: 3 - Alpha",

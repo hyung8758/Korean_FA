@@ -1,0 +1,5 @@
+recursive-include training *.md *.py
+# Tests are maintained in the repository and exercised by CI.  They depend on
+# repository-only fixtures and workflow files, so do not ship an incomplete
+# test suite in the source distribution.
+prune tests

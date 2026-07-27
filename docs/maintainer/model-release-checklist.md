@@ -1,28 +1,32 @@
 # Model release checklist
 
 This is a maintainer release checklist. It is not distributed in the Python
-wheel and is not a public model card.
+wheel and is not a public model notice.
 
-Create a root-level `MODEL_CARD.md` only after the facts below are verified.
-Use the established model-card structure: model summary, intended use,
-limitations, model licence, training-data summary, evaluation, and contact.
+Keep each model's `NOTICE.md` synchronized with the verified facts below.
+Each notice must state its copyright holder, licence or permitted-use terms,
+and any required attribution.
 
 ## Current status: not cleared for public model redistribution
 
-The repository currently contains Korean and Japanese Kaldi model artifacts,
-but it does not record their trainer/owner, training data, or the licence that
-authorizes redistribution. The commit messages that introduced the files do
-not provide this evidence.
+The Korean model's owner, high-level training-data description, and
+proprietary terms are recorded in `model/kor_model/NOTICE.md`. The Japanese
+replacement model has its initial provenance and Apache-2.0 notice recorded in
+`model/jap_model/NOTICE.md`. The Japanese model still needs its reproducibility
+and held-out evaluation records before a final public-model release.
 
 ## Required maintainer confirmations
 
 | Asset | Required record | Status |
 | --- | --- | --- |
-| `model/kor_model/` | Owner or authorized distributor; training procedure; every training/evaluation corpus and its redistribution terms; model-weight licence | **Pending maintainer confirmation** |
-| `model/jap_model/` | Owner or authorized distributor; training procedure; every training/evaluation corpus and its redistribution terms; model-weight licence | **Pending maintainer confirmation** |
-| `runtime/pipeline/kor/data/lang/rulebook.txt` | Copyright holder and licence or written permission allowing redistribution | **Pending maintainer confirmation** |
+| `model/kor_model/` | Mediazen-owned model; approximately 1,000 hours of Mediazen-collected Korean spontaneous/read speech; proprietary KoreanFA-only use, no modification or redistribution without written permission | **Maintainer confirmation recorded in `model/kor_model/NOTICE.md`** |
+| replacement `model/jap_model/` | Common Voice Scripted Speech 26.0 Japanese (`cmqim4lxy00tunr07cjkcupeg`), `validated.tsv` only; exact training command, archive SHA-256, held-out evaluation, and Apache-2.0 model notice | **Replacement and functional validation complete; reproducibility and held-out evaluation pending** |
 
-## Before creating `MODEL_CARD.md`
+The former KoG2P `g2p.py` and `rulebook.txt` are not shipped. Korean
+pronunciation conversion now uses the Apache-2.0 `ko-speech-tools` dependency;
+see `THIRD_PARTY_NOTICES.md` for the accompanying runtime dependencies.
+
+## Before a public release
 
 For each model, record a stable source URL, DOI, internal record, or written
 permission reference; the exact licence; a confirmation that it permits
