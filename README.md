@@ -28,14 +28,14 @@ macOS and Windows are not supported yet.
 ## Install from source
 
 KoreanFA is not published on PyPI yet. Standard `pip install koreanfa` will
-be available after the upcoming PyPI release. Until then, install the tested
-release source from GitHub on Linux x86_64, then install the matching alignment
-engine once.
+be available after the upcoming PyPI release. Until then, clone the latest
+source from GitHub on Linux x86_64, install it, then install the matching
+alignment engine once.
 
 ```bash
-git clone --branch v2.0.0 --depth 1 https://github.com/hyung8758/Korean_FA.git
+git clone --depth 1 https://github.com/hyung8758/Korean_FA.git
 cd Korean_FA
-python -m pip install .
+pip install .
 koreanfa engine install
 ```
 

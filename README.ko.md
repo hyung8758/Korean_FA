@@ -29,13 +29,12 @@ macOS와 Windows는 아직 지원하지 않습니다.
 
 KoreanFA는 아직 PyPI에 등록되지 않았습니다. 일반적인 `pip install koreanfa`
 방식은 추후 PyPI 배포 후 제공될 예정입니다. 그전까지는 Linux x86_64 환경에서
-GitHub의 검증된 릴리스 소스를 내려받아 설치한 뒤, 호환 엔진을 최초 한 번
-설치하세요.
+GitHub의 최신 소스를 내려받아 설치한 뒤, 호환 엔진을 최초 한 번 설치하세요.
 
 ```bash
-git clone --branch v2.0.0 --depth 1 https://github.com/hyung8758/Korean_FA.git
+git clone --depth 1 https://github.com/hyung8758/Korean_FA.git
 cd Korean_FA
-python -m pip install .
+pip install .
 koreanfa engine install
 ```
 
