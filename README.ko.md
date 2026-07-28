@@ -1,5 +1,9 @@
 # KoreanFA
 
+[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20x86__64-FCC624?logo=linux&logoColor=black)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
+[![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](license)
+
 [English](README.md)
 
 KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 Praat TextGrid를
@@ -21,12 +25,17 @@ KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 P
 
 macOS와 Windows는 아직 지원하지 않습니다.
 
-## 설치
+## 소스 설치
 
-Python 패키지를 설치한 다음, 호환되는 정렬 엔진을 최초 한 번 설치합니다.
+KoreanFA는 아직 PyPI에 등록되지 않았습니다. 일반적인 `pip install koreanfa`
+방식은 추후 PyPI 배포 후 제공될 예정입니다. 그전까지는 Linux x86_64 환경에서
+GitHub의 검증된 릴리스 소스를 내려받아 설치한 뒤, 호환 엔진을 최초 한 번
+설치하세요.
 
 ```bash
-python -m pip install koreanfa
+git clone --branch v2.0.0 --depth 1 https://github.com/hyung8758/Korean_FA.git
+cd Korean_FA
+python -m pip install .
 koreanfa engine install
 ```
 
