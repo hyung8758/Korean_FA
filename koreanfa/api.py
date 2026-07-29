@@ -18,7 +18,7 @@ from .resources import runtime_root
 from .result import AlignmentFailure, AlignmentResult, BatchAlignmentResult, InputPair
 
 
-_LIBRARY_PATH_VARIABLES = frozenset({"LD_LIBRARY_PATH"})
+_LIBRARY_PATH_VARIABLES = frozenset({"LD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"})
 DEFAULT_NUM_JOBS = 4
 ProgressCallback = Callable[[str, int, int, str], None]
 
