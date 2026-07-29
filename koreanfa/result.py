@@ -1,7 +1,5 @@
 """Structured values returned by the public alignment API."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,9 +26,21 @@ class AlignmentResult:
 
 
 @dataclass(frozen=True)
+class AlignmentFailure:
+    """One input pair that the runtime rejected without aborting its batch."""
+
+    audio: Path
+    transcript: Path
+    language: str
+    reason: str
+    work_dir: Path | None = None
+
+
+@dataclass(frozen=True)
 class BatchAlignmentResult:
-    """Results from one directory-level Kaldi invocation."""
+    """Successful results and controlled per-file failures from one batch."""
 
     results: tuple[AlignmentResult, ...]
     output_dir: Path
     work_dir: Path | None = None
+    failures: tuple[AlignmentFailure, ...] = ()

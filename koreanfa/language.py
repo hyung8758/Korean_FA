@@ -1,24 +1,29 @@
 """Language selection for KoreanFA's Korean and Japanese models."""
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
 
 from .errors import PairingError
+from .resources import runtime_root
 
-LANGUAGES = frozenset({"auto", "kor", "jap"})
 HANGUL = re.compile(r"[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]")
 JAPANESE_KANA = re.compile(r"[\u3040-\u30ff\uff66-\uff9f]")
 CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+
+
+def available_languages() -> frozenset[str]:
+    """Return language adapters installed with the runtime resources."""
+    language_root = runtime_root() / "languages"
+    return frozenset(path.name for path in language_root.iterdir() if path.is_dir() and (path / "profile.sh").is_file())
 
 
 def normalize_language(language: str) -> str:
     normalized = language.lower().strip()
     aliases = {"ko": "kor", "korean": "kor", "ja": "jap", "jpn": "jap", "japanese": "jap"}
     normalized = aliases.get(normalized, normalized)
-    if normalized not in LANGUAGES:
-        raise ValueError("lang must be one of: auto, kor, jap")
+    supported = available_languages()
+    if normalized != "auto" and normalized not in supported:
+        raise ValueError("lang must be one of: auto, " + ", ".join(sorted(supported)))
     return normalized
 
 

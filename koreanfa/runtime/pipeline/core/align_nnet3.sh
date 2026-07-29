@@ -88,7 +88,6 @@ ivector_period=$(cat $data/ivector_period) || exit 1;
 ivector_opts="--online-ivectors=scp:$data/ivector_online.scp --online-ivector-period=$ivector_period"
 
 echo "$0: aligning data in $data using model from $srcdir, putting alignments in $dir"
-echo "NICE1"
 frame_subsampling_opt=
 if [ -f $srcdir/frame_subsampling_factor ]; then
   # e.g. for 'chain' systems
@@ -103,7 +102,6 @@ if [ -f $srcdir/frame_subsampling_factor ]; then
     sleep 1
   fi
 fi
-echo "NICE2"
 if [ ! -z "$graphs_scp" ]; then
   if [ ! -f $graphs_scp ]; then
     echo "Could not find graphs $graphs_scp" && exit 1
@@ -114,7 +112,6 @@ else
   tra="ark:runtime/pipeline/core/sym2int.pl --map-oov $oov -f 2- $lang/words.txt $sdata/JOB/text|";
   prog=compile-train-graphs
 fi
-echo "NICE3"
 $cmd $queue_opt JOB=1:$nj $log_dir/align.$data_index.log \
   $prog --read-disambig-syms=$lang/phones/disambig.int $dir/tree \
   $srcdir/${iter}.mdl  $lang/L.fst "$tra" ark:- \| \
@@ -126,7 +123,7 @@ $cmd $queue_opt JOB=1:$nj $log_dir/align.$data_index.log \
   --extra-right-context-final=$extra_right_context_final \
   $gpu_opt --beam=$beam --retry-beam=$retry_beam \
   $srcdir/${iter}.mdl ark:- "$feats" "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
-echo "NICE4"
-steps/diagnostic/analyze_alignments.sh --cmd "$cmd" $lang $dir
+# The packaged runtime intentionally omits Kaldi's optional diagnostic tree.
+# Alignment success is determined by the generated ali.JOB.gz files above.
 
 echo "$0: done aligning data."

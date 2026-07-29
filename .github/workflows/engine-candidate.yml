@@ -9,10 +9,7 @@ on:
     paths:
       - ".github/workflows/engine-candidate.yml"
       - "engine/**"
-      - "forced_align.sh"
-      - "path.sh"
-      - "runtime/**"
-      - "model/**"
+      - "koreanfa/runtime/**"
       - "koreanfa/**"
       - "example/**"
       - "pyproject.toml"

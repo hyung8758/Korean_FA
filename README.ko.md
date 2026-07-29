@@ -29,12 +29,13 @@ macOS와 Windows는 아직 지원하지 않습니다.
 
 KoreanFA는 아직 PyPI에 등록되지 않았습니다. 일반적인 `pip install koreanfa`
 방식은 추후 PyPI 배포 후 제공될 예정입니다. 그전까지는 Linux x86_64 환경에서
-GitHub의 최신 소스를 내려받아 설치한 뒤, 호환 엔진을 최초 한 번 설치하세요.
+GitHub의 검증된 릴리스 소스를 내려받아 설치한 뒤, 호환 엔진을 최초 한 번
+설치하세요.
 
 ```bash
-git clone --depth 1 https://github.com/hyung8758/Korean_FA.git
+git clone --branch v2.1.0 --depth 1 https://github.com/hyung8758/Korean_FA.git
 cd Korean_FA
-pip install .
+python -m pip install .
 koreanfa engine install
 ```
 
@@ -60,24 +61,44 @@ koreanfa align recording.wav recording.txt
 
 ```bash
 koreanfa align corpus
-koreanfa align corpus --recursive --output-dir aligned
+koreanfa align corpus -r -o aligned
 ```
 
 같은 상대 경로와 파일 이름을 가진 파일을 한 쌍으로 처리합니다. 예를 들어
 `session_01.wav`에는 `session_01.txt`가 필요합니다. 기본적으로 짝이 없는 파일이
-있으면 정렬을 멈추며, 완전한 쌍만 처리하려면 `--allow-unmatched`를 사용합니다.
+있으면 기본적으로 해당 파일을 건너뛰고 경고를 출력합니다.
+
+CLI는 파일별 준비·디코딩 단계, 디렉터리 진행 막대, 마지막 `total / success /
+failed` 요약을 출력합니다. 일부 파일이 실패해도 성공한 파일의 TextGrid는 보존하며,
+CLI는 실패 파일과 사유를 출력한 뒤 종료 코드 2로 끝납니다. 진단을 위해
+`logs/summary.tsv`와 파일별 Kaldi 로그를 보관하려면 `--keep-workdir`를 사용하세요.
 
 ### 언어 모델 선택
 
-기본값은 `--lang auto`입니다. 한글 텍스트는 한국어 모델을, 히라가나·가타카나·한자
-텍스트는 일본어 모델을 선택합니다. 문자가 섞인 전사는 모델을 명시적으로 지정하세요.
+기본값은 `-l auto`, `--lang auto`입니다. 한글 텍스트는 한국어 모델을, 히라가나·가타카나·한자
+텍스트는 일본어 모델을 선택합니다. 문자가 섞인 전사는 모델을 명시적으로 지정하세요. 디렉터리
+정렬에서 두 문자 체계가 없는 전사(예: `<laugh>`, 영어만 있는 문장)는 `batch.failures`에
+실패로 기록되고, 나머지 파일은 계속 처리합니다.
 
 ```bash
-koreanfa align recording.wav recording.txt --lang kor
-koreanfa align recording.wav recording.txt --lang jap
+koreanfa align recording.wav recording.txt -l kor
+koreanfa align recording.wav recording.txt -l jap
 ```
 
 전체 옵션은 `koreanfa align --help`에서 확인할 수 있습니다.
+
+### 정렬 옵션
+
+- `-nj N`, `--num-jobs N`: 최대 `N`개 파일을 동시에 정렬합니다. 기본값은 4이며 Python에서는 `num_jobs=N`으로 지정합니다.
+- `-o DIR`, `--output-dir DIR`: TextGrid를 `DIR` 아래에 저장합니다 (`output_dir=DIR`).
+- `-kd DIR`, `--kaldi-dir DIR`: 외부 Kaldi runtime을 사용합니다 (`kaldi_dir=DIR`).
+- `-l {auto,kor,jap}`, `--lang ...`: 언어 어댑터를 선택합니다 (`lang=...`).
+- `-r`, `--recursive`: 디렉터리 정렬 시 하위 디렉터리도 포함합니다 (`recursive=True`).
+- `-iu`, `--ignore-unmatched [true|false]`: 같은 이름의 짝이 없는 WAV/TXT 파일을 경고와 함께 건너뜁니다. 기본값은 true이며 (`ignore_unmatched=True`), `false`로 지정하면 짝이 없는 파일을 발견한 시점에 정렬 전에 중단합니다.
+- `-nw`, `--no-word`; `-np`, `--no-phone`: 해당 TextGrid tier를 만들지 않습니다 (`word_tier=False`, `phone_tier=False`).
+- `-kw`, `--keep-workdir`: 성공한 실행의 Kaldi 로그와 진단 작업 파일을 보관합니다 (`keep_workdir=True`).
+
+명령 도움말은 `-h`, `--help`로, 패키지 버전은 `-v`, `--version`으로 확인합니다.
 
 ## Python API
 
@@ -97,11 +118,19 @@ print(result.language)  # "kor" 또는 "jap"
 ```python
 from koreanfa import Aligner
 
-aligner = Aligner(lang="auto", num_jobs=2)
+aligner = Aligner(lang="auto", num_jobs=4)
 batch = aligner.align("corpus", recursive=True)
 for result in batch.results:
     print(result.textgrid)
+for failure in batch.failures:
+    print(f"제외됨: {failure.audio} ({failure.reason})")
 ```
+
+라이브러리 함수는 기본적으로 진행 로그를 출력하지 않으며, 짝이 없는 입력 파일은
+Python 경고 시스템으로 알립니다. 호스트 프로그램에서 진행 상태가 필요하면 `progress`
+콜백을 넘기고, `logs/summary.tsv`를 보관하려면 `keep_workdir=True`를 사용하세요.
+디렉터리 정렬 결과에서 성공 파일은 `batch.results`, 정상적으로 제외된 파일은
+`batch.failures`로 각각 확인할 수 있습니다.
 
 ## 입력 자료 안내
 
@@ -117,8 +146,8 @@ for result in batch.results:
 ```bash
 koreanfa engine install
 koreanfa engine status
-koreanfa engine install --force
-koreanfa engine remove --yes
+koreanfa engine install -f
+koreanfa engine remove -y
 ```
 
 `KOREANFA_ENGINE_HOME`으로 엔진 cache 위치를 변경할 수 있습니다. 고급 사용자는
@@ -128,6 +157,6 @@ koreanfa engine remove --yes
 
 KoreanFA 코드와 일본어 음향 모델은 [Apache-2.0](license)으로 배포됩니다.
 한국어 음향 모델은 Mediazen의 proprietary 자산으로 KoreanFA에서만 사용할 수
-있으며, 이용 조건은 [모델 고지](model/kor_model/NOTICE.md)를 확인하세요. 포함
+있으며, 이용 조건은 [모델 고지](koreanfa/runtime/model/kor_model/NOTICE.md)를 확인하세요. 포함
 소스와 별도 다운로드되는 엔진의 고지는 [제3자 고지](THIRD_PARTY_NOTICES.md)를
 확인하세요.

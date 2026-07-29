@@ -18,7 +18,7 @@ dependencies = [
     "soxr>=0.3",
 ]
 license = "Apache-2.0 AND LicenseRef-Proprietary"
-license-files = ["license", "THIRD_PARTY_NOTICES.md", "model/kor_model/NOTICE.md"]
+license-files = ["license", "THIRD_PARTY_NOTICES.md", "koreanfa/runtime/model/kor_model/NOTICE.md"]
 authors = [{ name = "Hyungwon Yang" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -42,13 +42,18 @@ koreanfa = "koreanfa.cli:main"
 
 [tool.setuptools]
 packages = ["koreanfa"]
-include-package-data = true
+# Runtime is intentionally non-importable package data, not a collection of
+# Python namespace packages.  Its complete file set is declared below.
+include-package-data = false
 
 [tool.setuptools.dynamic]
 version = {attr = "koreanfa._version.__version__"}
 
 [tool.setuptools.package-data]
-koreanfa = ["engine_manifest.json"]
+koreanfa = ["engine_manifest.json", "path.sh", "runtime/**/*"]
+
+[tool.setuptools.exclude-package-data]
+koreanfa = ["runtime/pipeline/__pycache__/*", "runtime/**/*.pyc"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

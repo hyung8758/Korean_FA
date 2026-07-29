@@ -1,34 +1,79 @@
 """Command-line interface for KoreanFA."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
 
 from . import __version__
 from .aligner import Aligner
+from .api import DEFAULT_NUM_JOBS
 from .engine import install as install_engine
 from .engine import remove as remove_engine
 from .engine import status as engine_status
 from .errors import EngineNotFoundError, KoreanFAError
 
 
+class _CliProgress:
+    """Small dependency-free progress display for shell-runtime events."""
+
+    def __init__(self) -> None:
+        self._interactive = sys.stderr.isatty()
+        self._last_length = 0
+
+    def __call__(self, phase: str, completed: int, total: int, detail: str) -> None:
+        if phase == "summary":
+            message = f"summary: {detail}"
+        elif phase in {"preparing", "attempt"}:
+            message = f"{phase}: {detail}"
+        elif phase == "started":
+            message = f"processing: {detail}"
+        else:
+            width = 24
+            filled = round(width * completed / total) if total else 0
+            message = f"[{('#' * filled).ljust(width, '-')}] {completed}/{total} {phase}: {detail}"
+        if self._interactive and phase == "summary":
+            sys.stderr.write(message + "\n")
+            sys.stderr.flush()
+            return
+        if self._interactive:
+            sys.stderr.write("\r" + message.ljust(self._last_length))
+            sys.stderr.flush()
+            self._last_length = len(message)
+            if phase in {"completed", "failed", "skipped"} and completed == total:
+                sys.stderr.write("\n")
+        else:
+            print(message, file=sys.stderr)
+
+
+def _boolean_argument(value: str) -> bool:
+    """Parse an explicit CLI boolean without introducing a second option name."""
+    normalized = value.lower()
+    if normalized in {"true", "1", "yes"}:
+        return True
+    if normalized in {"false", "0", "no"}:
+        return False
+    raise argparse.ArgumentTypeError("expected true or false")
+
+
 def _options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--lang", choices=("auto", "kor", "jap"), default="auto", help="Model language (default: auto)")
-    parser.add_argument("--output-dir", type=Path)
-    parser.add_argument("--kaldi-dir", type=Path)
-    parser.add_argument("-j", "--num-jobs", type=int, default=1)
-    parser.add_argument("--recursive", action="store_true")
-    parser.add_argument("--allow-unmatched", action="store_true")
-    parser.add_argument("--no-word", action="store_true")
-    parser.add_argument("--no-phone", action="store_true")
-    parser.add_argument("--keep-workdir", action="store_true")
+    parser.add_argument("-l", "--lang", default="auto", help="Language adapter ID; use auto for Korean/Japanese detection")
+    parser.add_argument("-o", "--output-dir", type=Path)
+    parser.add_argument("-kd", "--kaldi-dir", type=Path)
+    parser.add_argument("-nj", "--num-jobs", type=int, default=DEFAULT_NUM_JOBS)
+    parser.add_argument("-r", "--recursive", action="store_true")
+    parser.add_argument(
+        "-iu", "--ignore-unmatched", dest="ignore_unmatched", type=_boolean_argument, nargs="?", const=True,
+        default=True, metavar="{true,false}",
+        help="Skip unmatched WAV/TXT files and report a warning (default: true)",
+    )
+    parser.add_argument("-nw", "--no-word", action="store_true")
+    parser.add_argument("-np", "--no-phone", action="store_true")
+    parser.add_argument("-kw", "--keep-workdir", action="store_true")
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="koreanfa", description="Korean/Japanese forced alignment powered by Kaldi")
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
     align_parser = commands.add_parser("align", help="Align a WAV/TXT pair or a directory of pairs")
     align_parser.add_argument("input", type=Path, help="WAV file or corpus directory")
@@ -41,10 +86,10 @@ def build_parser() -> argparse.ArgumentParser:
     engine_parser = commands.add_parser("engine", help="Install and manage the local KoreanFA engine")
     engine_commands = engine_parser.add_subparsers(dest="engine_command", required=True)
     install_parser = engine_commands.add_parser("install", help="Download and install the compatible engine")
-    install_parser.add_argument("--force", action="store_true", help="Replace an existing engine of the same version")
+    install_parser.add_argument("-f", "--force", action="store_true", help="Replace an existing engine of the same version")
     engine_commands.add_parser("status", help="Show the compatible engine and its installation state")
     remove_parser = engine_commands.add_parser("remove", help="Remove the installed compatible engine")
-    remove_parser.add_argument("--yes", action="store_true", help="Confirm engine removal")
+    remove_parser.add_argument("-y", "--yes", action="store_true", help="Confirm engine removal")
     return parser
 
 
@@ -73,20 +118,29 @@ def main(argv: list[str] | None = None) -> int:
             "word_tier": not args.no_word,
             "phone_tier": not args.no_phone,
             "keep_workdir": args.keep_workdir,
+            "progress": _CliProgress(),
         }
         if args.input.is_dir():
             options["recursive"] = args.recursive
-            options["strict"] = not args.allow_unmatched
+            options["ignore_unmatched"] = args.ignore_unmatched
         result = aligner.align(args.input, getattr(args, "transcript", None), **options)
+        has_partial_failures = False
         if hasattr(result, "results"):
             for item in result.results:
                 print(item.textgrid)
+            for failure in result.failures:
+                print(f"koreanfa: failed {failure.audio.name}: {failure.reason}", file=sys.stderr)
+            has_partial_failures = bool(result.failures)
         else:
             print(result.textgrid)
+        if args.keep_workdir and result.work_dir:
+            print(f"koreanfa: diagnostics: {result.work_dir}", file=sys.stderr)
+        if has_partial_failures:
+            return 2
     except EngineNotFoundError as error:
         print(f"koreanfa: warning: {error}", file=sys.stderr)
         return 2
     except (KoreanFAError, ValueError) as error:
-        print(f"koreanfa: error: {error}")
+        print(f"koreanfa: error: {error}", file=sys.stderr)
         return 2
     return 0

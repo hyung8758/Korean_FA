@@ -6,8 +6,6 @@ by KoreanFA.  The archive contains the exact Kaldi and MeCab binaries used by
 the packaged alignment pipeline.
 """
 
-from __future__ import annotations
-
 import hashlib
 import json
 import os

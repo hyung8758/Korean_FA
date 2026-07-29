@@ -2,10 +2,10 @@ name: Python package CI
 
 on:
   push:
-    branches: ["feat/**"]
+    branches: ["feat/**", "fix/**"]
 
-# Run the lightweight package checks for every feature-branch update. A newer
-# commit cancels an obsolete run from the same branch.
+# Run the lightweight package checks for every feature/fix branch update. A
+# newer commit cancels an obsolete run from the same branch.
 concurrency:
   group: python-package-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -48,7 +48,7 @@ jobs:
           from koreanfa.resources import runtime_root
 
           root = runtime_root()
-          for relative in ("forced_align.sh", "runtime/pipeline/main_fa.sh", "model/kor_model/final.mdl", "model/kor_model/NOTICE.md", "model/jap_model/final.mdl", "model/jap_model/NOTICE.md"):
+          for relative in ("pipeline/forced_align.sh", "pipeline/main_fa.sh", "pipeline/prepare.sh", "languages/kor/profile.sh", "model/kor_model/final.mdl", "model/kor_model/NOTICE.md", "model/jap_model/final.mdl", "model/jap_model/NOTICE.md"):
               assert (root / relative).exists(), root / relative
           print(__version__)
           PY

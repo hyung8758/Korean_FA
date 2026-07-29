@@ -1,7 +1,5 @@
 """Audio preparation independent of the system SoX executable."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 

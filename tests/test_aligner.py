@@ -9,6 +9,7 @@ from koreanfa.errors import EngineNotFoundError
 def test_aligner_defaults_to_auto_language() -> None:
     aligner = Aligner()
     assert aligner.lang == "auto"
+    assert aligner.num_jobs == 4
 
 
 def test_aligner_requires_text_for_file_input(tmp_path: Path) -> None:
@@ -18,8 +19,9 @@ def test_aligner_requires_text_for_file_input(tmp_path: Path) -> None:
         Aligner().align(wav)
 
 
-def test_aligner_finds_directory_before_requesting_engine(tmp_path: Path) -> None:
+def test_aligner_finds_directory_before_requesting_engine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "sample.wav").write_bytes(b"")
     (tmp_path / "sample.txt").write_text("테스트", encoding="utf-8")
+    monkeypatch.setenv("KOREANFA_ENGINE_HOME", str(tmp_path / "empty-engine-cache"))
     with pytest.raises(EngineNotFoundError):
         Aligner().align(tmp_path)

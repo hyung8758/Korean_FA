@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
@@ -11,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _model_phones() -> set[str]:
-    return set((ROOT / "model" / "kor_model" / "lexicon.txt").read_text(encoding="utf-8").split()[1:])
+    lexicon = ROOT / "koreanfa" / "runtime" / "model" / "kor_model" / "lexicon.txt"
+    return set(lexicon.read_text(encoding="utf-8").split()[1:])
 
 
 def test_pronunciation_to_phones_uses_korean_model_inventory() -> None:

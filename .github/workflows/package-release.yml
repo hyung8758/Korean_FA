@@ -93,8 +93,9 @@ jobs:
           "$wheel_venv/bin/python" -m pip check
 
           for relative in \
-            forced_align.sh \
-            runtime/pipeline/main_fa.sh \
+            pipeline/forced_align.sh \
+            pipeline/main_fa.sh \
+            pipeline/prepare.sh \
             model/kor_model/final.mdl \
             model/kor_model/NOTICE.md \
             model/jap_model/final.mdl \
