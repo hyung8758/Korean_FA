@@ -1,7 +1,5 @@
 """Focused forced-alignment functions for file and directory inputs."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 from .api import align, align_directory

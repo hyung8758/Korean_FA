@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+# Convert Japanese Katakana readings to the phone inventory used by jap_model.
 use warnings;
 
 # Copyright  2015 Tokyo Institute of Technology (Authors: Takafumi Moriya and Takahiro Shinozaki)

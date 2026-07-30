@@ -5,8 +5,6 @@ the future bundled KoreanFA engine.  They are intentionally skipped on normal
 Python-only test runs.
 """
 
-from __future__ import annotations
-
 import os
 from pathlib import Path
 

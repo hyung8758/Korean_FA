@@ -29,7 +29,14 @@ elif [ -f $ivecdir/final.ie ] ; then
   # note the creation can fail in case the extractor directory
   # is not read-only media or the user des not have access rights
   # in that case we will just behave as if the id is not available
-  id=$(md5sum $ivecdir/final.ie | awk '{print $1}')
+  if command -v md5sum >/dev/null 2>&1; then
+    id=$(md5sum "$ivecdir/final.ie" | awk '{print $1}')
+  elif command -v md5 >/dev/null 2>&1; then
+    id=$(md5 -q "$ivecdir/final.ie")
+  else
+    echo >&2 "Neither md5sum nor md5 is available."
+    exit 1
+  fi
   echo "$id" > $ivecdir/final.ie.id || true
   echo "$id"
 else
@@ -37,5 +44,4 @@ else
 fi
 
 exit 0
-
 

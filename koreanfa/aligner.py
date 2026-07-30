@@ -1,10 +1,8 @@
 """The primary high-level KoreanFA interface."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
-from .api import align, align_directory
+from .api import DEFAULT_NUM_JOBS, align, align_directory
 from .language import normalize_language
 from .result import AlignmentResult, BatchAlignmentResult
 
@@ -12,7 +10,9 @@ from .result import AlignmentResult, BatchAlignmentResult
 class Aligner:
     """Align files or corpus directories using ``lang='auto'`` by default."""
 
-    def __init__(self, *, lang: str = "auto", kaldi_dir: str | Path | None = None, num_jobs: int = 1) -> None:
+    def __init__(
+        self, *, lang: str = "auto", kaldi_dir: str | Path | None = None, num_jobs: int = DEFAULT_NUM_JOBS
+    ) -> None:
         self.lang = normalize_language(lang)
         self.kaldi_dir = kaldi_dir
         self.num_jobs = num_jobs
@@ -29,5 +29,5 @@ class Aligner:
         if transcript is None:
             raise ValueError("A WAV input requires its matching TXT transcript.")
         common.pop("recursive", None)
-        common.pop("strict", None)
+        common.pop("ignore_unmatched", None)
         return align(path, transcript, **common)

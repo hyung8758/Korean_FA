@@ -7,8 +7,6 @@ below is deliberately self-contained: it does not use the retired KoG2P
 implementation or its rulebook.
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 import unicodedata

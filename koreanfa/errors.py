@@ -1,7 +1,5 @@
 """Exceptions with actionable messages for KoreanFA users."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 
@@ -24,7 +22,7 @@ class EngineUnavailableError(EngineNotFoundError):
 class AlignmentError(KoreanFAError):
     """The Kaldi pipeline did not create all requested TextGrid files."""
 
-    def __init__(self, message: str, *, work_dir: Path, stdout: str = "", stderr: str = "") -> None:
+    def __init__(self, message: str, *, work_dir: Path | None, stdout: str = "", stderr: str = "") -> None:
         super().__init__(message)
         self.work_dir = work_dir
         self.stdout = stdout

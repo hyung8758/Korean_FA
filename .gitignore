@@ -11,3 +11,6 @@ dist/
 *.egg-info/
 /AGENTS.md
 /docs/maintainer/
+
+# Local corpus paths for large-scale manual alignment tests.
+/example/large_files.txt

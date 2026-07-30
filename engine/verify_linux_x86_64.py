@@ -1,7 +1,5 @@
 """Smoke-test a release archive before it is uploaded to GitHub Releases."""
 
-from __future__ import annotations
-
 import json
 import os
 import subprocess
