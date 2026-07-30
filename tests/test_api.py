@@ -4,6 +4,7 @@ import pytest
 
 from koreanfa import BatchAlignmentResult, PairingError, discover_pairs
 from koreanfa.api import _runtime_failure_reasons, align_directory
+from koreanfa.pairing import _index_corpus_path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -56,12 +57,12 @@ def test_recursive_pairing_preserves_relative_paths_and_unusual_names(tmp_path: 
 
 
 def test_pairing_rejects_duplicate_case_insensitive_extensions(tmp_path: Path) -> None:
-    (tmp_path / "same.wav").write_bytes(b"")
-    (tmp_path / "same.WAV").write_bytes(b"")
-    (tmp_path / "same.txt").write_text("테스트", encoding="utf-8")
+    audio: dict[Path, Path] = {}
+    text: dict[Path, Path] = {}
+    _index_corpus_path(tmp_path, tmp_path / "same.wav", audio, text)
 
     with pytest.raises(PairingError, match="Ambiguous corpus files"):
-        discover_pairs(tmp_path)
+        _index_corpus_path(tmp_path, tmp_path / "same.WAV", audio, text)
 
 
 def test_reads_per_file_runtime_failure_reasons() -> None:

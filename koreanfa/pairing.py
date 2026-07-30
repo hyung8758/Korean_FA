@@ -24,6 +24,24 @@ class CorpusDiscovery:
     missing_audio: tuple[Path, ...]
 
 
+def _index_corpus_path(
+    root: Path, path: Path, audio: dict[Path, Path], text: dict[Path, Path]
+) -> None:
+    """Index one known file while enforcing case-insensitive extension uniqueness."""
+    suffix = path.suffix.lower()
+    destination = audio if suffix == ".wav" else text if suffix == ".txt" else None
+    if destination is None:
+        return
+    relative_stem = path.relative_to(root).with_suffix("")
+    previous = destination.get(relative_stem)
+    if previous is not None:
+        raise PairingError(
+            "Ambiguous corpus files share the same relative stem: "
+            f"{previous.relative_to(root)} and {path.relative_to(root)}"
+        )
+    destination[relative_stem] = path
+
+
 def discover_corpus_files(directory: str | Path, *, recursive: bool) -> CorpusDiscovery:
     """Index WAV and TXT files once and match them by exact relative stem.
 
@@ -42,18 +60,7 @@ def discover_corpus_files(directory: str | Path, *, recursive: bool) -> CorpusDi
     for path in files:
         if not path.is_file():
             continue
-        suffix = path.suffix.lower()
-        destination = audio if suffix == ".wav" else text if suffix == ".txt" else None
-        if destination is None:
-            continue
-        relative_stem = path.relative_to(root).with_suffix("")
-        previous = destination.get(relative_stem)
-        if previous is not None:
-            raise PairingError(
-                "Ambiguous corpus files share the same relative stem: "
-                f"{previous.relative_to(root)} and {path.relative_to(root)}"
-            )
-        destination[relative_stem] = path
+        _index_corpus_path(root, path, audio, text)
 
     if not audio or not text:
         raise PairingError(f"A corpus needs both WAV and TXT files: {root}")
