@@ -15,6 +15,11 @@ if [[ $# -ne 2 ]]; then
   echo "Usage: $0 OUTPUT_DIRECTORY ENGINE_VERSION" >&2
   exit 2
 fi
+engine_version=$2
+if [[ ! $engine_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "ENGINE_VERSION must use X.Y.Z format: $engine_version" >&2
+  exit 2
+fi
 
 if [[ $(uname -s) != Darwin ]]; then
   echo "This builder must run on macOS; current host is $(uname -s)-$(uname -m)." >&2
@@ -22,8 +27,14 @@ if [[ $(uname -s) != Darwin ]]; then
 fi
 
 case $(uname -m) in
-  x86_64) architecture=x86_64 ;;
-  arm64) architecture=arm64 ;;
+  x86_64)
+    architecture=x86_64
+    openblas_target=CORE2
+    ;;
+  arm64)
+    architecture=arm64
+    openblas_target=ARMV8
+    ;;
   *)
     echo "Unsupported macOS CPU architecture: $(uname -m)." >&2
     exit 2
@@ -31,7 +42,7 @@ case $(uname -m) in
 esac
 
 python_command=${KOREANFA_PYTHON:-python3}
-for command in autoconf automake brew curl gfortran git glibtoolize install_name_tool lipo make otool shasum strip tar "$python_command"; do
+for command in autoconf automake brew codesign curl gfortran git glibtoolize install_name_tool lipo make otool shasum strip tar "$python_command"; do
   command -v "$command" >/dev/null || {
     echo "Missing required macOS build command: $command" >&2
     exit 2
@@ -45,7 +56,6 @@ gettext_m4_directory="$(brew --prefix gettext)/share/gettext/m4"
 
 mkdir -p "$1"
 output_directory=$(cd "$1" && pwd -P)
-engine_version=$2
 platform="darwin-${architecture}"
 minimum_macos=12.0
 build_jobs=${KOREANFA_BUILD_JOBS:-$(sysctl -n hw.ncpu)}
@@ -152,6 +162,11 @@ packaged_macho_files() {
   find "$engine_root/lib" -type f -name '*.dylib*' -print
 }
 
+final_macho_files() {
+  packaged_macho_files
+  [[ ! -f $engine_root/mecab/bin/mecab ]] || printf '%s\n' "$engine_root/mecab/bin/mecab"
+}
+
 git clone https://github.com/kaldi-asr/kaldi.git "$kaldi_source"
 git -C "$kaldi_source" checkout --detach "$kaldi_revision"
 
@@ -169,10 +184,13 @@ git clone https://github.com/OpenMathLib/OpenBLAS.git "$openblas_source"
 git -C "$openblas_source" checkout --detach "$openblas_revision"
 (
   cd "$openblas_source"
-  # DYNAMIC_ARCH avoids producing an engine tuned only for the build Mac
-  # (for example, an M3-only binary that fails on M1/M2 hardware).
-  make -j"$build_jobs" PREFIX="$openblas_root" DYNAMIC_ARCH=1 USE_LOCKING=1 USE_OPENMP=0 NO_SHARED=0 all
-  make PREFIX="$openblas_root" DYNAMIC_ARCH=1 USE_LOCKING=1 USE_OPENMP=0 NO_SHARED=0 install
+  # Keep dynamic dispatch for end users while forcing a stable build-time
+  # baseline.  The pinned OpenBLAS revision predates newer Apple CPUs and can
+  # otherwise fail while trying to identify the build host.
+  make -j"$build_jobs" PREFIX="$openblas_root" TARGET="$openblas_target" \
+    DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 USE_OPENMP=0 NO_SHARED=0 all
+  make PREFIX="$openblas_root" TARGET="$openblas_target" \
+    DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 USE_OPENMP=0 NO_SHARED=0 install
 )
 (
   cd "$kaldi_source/src"
@@ -296,6 +314,15 @@ cp -R "$mecab_root/lib/mecab/dic/ipadic" "$engine_root/mecab/lib/mecab/dic/"
 mkdir -p "$engine_root/mecab/etc"
 printf '# KoreanFA supplies the dictionary with -d.\n' > "$engine_root/mecab/etc/mecabrc"
 
+# clang applies an ad-hoc signature when linking Apple Silicon binaries, but
+# strip and install_name_tool modify those binaries afterwards.  Re-sign every
+# final Mach-O file so the archive runs on a different Mac as well as the build
+# host.  Ad-hoc signing does not require an Apple Developer identity.
+while IFS= read -r binary; do
+  codesign --force --sign - "$binary"
+  codesign --verify --strict "$binary"
+done < <(final_macho_files)
+
 mkdir -p "$engine_root/licenses"
 copy_file "$kaldi_source/COPYING" "$engine_root/licenses/KALDI.txt"
 copy_file "$openfst_source/COPYING" "$engine_root/licenses/OPENFST.txt"
@@ -326,6 +353,7 @@ fi
 cat > "$engine_root/engine.json" <<EOF
 {
   "schema_version": 1,
+  "engine_version": "${engine_version}",
   "platform": "${platform}",
   "macos_minimum_version": "${minimum_macos}",
   "kaldi_dir": "kaldi",
@@ -338,7 +366,9 @@ cat > "$engine_root/engine.json" <<EOF
   "openfst_version": "${openfst_version}",
   "openfst_sha256": "${openfst_sha256}",
   "openblas_revision": "${openblas_revision}",
+  "openblas_target": "${openblas_target}",
   "openblas_dynamic_arch": true,
+  "openblas_threaded": false,
   "mecab_revision": "${mecab_revision}",
   "ipadic_sha256": "${ipadic_sha256}"
 }
