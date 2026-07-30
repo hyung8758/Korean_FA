@@ -56,7 +56,7 @@ for command in autoconf automake brew clang clang++ codesign curl git glibtooliz
     exit 2
   }
 done
-gettext_m4_directory="$(brew --prefix gettext)/share/gettext/m4"
+gettext_m4_directory="$(brew --prefix)/share/gettext/m4"
 [[ -d $gettext_m4_directory ]] || {
   echo "Homebrew gettext development files are unavailable. Run 'brew install gettext'." >&2
   exit 2
@@ -94,6 +94,7 @@ openfst_source="$work_directory/openfst-${openfst_version}"
 mecab_source="$work_directory/mecab"
 mecab_root="$work_directory/mecab-root"
 ipadic_archive="$work_directory/mecab-ipadic.tar.gz"
+ipadic_build_log="$work_directory/ipadic-build.log"
 iconv_probe_source="$work_directory/iconv-euc-jp-probe.c"
 iconv_probe="$work_directory/iconv-euc-jp-probe"
 
@@ -160,6 +161,14 @@ macho_rpaths() {
     $1 == "cmd" && $2 == "LC_RPATH" { wanted = 1; next }
     wanted && $1 == "path" { print $2; wanted = 0 }
   '
+}
+
+ensure_macho_rpath() {
+  local owner=$1 rpath=$2
+  if macho_rpaths "$owner" | grep -Fxq "$rpath"; then
+    return 0
+  fi
+  install_name_tool -add_rpath "$rpath" "$owner"
 }
 
 resolve_macho_dependency() {
@@ -262,7 +271,7 @@ int main(void) {
   return memcmp(output, expected, sizeof(expected)) == 0 ? 0 : 5;
 }
 C
-"$CC" -mmacosx-version-min="$minimum_macos" "$iconv_probe_source" -o "$iconv_probe"
+"$CC" -mmacosx-version-min="$minimum_macos" "$iconv_probe_source" -liconv -o "$iconv_probe"
 "$iconv_probe" || {
   echo 'macOS system iconv cannot convert the EUC-JP input required by IPADIC.' >&2
   exit 1
@@ -289,9 +298,21 @@ tar --extract --gzip --file "$ipadic_archive" --directory "$work_directory"
 (
   cd "$work_directory/mecab-ipadic-2.7.0-20070801"
   ./configure --prefix="$mecab_root" --with-mecab-config="$mecab_root/bin/mecab-config" --with-charset=utf8
-  make -j"$build_jobs"
+  # IPADIC's legacy Makefile invokes the same dictionary compiler for several
+  # targets. Serial execution avoids concurrent writers corrupting sys.dic.
+  make -j1
   make install
-)
+) 2>&1 | tee "$ipadic_build_log"
+if grep -Fq 'iconv_open is not supported' "$ipadic_build_log"; then
+  echo 'IPADIC failed to use iconv while converting its EUC-JP sources.' >&2
+  exit 1
+fi
+
+ipadic_dictionary="$mecab_root/lib/mecab/dic/ipadic"
+# IPADIC 2.7.0 compiles sys.dic with the requested target charset but installs
+# its source dicrc unchanged. Keep the runtime declaration consistent with the
+# UTF-8 dictionary that mecab-dict-index actually produced.
+sed -i '' 's/^config-charset[[:space:]]*=.*/config-charset = UTF-8/' "$ipadic_dictionary/dicrc"
 
 # A successful dictionary build must accept and emit strict UTF-8.  This also
 # catches a partial build that leaves dictionary files but cannot convert the
@@ -305,19 +326,52 @@ from pathlib import Path
 root = Path(sys.argv[1])
 mecab = root / "bin" / "mecab"
 dictionary = root / "lib" / "mecab" / "dic" / "ipadic"
+dicrc = (dictionary / "dicrc").read_text(encoding="utf-8", errors="strict")
 details_result = subprocess.run([mecab, "-d", dictionary, "-D"], capture_output=True)
 # This MeCab release prints valid dictionary information but returns 1 after
 # -D because it then reaches EOF without a sentence. Reject only other codes.
 if details_result.returncode not in (0, 1):
     raise RuntimeError(details_result.stderr.decode("utf-8", errors="strict"))
 details = details_result.stdout.decode("utf-8", errors="strict")
-if not re.search(r"^charset:\s*utf-?8\s*$", details, flags=re.IGNORECASE | re.MULTILINE):
+declared_charset = re.search(
+    r"^config-charset\s*=\s*(\S+)\s*$", dicrc, flags=re.IGNORECASE | re.MULTILINE
+)
+dictionary_charset = re.search(
+    r"^charset:\s*(\S+)\s*$", details, flags=re.IGNORECASE | re.MULTILINE
+)
+normalize_charset = lambda value: value.lower().replace("-", "")
+if (
+    declared_charset is None
+    or dictionary_charset is None
+    or normalize_charset(declared_charset.group(1)) != "utf8"
+    or normalize_charset(dictionary_charset.group(1)) != "utf8"
+    or normalize_charset(declared_charset.group(1))
+    != normalize_charset(dictionary_charset.group(1))
+):
     raise RuntimeError(f"IPADIC did not compile as UTF-8:\n{details}")
 result = subprocess.run(
     [mecab, "-d", dictionary], input="日本語の動作確認\n".encode(), check=True, capture_output=True
 ).stdout.decode("utf-8", errors="strict")
-if "日本語" not in result or "EOS" not in result or "\ufffd" in result:
+if "\ufffd" in result:
     raise RuntimeError(f"Bundled MeCab failed its strict UTF-8 smoke test:\n{result}")
+expected = {
+    "日本語": ("ニホンゴ", "ニホンゴ"),
+    "の": ("ノ", "ノ"),
+    "動作": ("ドウサ", "ドーサ"),
+    "確認": ("カクニン", "カクニン"),
+}
+actual = {}
+for line in result.splitlines():
+    if line == "EOS":
+        continue
+    surface, features = line.split("\t", 1)
+    actual[surface] = tuple(features.split(",")[-2:])
+for surface, pronunciation in expected.items():
+    if actual.get(surface) != pronunciation:
+        raise RuntimeError(
+            f"Bundled MeCab returned the wrong reading for {surface}: "
+            f"expected {pronunciation}, received {actual.get(surface)}\n{result}"
+        )
 PY
 
 tar --extract --gzip --file "$openfst_archive" --directory "$work_directory"
@@ -403,7 +457,7 @@ done
 # each executable.  This avoids a runtime dependency on Homebrew locations.
 while IFS= read -r dylib; do
   install_name_tool -id "@rpath/$(basename "$dylib")" "$dylib"
-  install_name_tool -add_rpath '@loader_path' "$dylib" 2>/dev/null || true
+  ensure_macho_rpath "$dylib" '@loader_path'
 done < <(find "$engine_root/lib" -type f -name '*.dylib*' -print)
 
 while IFS= read -r owner; do
@@ -418,10 +472,10 @@ while IFS= read -r owner; do
     install_name_tool -change "$dependency" "@rpath/$(basename "$target_library")" "$owner"
   done < <(macho_dependencies "$owner")
   if [[ $owner == "$engine_root/lib/"* ]]; then
-    install_name_tool -add_rpath '@loader_path' "$owner" 2>/dev/null || true
+    ensure_macho_rpath "$owner" '@loader_path'
   else
     lib_relative=$(relative_path "$owner" "$engine_root/lib")
-    install_name_tool -add_rpath "@loader_path/$lib_relative" "$owner" 2>/dev/null || true
+    ensure_macho_rpath "$owner" "@loader_path/$lib_relative"
   fi
   assert_architecture "$owner"
 done < <(packaged_macho_files)

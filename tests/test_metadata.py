@@ -74,6 +74,13 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     builder = (ROOT / "engine" / "build_macos.sh").read_text(encoding="utf-8")
     verifier = (ROOT / "engine" / "verify_macos.py").read_text(encoding="utf-8")
     candidate = (ROOT / "engine" / "test_macos_candidate.sh").read_text(encoding="utf-8")
+    runtime_validator = (ROOT / "engine" / "validate_candidate_runtime.py").read_text(encoding="utf-8")
+    runtime_entrypoint = (ROOT / "koreanfa" / "runtime" / "pipeline" / "forced_align.sh").read_text(
+        encoding="utf-8"
+    )
+    single_pair_runtime = (ROOT / "koreanfa" / "runtime" / "pipeline" / "main_fa.sh").read_text(
+        encoding="utf-8"
+    )
 
     assert "source_revision=$(git" in builder
     assert "source_tracked_files_clean=true" in builder
@@ -85,6 +92,7 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "--retry-all-errors" in builder
     assert "am_cv_func_iconv_works=yes" in builder
     assert 'iconv_open("UTF-8", "EUC-JP")' in builder
+    assert '"$iconv_probe_source" -liconv' in builder
     assert builder.index("https://github.com/shogo82148/mecab.git") < builder.index(
         'make -j"$build_jobs"'
     )
@@ -100,6 +108,12 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "gfortran" not in builder.lower()
     assert "--with-charset=utf8" in builder
     assert "#define HAVE_ICONV 1" in builder
+    assert "config-charset = UTF-8" in builder
+    assert "IPADIC failed to use iconv" in builder
+    assert "make -j1" in builder
+    assert "ensure_macho_rpath" in builder
+    assert "|| true" not in builder
+    assert '"日本語": ("ニホンゴ", "ニホンゴ")' in builder
     assert "details_result.returncode not in (0, 1)" in builder
     assert 'decode("utf-8", errors="strict")' in builder
     assert 'codesign --force --sign - "$binary"' in builder
@@ -112,16 +126,35 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "DEFAULT_MAX_ARCHIVE_BYTES" in verifier
     assert "DEFAULT_MAX_EXTRACTED_BYTES" in verifier
     assert "without changes to tracked source files" in verifier
+    assert 'os.environ.get("KOREANFA_ALLOW_DIRTY_BUILD") == "1"' in verifier
+    assert "release_ready=" in verifier
     assert "No packaged Kaldi binary links Apple's Accelerate framework" in verifier
     assert "KOREANFA_EXPECTED_SOURCE_REVISION" in verifier
     assert 'decode("utf-8", errors="strict")' in verifier
     assert "dictionary_result.returncode not in (0, 1)" in verifier
+    assert "_dicrc_charset(dictionary_dicrc)" in verifier
+    assert '"日本語": ("ニホンゴ", "ニホンゴ")' in verifier
     assert "OPENBLAS.txt" in verifier
     assert "_assert_code_signature(binary)" in verifier
     assert "Engine archive, root, and metadata versions must match" in verifier
 
     assert "Usage: $0 OUTPUT_DIRECTORY ENGINE_VERSION" in candidate
     assert "engine_version=${2:-" not in candidate
-    assert "summary: total=2 success=1 failed=1" in candidate
-    assert "Expected 22 TextGrid files" in candidate
+    assert "candidate_http_server.py" in candidate
+    assert "validate_candidate_runtime.py" in candidate
+    assert "KOREANFA_REUSE_ARCHIVE is only allowed" in candidate
+    assert 'engine_home="$unicode_root/엔진 설치 日本語"' in candidate
+    assert 'virtual_environment="$temporary_directory/venv"' in candidate
+    assert 'export TMPDIR="$temporary_directory/tmp"' in candidate
+    assert 'export PATH="$virtual_environment/bin:/usr/bin:/bin:/usr/sbin:/sbin"' in candidate
+    assert "summary: total=2 success=1 failed=1" in runtime_validator
+    assert "Expected 22 TextGrid files" in runtime_validator
+    assert "for repeat in range(1, 4)" in runtime_validator
+    assert '("今日", "日本", "音声")' in runtime_validator
+    assert 'data_dir=$("$python_executable" -c' in runtime_entrypoint
+    assert "data_dir=$($python_executable -c" not in runtime_entrypoint
+    assert single_pair_runtime.count("--cmd run.pl") == 4
+    assert '--cmd "$RUNTIME_ROOT/pipeline/core/run.pl"' not in single_pair_runtime
+    assert "local exit_code=$? failed_command=$BASH_COMMAND" in single_pair_runtime
+    assert "trap - ERR" in single_pair_runtime
     assert "2.0.1" not in candidate
