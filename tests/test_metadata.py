@@ -78,6 +78,17 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "source_revision=$(git" in builder
     assert "source_tracked_files_clean=true" in builder
     assert "KOREANFA_ALLOW_DIRTY_BUILD" in builder
+    assert "fetch_git_revision()" in builder
+    assert "http.version=HTTP/1.1" in builder
+    assert "--depth=1 --no-tags" in builder
+    assert "maximum_attempts=5" in builder
+    assert "--retry-all-errors" in builder
+    assert builder.index("https://github.com/shogo82148/mecab.git") < builder.index(
+        'make -j"$build_jobs"'
+    )
+    assert builder.index('download_archive "$ipadic_url"') < builder.index(
+        'make -j"$build_jobs"'
+    )
     assert "-framework Accelerate" in builder
     assert "OpenMathLib/OpenBLAS" not in builder
     assert "--mathlib=OPENBLAS" not in builder

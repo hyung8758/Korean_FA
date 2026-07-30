@@ -101,6 +101,47 @@ copy_file() {
   cp -pL "$source" "$destination"
 }
 
+fetch_git_revision() {
+  local repository=$1 revision=$2 destination=$3 label=$4
+  local attempt=1 maximum_attempts=5 retry_delay actual_revision
+
+  mkdir -p "$destination"
+  git -C "$destination" init --quiet
+  git -C "$destination" remote add origin "$repository"
+
+  while (( attempt <= maximum_attempts )); do
+    if git -c http.version=HTTP/1.1 -C "$destination" fetch \
+      --quiet --depth=1 --no-tags origin "$revision"; then
+      git -C "$destination" checkout --quiet --detach FETCH_HEAD
+      actual_revision=$(git -C "$destination" rev-parse HEAD)
+      if [[ $actual_revision == "$revision" ]]; then
+        return 0
+      fi
+      echo "Fetched unexpected ${label} revision: ${actual_revision}." >&2
+      return 1
+    fi
+
+    if (( attempt == maximum_attempts )); then
+      echo "Failed to fetch ${label} revision ${revision} after ${maximum_attempts} attempts." >&2
+      return 1
+    fi
+    retry_delay=$((attempt * 5))
+    echo "Retrying ${label} source download in ${retry_delay} seconds (${attempt}/${maximum_attempts})..." >&2
+    sleep "$retry_delay"
+    attempt=$((attempt + 1))
+  done
+}
+
+download_archive() {
+  local url=$1 destination=$2 label=$3
+  curl --fail --location --silent --show-error \
+    --connect-timeout 30 --retry 5 --retry-delay 3 --retry-all-errors \
+    --output "$destination" "$url" || {
+      echo "Failed to download ${label}: ${url}" >&2
+      return 1
+    }
+}
+
 is_system_library() {
   case $1 in
     /System/Library/*|/usr/lib/*|/Library/Apple/*) return 0 ;;
@@ -172,11 +213,18 @@ final_macho_files() {
   [[ ! -f $engine_root/mecab/bin/mecab ]] || printf '%s\n' "$engine_root/mecab/bin/mecab"
 }
 
-git clone https://github.com/kaldi-asr/kaldi.git "$kaldi_source"
-git -C "$kaldi_source" checkout --detach "$kaldi_revision"
-
-curl --fail --location --silent --show-error --retry 3 --output "$openfst_archive" "$openfst_url"
+# Resolve every network dependency before starting the expensive native build.
+# This prevents a transient MeCab or IPADIC download failure from discarding a
+# completed Kaldi build. Exact shallow fetches also avoid cloning full history.
+fetch_git_revision \
+  https://github.com/kaldi-asr/kaldi.git "$kaldi_revision" "$kaldi_source" Kaldi
+fetch_git_revision \
+  https://github.com/shogo82148/mecab.git "$mecab_revision" "$mecab_source" MeCab
+download_archive "$openfst_url" "$openfst_archive" OpenFST
 printf '%s  %s\n' "$openfst_sha256" "$openfst_archive" | shasum -a 256 --check --status
+download_archive "$ipadic_url" "$ipadic_archive" IPADIC
+printf '%s  %s\n' "$ipadic_sha256" "$ipadic_archive" | shasum -a 256 --check --status
+
 tar --extract --gzip --file "$openfst_archive" --directory "$work_directory"
 (
   cd "$openfst_source"
@@ -197,8 +245,6 @@ tar --extract --gzip --file "$openfst_archive" --directory "$work_directory"
   make -j"$build_jobs"
 )
 
-git clone https://github.com/shogo82148/mecab.git "$mecab_source"
-git -C "$mecab_source" checkout --detach "$mecab_revision"
 (
   cd "$mecab_source/mecab"
   ./autogen.sh
@@ -215,8 +261,6 @@ git -C "$mecab_source" checkout --detach "$mecab_revision"
   make install
 )
 
-curl --fail --location --silent --show-error --retry 3 --output "$ipadic_archive" "$ipadic_url"
-printf '%s  %s\n' "$ipadic_sha256" "$ipadic_archive" | shasum -a 256 --check --status
 tar --extract --gzip --file "$ipadic_archive" --directory "$work_directory"
 (
   cd "$work_directory/mecab-ipadic-2.7.0-20070801"
