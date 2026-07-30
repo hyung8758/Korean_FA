@@ -22,6 +22,10 @@ openfst_version=1.8.4
 openfst_url=https://storage.googleapis.com/rime-public/mirror/openfst-1.8.4.tar.gz
 openfst_sha256=a8ebbb6f3d92d07e671500587472518cfc87cb79b9a654a5a8abb2d0eb298016
 openblas_revision=d2b11c47774b9216660e76e2fc67e87079f26fa1
+# GitHub's virtualized x86_64 CPU is not recognized by this older OpenBLAS
+# revision.  Keep dynamic dispatch for users, but use a stable baseline while
+# generating the build-time configuration headers.
+openblas_target=CORE2
 mecab_revision=cd22ce53d855a1cda1acfcb680c9e82c5de39a94
 ipadic_url=https://downloads.sourceforge.net/project/mecab/mecab-ipadic/2.7.0-20070801/mecab-ipadic-2.7.0-20070801.tar.gz
 ipadic_sha256=b62f527d881c504576baed9c6ef6561554658b175ce6ae0096a60307e49e3523
@@ -90,8 +94,8 @@ git clone https://github.com/OpenMathLib/OpenBLAS.git "$openblas_source"
 git -C "$openblas_source" checkout --detach "$openblas_revision"
 (
   cd "$openblas_source"
-  make -j"$build_jobs" PREFIX="$openblas_root" DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 NO_SHARED=0 all
-  make PREFIX="$openblas_root" DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 NO_SHARED=0 install
+  make -j"$build_jobs" PREFIX="$openblas_root" TARGET="$openblas_target" DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 NO_SHARED=0 all
+  make PREFIX="$openblas_root" TARGET="$openblas_target" DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 NO_SHARED=0 install
 )
 (
   cd "$kaldi_source/src"
@@ -251,6 +255,7 @@ cat > "$engine_root/engine.json" <<EOF
   "openfst_version": "${openfst_version}",
   "openfst_sha256": "${openfst_sha256}",
   "openblas_revision": "${openblas_revision}",
+  "openblas_target": "${openblas_target}",
   "mecab_revision": "${mecab_revision}",
   "ipadic_sha256": "${ipadic_sha256}"
 }
