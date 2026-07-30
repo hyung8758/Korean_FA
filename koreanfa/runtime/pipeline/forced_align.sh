@@ -47,7 +47,7 @@ done
 [[ $language =~ ^[a-z][a-z0-9_-]*$ && -f $runtime_root/languages/$language/profile.sh ]] || {
   echo "No KoreanFA language profile exists for: $language" >&2; exit 2;
 }
-data_dir=$($python_executable -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1")
+data_dir=$("$python_executable" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1")
 [[ -d $data_dir ]] || { echo "Input directory does not exist: $data_dir" >&2; exit 2; }
 export KOREANFA_RUNTIME_ROOT="$runtime_root"
 source "$runtime_root/path.sh" "$kaldi"
