@@ -203,7 +203,6 @@ write_textgrid() {
   local fixed_ctm="$ALIGN_DIR/fixed_ali.ctm"
   local tagged_alignment="$RESULT_DIR/tmp_fa/tagged_final_ali.txt"
   local text_num="$RAW_SENT_DIR/text_num.raw"
-  local textgrid_options=()
 
   "$KALDI_DIR/src/bin/ali-to-phones" --ctm-output "$MODEL_DIR/final.mdl" \
     "ark:gunzip -c $ALIGN_DIR/ali.1.gz|" - > "$raw_ctm"
@@ -222,10 +221,13 @@ write_textgrid() {
   } > "$tagged_alignment"
   wc -l < "$PRONUNCIATION_DIR/sent_lexicon.txt" > "$text_num"
 
-  [[ -n $WORD_OPTION ]] && textgrid_options+=("$WORD_OPTION")
-  [[ -n $PHONE_OPTION ]] && textgrid_options+=("$PHONE_OPTION")
+  # Bash 3.2 with nounset treats an empty array expansion as an unbound
+  # variable. Build the optional arguments with positional parameters instead.
+  set --
+  [[ -n $WORD_OPTION ]] && set -- "$@" "$WORD_OPTION"
+  [[ -n $PHONE_OPTION ]] && set -- "$@" "$PHONE_OPTION"
   "$PYTHON_EXECUTABLE" "$RUNTIME_ROOT/pipeline/generate_textgrid.py" \
-    "${textgrid_options[@]}" "$RESULT_DIR/tmp_fa" "$PRONUNCIATION_DIR/sent_lexicon.txt" "$text_num" "$DATA_DIR"
+    "$@" "$RESULT_DIR/tmp_fa" "$PRONUNCIATION_DIR/sent_lexicon.txt" "$text_num" "$DATA_DIR"
   mv "$DATA_DIR/tagged_final_ali.TextGrid" "$OUTPUT_TEXTGRID"
 }
 

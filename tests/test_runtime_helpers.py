@@ -1,6 +1,7 @@
 """Focused tests for runtime scripts that run outside the Python package."""
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -78,3 +79,28 @@ def test_prepare_data_matches_wav_and_text_by_exact_stem(tmp_path: Path) -> None
 
     with pytest.raises(ValueError, match="WAV without TXT"):
         module.prepare_data(tmp_path, tmp_path / "prepared")
+
+
+def test_shell_pairing_helper_uses_nul_delimited_deterministic_records(tmp_path: Path) -> None:
+    nested = tmp_path / "space 日本語"
+    nested.mkdir()
+    (nested / "b.wav").write_bytes(b"")
+    (nested / "b.txt").write_text("日本語", encoding="utf-8")
+    (tmp_path / "a.wav").write_bytes(b"")
+    (tmp_path / "a.txt").write_text("한국어", encoding="utf-8")
+    (tmp_path / "orphan.wav").write_bytes(b"")
+
+    completed = subprocess.run(
+        [sys.executable, ROOT / "koreanfa" / "runtime" / "pipeline" / "pair_corpus.py", tmp_path],
+        check=True,
+        capture_output=True,
+    )
+    fields = completed.stdout.decode("utf-8", errors="strict").split("\0")
+
+    assert fields[-1] == ""
+    records = [tuple(fields[index : index + 4]) for index in range(0, len(fields) - 1, 4)]
+    assert [(record[0], record[1]) for record in records] == [
+        ("PAIR", "a"),
+        ("PAIR", str(Path("space 日本語") / "b")),
+        ("MISSING_TEXT", "orphan"),
+    ]

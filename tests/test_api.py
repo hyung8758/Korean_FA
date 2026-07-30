@@ -41,6 +41,29 @@ def test_can_reject_unmatched_files(tmp_path: Path) -> None:
         discover_pairs(tmp_path, ignore_unmatched=False)
 
 
+def test_recursive_pairing_preserves_relative_paths_and_unusual_names(tmp_path: Path) -> None:
+    nested = tmp_path / "하위 폴더"
+    nested.mkdir()
+    stem = "줄바꿈\n日本語"
+    (nested / f"{stem}.WAV").write_bytes(b"")
+    (nested / f"{stem}.TXT").write_text("日本語", encoding="utf-8")
+
+    pairs = discover_pairs(tmp_path, recursive=True, lang="jap")
+
+    assert len(pairs) == 1
+    assert pairs[0].relative_stem == Path("하위 폴더") / stem
+    assert pairs[0].audio.suffix == ".WAV"
+
+
+def test_pairing_rejects_duplicate_case_insensitive_extensions(tmp_path: Path) -> None:
+    (tmp_path / "same.wav").write_bytes(b"")
+    (tmp_path / "same.WAV").write_bytes(b"")
+    (tmp_path / "same.txt").write_text("테스트", encoding="utf-8")
+
+    with pytest.raises(PairingError, match="Ambiguous corpus files"):
+        discover_pairs(tmp_path)
+
+
 def test_reads_per_file_runtime_failure_reasons() -> None:
     output = (
         "KOREANFA_EVENT\tfailed\t7\tpair_7\tJapanese transcript produced no entries.\n"

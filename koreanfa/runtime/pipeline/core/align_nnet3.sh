@@ -57,8 +57,9 @@ log_dir=$8
 oov=`cat $lang/oov.int` || exit 1;
 # mkdir -p $dir/log
 echo $nj > $dir/num_jobs
-sdata=$data/../split${nj}
-[[ -d $sdata && $data/../feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
+feature_data=$data/..
+sdata=$feature_data/split${nj}
+[[ -d $sdata && $feature_data/feats.scp -ot $sdata ]] || split_data.sh $feature_data $nj || exit 1;
 
 # gpu will not be used.
 queue_opt=""
