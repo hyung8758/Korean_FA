@@ -74,6 +74,7 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     builder = (ROOT / "engine" / "build_macos.sh").read_text(encoding="utf-8")
     verifier = (ROOT / "engine" / "verify_macos.py").read_text(encoding="utf-8")
     candidate = (ROOT / "engine" / "test_macos_candidate.sh").read_text(encoding="utf-8")
+    candidate_report = (ROOT / "engine" / "candidate_report.py").read_text(encoding="utf-8")
     runtime_validator = (ROOT / "engine" / "validate_candidate_runtime.py").read_text(encoding="utf-8")
     runtime_entrypoint = (ROOT / "koreanfa" / "runtime" / "pipeline" / "forced_align.sh").read_text(
         encoding="utf-8"
@@ -93,6 +94,12 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "am_cv_func_iconv_works=yes" in builder
     assert 'iconv_open("UTF-8", "EUC-JP")' in builder
     assert '"$iconv_probe_source" -liconv' in builder
+    gettext_formula_m4 = '"$gettext_formula_prefix/share/gettext/m4"'
+    gettext_homebrew_m4 = '"$(brew --prefix)/share/gettext/m4"'
+    assert "brew --prefix gettext" in builder
+    assert gettext_formula_m4 in builder
+    assert gettext_homebrew_m4 in builder
+    assert builder.index(gettext_formula_m4) < builder.index(gettext_homebrew_m4)
     assert builder.index("https://github.com/shogo82148/mecab.git") < builder.index(
         'make -j"$build_jobs"'
     )
@@ -142,12 +149,20 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "engine_version=${2:-" not in candidate
     assert "candidate_http_server.py" in candidate
     assert "validate_candidate_runtime.py" in candidate
+    assert "candidate_report.py" in candidate
     assert "KOREANFA_REUSE_ARCHIVE is only allowed" in candidate
+    assert "and not archive_reused" in candidate_report
     assert 'engine_home="$unicode_root/엔진 설치 日本語"' in candidate
     assert 'virtual_environment="$temporary_directory/venv"' in candidate
     assert 'export TMPDIR="$temporary_directory/tmp"' in candidate
     assert 'export PATH="$virtual_environment/bin:/usr/bin:/bin:/usr/sbin:/sbin"' in candidate
     assert "summary: total=2 success=1 failed=1" in runtime_validator
+    assert "failed_name = \"실패 失敗.wav\"" in runtime_validator
+    assert 'rglob("summary.tsv")' in runtime_validator
+    assert 'rglob("process.pair_1.log")' in runtime_validator
+    assert 'read_text(encoding="utf-8", errors="strict")' in runtime_validator
+    assert "failure.work_dir is None" in runtime_validator
+    assert "partial_api.work_dir is None" in runtime_validator
     assert "Expected 22 TextGrid files" in runtime_validator
     assert "for repeat in range(1, 4)" in runtime_validator
     assert '("今日", "日本", "音声")' in runtime_validator
@@ -158,3 +173,12 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "local exit_code=$? failed_command=$BASH_COMMAND" in single_pair_runtime
     assert "trap - ERR" in single_pair_runtime
     assert "2.0.1" not in candidate
+
+
+def test_engine_manifest_setup_is_centralized_in_the_pytest_fixture() -> None:
+    fixture = (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
+    assert "def write_test_manifest" in fixture
+    assert "manifest.write_text" in fixture
+    for relative in ("test_cli.py", "test_cli_engine_warning.py", "test_engine.py"):
+        contents = (ROOT / "tests" / relative).read_text(encoding="utf-8")
+        assert "manifest.write_text" not in contents

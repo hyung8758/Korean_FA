@@ -26,7 +26,14 @@ def _run_cli(
     command: list[str], *, environment: dict[str, str], log, expected_status: int = 0
 ) -> subprocess.CompletedProcess[str]:
     log.write(f"$ {' '.join(command)}\n")
-    result = subprocess.run(command, text=True, capture_output=True, env=environment)
+    result = subprocess.run(
+        command,
+        text=True,
+        encoding="utf-8",
+        errors="strict",
+        capture_output=True,
+        env=environment,
+    )
     log.write(result.stdout)
     log.write(result.stderr)
     log.flush()
@@ -50,6 +57,41 @@ def _assert_textgrid(path: Path) -> dict[str, list[str]]:
         if any(left == right == "" for left, right in zip(tiers[tier], tiers[tier][1:])):
             raise RuntimeError(f"Consecutive empty labels in {tier} tier: {path}")
     return tiers
+
+
+def _partial_failure_reason(stderr: str, failed_name: str) -> str:
+    prefix = f"koreanfa: failed {failed_name}: "
+    matches = [line.removeprefix(prefix) for line in stderr.splitlines() if line.startswith(prefix)]
+    if len(matches) != 1 or not matches[0].strip():
+        raise RuntimeError(f"CLI did not report one failure reason for {failed_name}: {stderr}")
+    return matches[0]
+
+
+def _cli_diagnostics_root(stderr: str) -> Path:
+    prefix = "koreanfa: diagnostics: "
+    matches = [Path(line.removeprefix(prefix)) for line in stderr.splitlines() if line.startswith(prefix)]
+    if len(matches) != 1 or not matches[0].is_dir():
+        raise RuntimeError(f"CLI did not report an existing diagnostics path: {matches}")
+    return matches[0]
+
+
+def _assert_partial_diagnostics(workdir: Path) -> None:
+    if not workdir.is_dir():
+        raise RuntimeError(f"Partial-failure workdir does not exist: {workdir}")
+    summaries = sorted(workdir.rglob("summary.tsv"))
+    process_logs = sorted(workdir.rglob("process.pair_1.log"))
+    if len(summaries) != 1:
+        raise RuntimeError(f"Expected one summary.tsv under {workdir}, received {summaries}")
+    if len(process_logs) != 1:
+        raise RuntimeError(
+            f"Expected one process.pair_1.log under {workdir}, received {process_logs}"
+        )
+    summary = summaries[0].read_text(encoding="utf-8", errors="strict")
+    if summary.splitlines() != ["total\t2", "success\t1", "failed\t1"]:
+        raise RuntimeError(f"Partial-failure summary.tsv changed: {summary!r}")
+    process_log = process_logs[0].read_text(encoding="utf-8", errors="strict")
+    if not process_log.strip():
+        raise RuntimeError(f"Partial-failure process log is empty: {process_logs[0]}")
 
 
 def _language_examples(repository: Path, workspace: Path) -> dict[str, Path | tuple[Path, Path]]:
@@ -124,6 +166,9 @@ def _validate_repeat(
     )
     if "summary: total=2 success=1 failed=1" not in partial_cli.stderr:
         raise RuntimeError("CLI partial-failure summary changed")
+    failed_name = "실패 失敗.wav"
+    cli_failure_reason = _partial_failure_reason(partial_cli.stderr, failed_name)
+    _assert_partial_diagnostics(_cli_diagnostics_root(partial_cli.stderr))
     if not (repeat_root / "cli-partial" / "성공 成功.TextGrid").is_file():
         raise RuntimeError("CLI partial failure removed its successful TextGrid")
 
@@ -142,6 +187,21 @@ def _validate_repeat(
     )
     if len(partial_api.results) != 1 or len(partial_api.failures) != 1:
         raise RuntimeError("Python API partial-failure counts changed")
+    failure = partial_api.failures[0]
+    if failure.audio.name != failed_name or failure.reason != cli_failure_reason:
+        raise RuntimeError(
+            "Python API partial-failure identity or reason changed: "
+            f"{failure.audio.name!r}, {failure.reason!r}"
+        )
+    if failure.work_dir is None or not failure.work_dir.is_dir():
+        raise RuntimeError(f"Python API did not retain the failure workdir: {failure.work_dir}")
+    if partial_api.work_dir is None or not partial_api.work_dir.is_dir():
+        raise RuntimeError(f"Python API did not retain the batch workdir: {partial_api.work_dir}")
+    if not failure.work_dir.is_relative_to(partial_api.work_dir):
+        raise RuntimeError(
+            f"Failure workdir is outside the batch workdir: {failure.work_dir}"
+        )
+    _assert_partial_diagnostics(partial_api.work_dir)
     if not partial_api.results[0].textgrid.is_file():
         raise RuntimeError("Python API partial failure removed its successful TextGrid")
 

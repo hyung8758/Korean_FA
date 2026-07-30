@@ -56,9 +56,21 @@ for command in autoconf automake brew clang clang++ codesign curl git glibtooliz
     exit 2
   }
 done
-gettext_m4_directory="$(brew --prefix)/share/gettext/m4"
-[[ -d $gettext_m4_directory ]] || {
-  echo "Homebrew gettext development files are unavailable. Run 'brew install gettext'." >&2
+gettext_m4_directory=
+if gettext_formula_prefix=$(brew --prefix gettext 2>/dev/null); then
+  gettext_formula_m4="$gettext_formula_prefix/share/gettext/m4"
+  if [[ -d $gettext_formula_m4 ]]; then
+    gettext_m4_directory=$gettext_formula_m4
+  fi
+fi
+if [[ -z $gettext_m4_directory ]]; then
+  gettext_homebrew_m4="$(brew --prefix)/share/gettext/m4"
+  if [[ -d $gettext_homebrew_m4 ]]; then
+    gettext_m4_directory=$gettext_homebrew_m4
+  fi
+fi
+[[ -n $gettext_m4_directory ]] || {
+  echo "Homebrew gettext m4 files were not found under the gettext formula or Homebrew prefix. Run 'brew install gettext'." >&2
   exit 2
 }
 export ACLOCAL_PATH="$gettext_m4_directory${ACLOCAL_PATH:+:$ACLOCAL_PATH}"

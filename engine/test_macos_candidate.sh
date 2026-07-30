@@ -207,40 +207,9 @@ cp -R "$results" "$review_results"
 
 finished_seconds=$(date +%s)
 elapsed_seconds=$((finished_seconds - started_seconds))
-"$virtual_environment/bin/python" - \
+"$virtual_environment/bin/python" "$script_directory/candidate_report.py" \
   "$verification_report" "$runtime_report" "$output_directory/candidate-report.json" \
-  "$repository_root" "$elapsed_seconds" "$homebrew_prefix" "$archive_reused" <<'PY'
-import json
-import platform
-import subprocess
-import sys
-from pathlib import Path
-
-verification_path, runtime_path, destination, repository, elapsed, homebrew_prefix, archive_reused = sys.argv[1:]
-verification = json.loads(Path(verification_path).read_text(encoding="utf-8"))
-runtime = json.loads(Path(runtime_path).read_text(encoding="utf-8"))
-status = subprocess.run(
-    ["git", "-C", repository, "status", "--porcelain"], text=True, capture_output=True, check=True
-).stdout.splitlines()
-report = {
-    "validation_status": "PASS" if verification["release_ready"] and not status else "PASS_DEVELOPMENT_ONLY",
-    "release_ready": bool(verification["release_ready"] and not status),
-    "git_head": subprocess.run(
-        ["git", "-C", repository, "rev-parse", "HEAD"], text=True, capture_output=True, check=True
-    ).stdout.strip(),
-    "git_status_porcelain": status,
-    "macos_version": platform.mac_ver()[0],
-    "machine": platform.machine(),
-    "python_version": platform.python_version(),
-    "homebrew_prefix": homebrew_prefix,
-    "elapsed_seconds": int(elapsed),
-    "archive_reused": archive_reused == "true",
-    "verification": verification,
-    "runtime": runtime,
-}
-Path(destination).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-print(json.dumps(report, ensure_ascii=False))
-PY
+  "$repository_root" "$elapsed_seconds" "$homebrew_prefix" "$archive_reused"
 {
   printf 'HEAD=%s\n' "$source_revision"
   printf 'branch=%s\n' "$(git -C "$repository_root" branch --show-current)"
