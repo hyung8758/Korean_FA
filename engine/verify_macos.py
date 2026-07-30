@@ -1,7 +1,5 @@
 """Validate a native macOS KoreanFA engine archive before release upload."""
 
-from __future__ import annotations
-
 import json
 import os
 import platform
