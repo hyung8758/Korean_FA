@@ -75,18 +75,32 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     verifier = (ROOT / "engine" / "verify_macos.py").read_text(encoding="utf-8")
     candidate = (ROOT / "engine" / "test_macos_candidate.sh").read_text(encoding="utf-8")
 
-    assert "openblas_target=CORE2" in builder
-    assert "openblas_target=ARMV8" in builder
-    assert "DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0" in builder
+    assert "source_revision=$(git" in builder
+    assert "source_tracked_files_clean=true" in builder
+    assert "KOREANFA_ALLOW_DIRTY_BUILD" in builder
+    assert "-framework Accelerate" in builder
+    assert "OpenMathLib/OpenBLAS" not in builder
+    assert "--mathlib=OPENBLAS" not in builder
+    assert "gfortran" not in builder.lower()
+    assert "--with-charset=utf8" in builder
+    assert "#define HAVE_ICONV 1" in builder
+    assert "details_result.returncode not in (0, 1)" in builder
+    assert 'decode("utf-8", errors="strict")' in builder
     assert 'codesign --force --sign - "$binary"' in builder
     assert 'codesign --verify --strict "$binary"' in builder
-    assert '"openblas_target": "${openblas_target}"' in builder
-    assert '"openblas_threaded": false' in builder
+    assert '"source_revision": "${source_revision}"' in builder
+    assert '"source_tracked_files_clean": ${source_tracked_files_clean}' in builder
+    assert '"math_library": "Accelerate"' in builder
     assert '"engine_version": "${engine_version}"' in builder
 
     assert "DEFAULT_MAX_ARCHIVE_BYTES" in verifier
     assert "DEFAULT_MAX_EXTRACTED_BYTES" in verifier
-    assert "Bundled GCC runtime requires its license notice" in verifier
+    assert "without changes to tracked source files" in verifier
+    assert "No packaged Kaldi binary links Apple's Accelerate framework" in verifier
+    assert "KOREANFA_EXPECTED_SOURCE_REVISION" in verifier
+    assert 'decode("utf-8", errors="strict")' in verifier
+    assert "dictionary_result.returncode not in (0, 1)" in verifier
+    assert "OPENBLAS.txt" in verifier
     assert "_assert_code_signature(binary)" in verifier
     assert "Engine archive, root, and metadata versions must match" in verifier
 

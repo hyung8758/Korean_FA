@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "reference_platform": "linux-x86_64",
+  "description": "Ordered labels produced by the released KoreanFA models for the bundled examples. Timing is intentionally excluded because native floating-point libraries may shift interval boundaries.",
+  "languages": {
+    "kor": {
+      "example": "example/kor_files/fv01_t01_s01",
+      "tiers": {
+        "phone": [
+          "<SIL>", "k0", "ii", "ch", "aa", "t0", "oo", "c0", "vv", "nf", "k0",
+          "ii", "t0", "oo", "vv", "pf", "ss", "vv", "tf", "tt", "aa", "<SIL>"
+        ],
+        "word": ["<SIL>", "기차도", "전기도", "없었다", "<SIL>"]
+      }
+    },
+    "jap": {
+      "example": "example/jap_files/csj-0001-me-0001",
+      "tiers": {
+        "phone": [
+          "u", "<sil>", "ky", "o:", "w", "a", "a", "n", "o", "<sil>", "n", "i", "q", "p", "o", "N",
+          "<sil>", "o", "N", "s", "e", "i", "g", "a", "q", "k", "a", "i", "n", "i", "a", "n", "o",
+          "<sil>", "o", "m", "a", "n", "e", "k", "i", "i", "t", "a", "d", "a", "k", "i", "m", "a", "sh",
+          "i", "t", "e", "a", "r", "i", "g", "a", "t", "o:", "g", "o", "z", "a", "i", "<sil>", "m", "a", "s", "u"
+        ],
+        "word": [
+          "う", "<sil>", "今日", "は", "あの", "<sil>", "日本", "<sil>", "音声", "学会", "に", "あの", "<sil>",
+          "お", "招き", "いただき", "まし", "て", "ありがとう", "ござい", "<sil>", "ます"
+        ]
+      }
+    }
+  }
+}

@@ -55,3 +55,13 @@ def test_size_limit_requires_a_positive_byte_count(
 
     with pytest.raises(RuntimeError, match="positive byte count"):
         VERIFIER._size_limit("KOREANFA_TEST_SIZE_LIMIT", 1)
+
+
+@pytest.mark.parametrize("charset", ["utf8", "utf-8", "UTF-8"])
+def test_accepts_equivalent_utf8_dictionary_labels(charset: str) -> None:
+    assert VERIFIER._declares_utf8_dictionary(f"filename:\t/sys.dic\ncharset:\t{charset}\n")
+
+
+@pytest.mark.parametrize("charset", ["euc-jp", "shift-jis", "utf16", "utf-8-extra"])
+def test_rejects_non_utf8_dictionary_labels(charset: str) -> None:
+    assert not VERIFIER._declares_utf8_dictionary(f"charset:\t{charset}\n")

@@ -6,7 +6,7 @@
 # This script deliberately does not cross-compile.  Run it once on an Intel
 # Mac and once on an Apple Silicon Mac to produce darwin-x86_64 and
 # darwin-arm64 archives respectively.  The final user archive contains the
-# Kaldi programs, OpenFST, OpenBLAS, MeCab, IPADIC, required non-system dylibs,
+# Kaldi programs, OpenFST, MeCab, IPADIC, required non-system dylibs,
 # and their notices; users do not need Homebrew, Kaldi, or MeCab installed.
 
 set -euo pipefail
@@ -27,22 +27,30 @@ if [[ $(uname -s) != Darwin ]]; then
 fi
 
 case $(uname -m) in
-  x86_64)
-    architecture=x86_64
-    openblas_target=CORE2
-    ;;
-  arm64)
-    architecture=arm64
-    openblas_target=ARMV8
-    ;;
+  x86_64) architecture=x86_64 ;;
+  arm64) architecture=arm64 ;;
   *)
     echo "Unsupported macOS CPU architecture: $(uname -m)." >&2
     exit 2
     ;;
 esac
 
+script_directory=$(cd "$(dirname "$0")" && pwd -P)
+repository_root=$(cd "$script_directory/.." && pwd -P)
+source_revision=$(git -C "$repository_root" rev-parse --verify HEAD)
+source_tracked_files_clean=true
+if ! git -C "$repository_root" diff --quiet --ignore-submodules -- || \
+   ! git -C "$repository_root" diff --cached --quiet --ignore-submodules --; then
+  source_tracked_files_clean=false
+fi
+if [[ $source_tracked_files_clean == false && ${KOREANFA_ALLOW_DIRTY_BUILD:-0} != 1 ]]; then
+  echo "Refusing to build a release engine with uncommitted changes to tracked files." >&2
+  echo "Commit the reviewed source first, or set KOREANFA_ALLOW_DIRTY_BUILD=1 for a non-release development build." >&2
+  exit 2
+fi
+
 python_command=${KOREANFA_PYTHON:-python3}
-for command in autoconf automake brew codesign curl gfortran git glibtoolize install_name_tool lipo make otool shasum strip tar "$python_command"; do
+for command in autoconf automake brew clang clang++ codesign curl git glibtoolize install_name_tool lipo make otool shasum strip tar "$python_command"; do
   command -v "$command" >/dev/null || {
     echo "Missing required macOS build command: $command" >&2
     exit 2
@@ -53,6 +61,7 @@ gettext_m4_directory="$(brew --prefix gettext)/share/gettext/m4"
   echo "Homebrew gettext development files are unavailable. Run 'brew install gettext'." >&2
   exit 2
 }
+export ACLOCAL_PATH="$gettext_m4_directory${ACLOCAL_PATH:+:$ACLOCAL_PATH}"
 
 mkdir -p "$1"
 output_directory=$(cd "$1" && pwd -P)
@@ -63,7 +72,6 @@ kaldi_revision=e02e35f0254bb033fab73d1df99fc34123e31d56
 openfst_version=1.8.4
 openfst_url=https://storage.googleapis.com/rime-public/mirror/openfst-1.8.4.tar.gz
 openfst_sha256=a8ebbb6f3d92d07e671500587472518cfc87cb79b9a654a5a8abb2d0eb298016
-openblas_revision=d2b11c47774b9216660e76e2fc67e87079f26fa1
 mecab_revision=cd22ce53d855a1cda1acfcb680c9e82c5de39a94
 ipadic_url=https://downloads.sourceforge.net/project/mecab/mecab-ipadic/2.7.0-20070801/mecab-ipadic-2.7.0-20070801.tar.gz
 ipadic_sha256=b62f527d881c504576baed9c6ef6561554658b175ce6ae0096a60307e49e3523
@@ -71,7 +79,6 @@ ipadic_sha256=b62f527d881c504576baed9c6ef6561554658b175ce6ae0096a60307e49e3523
 export MACOSX_DEPLOYMENT_TARGET="$minimum_macos"
 export CC="${CC:-clang}"
 export CXX="${CXX:-clang++}"
-export FC="${FC:-gfortran}"
 export CFLAGS="${CFLAGS:-} -mmacosx-version-min=${minimum_macos}"
 export CXXFLAGS="${CXXFLAGS:-} -mmacosx-version-min=${minimum_macos}"
 export LDFLAGS="${LDFLAGS:-} -mmacosx-version-min=${minimum_macos}"
@@ -84,8 +91,6 @@ engine_root="$work_directory/$engine_name"
 kaldi_source="$work_directory/kaldi"
 openfst_archive="$work_directory/openfst-${openfst_version}.tar.gz"
 openfst_source="$work_directory/openfst-${openfst_version}"
-openblas_source="$work_directory/openblas-source"
-openblas_root="$work_directory/openblas"
 mecab_source="$work_directory/mecab"
 mecab_root="$work_directory/mecab-root"
 ipadic_archive="$work_directory/mecab-ipadic.tar.gz"
@@ -180,21 +185,15 @@ tar --extract --gzip --file "$openfst_archive" --directory "$work_directory"
   make install
 )
 
-git clone https://github.com/OpenMathLib/OpenBLAS.git "$openblas_source"
-git -C "$openblas_source" checkout --detach "$openblas_revision"
-(
-  cd "$openblas_source"
-  # Keep dynamic dispatch for end users while forcing a stable build-time
-  # baseline.  The pinned OpenBLAS revision predates newer Apple CPUs and can
-  # otherwise fail while trying to identify the build host.
-  make -j"$build_jobs" PREFIX="$openblas_root" TARGET="$openblas_target" \
-    DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 USE_OPENMP=0 NO_SHARED=0 all
-  make PREFIX="$openblas_root" TARGET="$openblas_target" \
-    DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0 USE_OPENMP=0 NO_SHARED=0 install
-)
 (
   cd "$kaldi_source/src"
-  OPENFST_VER="$openfst_version" ./configure --mathlib=OPENBLAS --openblas-root="$openblas_root" --shared
+  # Kaldi's Darwin configuration uses Apple's system Accelerate framework.
+  # Do not build or bundle the Linux OpenBLAS toolchain on macOS.
+  OPENFST_VER="$openfst_version" ./configure --shared
+  grep -Fq -- '-framework Accelerate' kaldi.mk || {
+    echo 'Kaldi did not configure the expected macOS Accelerate framework.' >&2
+    exit 1
+  }
   make -j"$build_jobs"
 )
 
@@ -203,7 +202,15 @@ git -C "$mecab_source" checkout --detach "$mecab_revision"
 (
   cd "$mecab_source/mecab"
   ./autogen.sh
-  ./configure --prefix="$mecab_root" --enable-static --disable-shared
+  # IPADIC sources are EUC-JP and must be converted by MeCab's iconv support.
+  # Keep conversion enabled and compile UTF-8 scanning with unsigned bytes.
+  CFLAGS="${CFLAGS:-} -funsigned-char" \
+    CXXFLAGS="${CXXFLAGS:-} -funsigned-char" \
+    ./configure --prefix="$mecab_root" --enable-static --disable-shared --with-charset=utf8
+  grep -Eq '^#define HAVE_ICONV 1$' config.h || {
+    echo 'MeCab configure did not enable the iconv conversion required for EUC-JP IPADIC.' >&2
+    exit 1
+  }
   make -j"$build_jobs"
   make install
 )
@@ -217,6 +224,33 @@ tar --extract --gzip --file "$ipadic_archive" --directory "$work_directory"
   make -j"$build_jobs"
   make install
 )
+
+# A successful dictionary build must accept and emit strict UTF-8.  This also
+# catches the misleading partial build where mecab-dict-index prints
+# "iconv_open is not supported" but still leaves dictionary files behind.
+"$python_command" - "$mecab_root" <<'PY'
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+mecab = root / "bin" / "mecab"
+dictionary = root / "lib" / "mecab" / "dic" / "ipadic"
+details_result = subprocess.run([mecab, "-d", dictionary, "-D"], capture_output=True)
+# This MeCab release prints valid dictionary information but returns 1 after
+# -D because it then reaches EOF without a sentence. Reject only other codes.
+if details_result.returncode not in (0, 1):
+    raise RuntimeError(details_result.stderr.decode("utf-8", errors="strict"))
+details = details_result.stdout.decode("utf-8", errors="strict")
+if not re.search(r"^charset:\s*utf-?8\s*$", details, flags=re.IGNORECASE | re.MULTILINE):
+    raise RuntimeError(f"IPADIC did not compile as UTF-8:\n{details}")
+result = subprocess.run(
+    [mecab, "-d", dictionary], input="日本語の動作確認\n".encode(), check=True, capture_output=True
+).stdout.decode("utf-8", errors="strict")
+if "日本語" not in result or "EOS" not in result or "\ufffd" in result:
+    raise RuntimeError(f"Bundled MeCab failed its strict UTF-8 smoke test:\n{result}")
+PY
 
 required_kaldi_programs=(
   src/bin/ali-to-phones
@@ -255,7 +289,7 @@ for relative in "${required_kaldi_programs[@]}"; do
 done
 
 # Copy every non-system dylib required by the selected binaries.  Repeat until
-# no new dylib appears so transitive compiler and OpenBLAS dependencies are
+# no new dylib appears so transitive compiler dependencies are
 # bundled too.  Absolute Homebrew paths are rewritten below and never shipped.
 changed=1
 while [[ $changed -eq 1 ]]; do
@@ -326,7 +360,6 @@ done < <(final_macho_files)
 mkdir -p "$engine_root/licenses"
 copy_file "$kaldi_source/COPYING" "$engine_root/licenses/KALDI.txt"
 copy_file "$openfst_source/COPYING" "$engine_root/licenses/OPENFST.txt"
-copy_file "$openblas_source/LICENSE" "$engine_root/licenses/OPENBLAS.txt"
 {
   cat "$mecab_source/mecab/COPYING"
   printf '\n\n--- MeCab BSD License ---\n\n'
@@ -334,27 +367,13 @@ copy_file "$openblas_source/LICENSE" "$engine_root/licenses/OPENBLAS.txt"
 } > "$engine_root/licenses/MECAB.txt"
 copy_file "$work_directory/mecab-ipadic-2.7.0-20070801/COPYING" "$engine_root/licenses/IPADIC.txt"
 
-# OpenBLAS links against GCC Fortran runtimes.  When they are bundled, retain
-# their complete GPLv3 and Runtime Library Exception notice beside the archive.
-if find "$engine_root/lib" -type f \( -name 'libgfortran*.dylib' -o -name 'libgcc_s*.dylib' -o -name 'libquadmath*.dylib' \) -print -quit | grep -q .; then
-  gcc_prefix=$(brew --prefix gcc 2>/dev/null || true)
-  [[ -n $gcc_prefix ]] || { echo 'Bundled GCC runtime found but Homebrew GCC prefix is unavailable.' >&2; exit 1; }
-  gcc_runtime_notice=$(find "$gcc_prefix" -type f -name COPYING.RUNTIME -print -quit)
-  [[ -n $gcc_runtime_notice ]] || { echo 'Missing GCC Runtime Library Exception notice.' >&2; exit 1; }
-  gcc_notice_directory=$(dirname "$gcc_runtime_notice")
-  [[ -f $gcc_notice_directory/COPYING3 ]] || { echo 'Missing GCC GPLv3 notice.' >&2; exit 1; }
-  {
-    cat "$gcc_notice_directory/COPYING3"
-    printf '\n\n--- GCC Runtime Library Exception 3.1 ---\n\n'
-    cat "$gcc_runtime_notice"
-  } > "$engine_root/licenses/GCC-RUNTIME.txt"
-fi
-
 cat > "$engine_root/engine.json" <<EOF
 {
   "schema_version": 1,
   "engine_version": "${engine_version}",
   "platform": "${platform}",
+  "source_revision": "${source_revision}",
+  "source_tracked_files_clean": ${source_tracked_files_clean},
   "macos_minimum_version": "${minimum_macos}",
   "kaldi_dir": "kaldi",
   "mecab_command": "mecab/bin/mecab",
@@ -365,10 +384,7 @@ cat > "$engine_root/engine.json" <<EOF
   "kaldi_revision": "${kaldi_revision}",
   "openfst_version": "${openfst_version}",
   "openfst_sha256": "${openfst_sha256}",
-  "openblas_revision": "${openblas_revision}",
-  "openblas_target": "${openblas_target}",
-  "openblas_dynamic_arch": true,
-  "openblas_threaded": false,
+  "math_library": "Accelerate",
   "mecab_revision": "${mecab_revision}",
   "ipadic_sha256": "${ipadic_sha256}"
 }

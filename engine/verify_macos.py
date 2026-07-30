@@ -32,6 +32,12 @@ def _mib(value: int) -> str:
     return f"{value / (1024 * 1024):.1f} MiB"
 
 
+def _declares_utf8_dictionary(details: str) -> bool:
+    return bool(
+        re.search(r"^charset:\s*utf-?8\s*$", details, flags=re.IGNORECASE | re.MULTILINE)
+    )
+
+
 def _current_platform() -> str:
     if platform.system() != "Darwin":
         raise RuntimeError("The macOS engine verifier must run on macOS.")
@@ -128,8 +134,6 @@ def main() -> int:
         raise RuntimeError(f"Engine archive exceeds the {_mib(maximum_archive_size)} size limit: {archive}")
     expected_platform = _current_platform()
     architecture = expected_platform.removeprefix("darwin-")
-    expected_openblas_target = "CORE2" if architecture == "x86_64" else "ARMV8"
-
     with tempfile.TemporaryDirectory(prefix="koreanfa-macos-engine-check-") as temporary:
         temporary_root = Path(temporary)
         extracted_size = _safe_extract(archive, temporary_root, maximum_extracted_size)
@@ -148,17 +152,22 @@ def main() -> int:
             )
         if metadata.get("platform") != expected_platform:
             raise RuntimeError(f"Engine platform does not match this host: {metadata.get('platform')}")
+        if not re.fullmatch(r"[0-9a-f]{40}", str(metadata.get("source_revision", ""))):
+            raise RuntimeError("macOS engine must record its 40-character Git source revision.")
+        expected_source_revision = os.environ.get("KOREANFA_EXPECTED_SOURCE_REVISION")
+        if expected_source_revision and metadata.get("source_revision") != expected_source_revision:
+            raise RuntimeError(
+                "macOS engine source revision does not match the tested checkout: "
+                f"expected {expected_source_revision}, received {metadata.get('source_revision')}"
+            )
+        if metadata.get("source_tracked_files_clean") is not True:
+            raise RuntimeError("A release engine must be built without changes to tracked source files.")
         if metadata.get("macos_minimum_version") != "12.0":
             raise RuntimeError("macOS engine must declare the supported macOS 12.0 baseline.")
         if metadata.get("library_path_variable") != "DYLD_FALLBACK_LIBRARY_PATH":
             raise RuntimeError("macOS engine must use DYLD_FALLBACK_LIBRARY_PATH as its fallback library path.")
-        if metadata.get("openblas_target") != expected_openblas_target:
-            raise RuntimeError(
-                f"macOS engine must use OpenBLAS target {expected_openblas_target}: "
-                f"{metadata.get('openblas_target')}"
-            )
-        if metadata.get("openblas_dynamic_arch") is not True or metadata.get("openblas_threaded") is not False:
-            raise RuntimeError("macOS OpenBLAS must use dynamic dispatch with internal threading disabled.")
+        if metadata.get("math_library") != "Accelerate":
+            raise RuntimeError("macOS Kaldi must use Apple's Accelerate framework.")
 
         kaldi = engine / metadata["kaldi_dir"] / "src" / "bin" / "ali-to-phones"
         mecab = engine / metadata["mecab_command"]
@@ -168,19 +177,14 @@ def main() -> int:
         for required in (kaldi, mecab, dictionary, mecabrc, *library_paths):
             if not required.exists():
                 raise RuntimeError(f"Missing required engine path: {required}")
-        for notice in ("KALDI.txt", "OPENFST.txt", "OPENBLAS.txt", "MECAB.txt", "IPADIC.txt"):
+        for notice in ("KALDI.txt", "OPENFST.txt", "MECAB.txt", "IPADIC.txt"):
             notice_path = engine / "licenses" / notice
             if not notice_path.is_file() or notice_path.stat().st_size == 0:
                 raise RuntimeError(f"Missing bundled license notice: {notice_path}")
-        gcc_runtime_libraries = tuple(
-            path
-            for path in (engine / "lib").glob("*.dylib*")
-            if path.name.startswith(("libgfortran", "libgcc_s", "libquadmath"))
-        )
-        if gcc_runtime_libraries:
-            gcc_notice = engine / "licenses" / "GCC-RUNTIME.txt"
-            if not gcc_notice.is_file() or gcc_notice.stat().st_size == 0:
-                raise RuntimeError(f"Bundled GCC runtime requires its license notice: {gcc_notice}")
+        forbidden_notices = ("OPENBLAS.txt", "GCC-RUNTIME.txt")
+        for notice in forbidden_notices:
+            if (engine / "licenses" / notice).exists():
+                raise RuntimeError(f"macOS engine contains an unused math runtime notice: {notice}")
 
         binaries = [
             *sorted(path for path in (engine / "kaldi").rglob("*") if path.is_file() and os.access(path, os.X_OK)),
@@ -189,32 +193,50 @@ def main() -> int:
         ]
         if not binaries:
             raise RuntimeError("Engine contains no Mach-O executables or libraries.")
+        accelerate_users = 0
         for binary in binaries:
             _assert_architecture(binary, architecture)
             _assert_macos_baseline(binary, "12.0")
             _assert_code_signature(binary)
             for dependency in _macho_dependencies(binary):
+                if dependency == "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate":
+                    accelerate_users += 1
+                if "openblas" in dependency.lower() or "gfortran" in dependency.lower():
+                    raise RuntimeError(f"macOS engine contains an unexpected math runtime in {binary}: {dependency}")
                 if _is_system_library(dependency):
                     continue
                 if not dependency.startswith("@rpath/"):
                     raise RuntimeError(f"Non-relocatable Mach-O dependency in {binary}: {dependency}")
                 if not (engine / "lib" / Path(dependency).name).is_file():
                     raise RuntimeError(f"Missing bundled Mach-O dependency in {binary}: {dependency}")
+        if accelerate_users == 0:
+            raise RuntimeError("No packaged Kaldi binary links Apple's Accelerate framework.")
 
         environment = os.environ | {
             "MECABRC": str(mecabrc),
             "DYLD_FALLBACK_LIBRARY_PATH": ":".join(map(str, library_paths)),
         }
+        dictionary_result = subprocess.run(
+            [mecab, "-d", dictionary, "-D"],
+            capture_output=True,
+            env=environment,
+        )
+        if dictionary_result.returncode not in (0, 1):
+            detail = dictionary_result.stderr.decode("utf-8", errors="strict")
+            raise RuntimeError(f"Bundled MeCab could not inspect IPADIC: {detail}")
+        dictionary_details = dictionary_result.stdout.decode("utf-8", errors="strict")
+        if not _declares_utf8_dictionary(dictionary_details):
+            raise RuntimeError(f"Bundled IPADIC is not UTF-8:\n{dictionary_details}")
         mecab_result = subprocess.run(
             [mecab, "-d", dictionary],
-            input="日本語の動作確認\n",
-            text=True,
+            input="日本語の動作確認\n".encode("utf-8"),
             capture_output=True,
             env=environment,
             check=True,
         )
-        if "EOS" not in mecab_result.stdout:
-            raise RuntimeError("Bundled MeCab did not return EOS.")
+        mecab_output = mecab_result.stdout.decode("utf-8", errors="strict")
+        if "日本語" not in mecab_output or "EOS" not in mecab_output or "\ufffd" in mecab_output:
+            raise RuntimeError(f"Bundled MeCab failed strict UTF-8 validation:\n{mecab_output}")
         kaldi_result = subprocess.run([kaldi], text=True, capture_output=True, env=environment, check=False)
         if kaldi_result.returncode not in (0, 1):
             raise RuntimeError(f"Bundled Kaldi executable could not run: {kaldi_result.stderr}")

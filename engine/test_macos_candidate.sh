@@ -59,7 +59,8 @@ KOREANFA_PYTHON="$python_command" \
   bash "$script_directory/build_macos.sh" "$output_directory" "$engine_version"
 
 echo "[2/7] Validating archive structure and Mach-O dependencies"
-"$python_command" "$script_directory/verify_macos.py" "$archive"
+KOREANFA_EXPECTED_SOURCE_REVISION=$(git -C "$repository_root" rev-parse --verify HEAD) \
+  "$python_command" "$script_directory/verify_macos.py" "$archive"
 
 echo "[3/7] Creating an isolated source installation"
 "$python_command" -m venv "$virtual_environment"
@@ -203,6 +204,12 @@ for textgrid in textgrids:
         raise RuntimeError(f"Invalid TextGrid: {textgrid}")
 print(f"Validated {len(textgrids)} TextGrid files.")
 PY
+"$virtual_environment/bin/python" "$script_directory/alignment_labels.py" \
+  "$script_directory/fixtures/alignment_labels.json" kor \
+  "$results/cli-kor-single/fv01_t01_s01.TextGrid"
+"$virtual_environment/bin/python" "$script_directory/alignment_labels.py" \
+  "$script_directory/fixtures/alignment_labels.json" jap \
+  "$results/cli-jap-single/csj-0001-me-0001.TextGrid"
 
 printf 'macOS candidate passed: %s\nArchive: %s\nChecksum: %s.sha256\n' \
   "$platform" "$archive" "$archive"
