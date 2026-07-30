@@ -2,9 +2,19 @@
 # Build and validate one native macOS engine through the same install and
 # alignment paths that KoreanFA users run.
 #
-# Usage: engine/test_macos_candidate.sh [OUTPUT_DIRECTORY] [ENGINE_VERSION]
+# Usage: engine/test_macos_candidate.sh OUTPUT_DIRECTORY ENGINE_VERSION
 
 set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 OUTPUT_DIRECTORY ENGINE_VERSION" >&2
+  exit 2
+fi
+engine_version=$2
+if [[ ! $engine_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "ENGINE_VERSION must use X.Y.Z format: $engine_version" >&2
+  exit 2
+fi
 
 if [[ $(uname -s) != Darwin ]]; then
   echo "This integration test must run on macOS." >&2
@@ -13,10 +23,9 @@ fi
 
 script_directory=$(cd "$(dirname "$0")" && pwd -P)
 repository_root=$(cd "$script_directory/.." && pwd -P)
-output_argument=${1:-$repository_root/build/macos-engine}
+output_argument=$1
 mkdir -p "$output_argument"
 output_directory=$(cd "$output_argument" && pwd -P)
-engine_version=${2:-2.0.1}
 python_command=${KOREANFA_PYTHON:-python3}
 
 command -v "$python_command" >/dev/null || {
@@ -36,11 +45,14 @@ esac
 
 temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/koreanfa-macos-test.XXXXXX")
 trap 'rm -rf "$temporary_directory"' EXIT
+mkdir -p "$temporary_directory/tmp"
+export TMPDIR="$temporary_directory/tmp"
 archive="$output_directory/koreanfa-engine-v${engine_version}-${platform}.tar.gz"
 manifest="$temporary_directory/engine-manifest.json"
 engine_home="$temporary_directory/engine-home"
 virtual_environment="$temporary_directory/venv"
 results="$temporary_directory/results"
+partial_corpus="$temporary_directory/partial-corpus"
 
 echo "[1/7] Building ${platform} engine ${engine_version}"
 KOREANFA_PYTHON="$python_command" \
@@ -87,6 +99,11 @@ export KOREANFA_ENGINE_HOME="$engine_home"
 "$virtual_environment/bin/koreanfa" engine status
 
 mkdir -p "$results"
+mkdir -p "$partial_corpus"
+cp "$repository_root/example/jap_files/csj-0001-me-0001.wav" "$partial_corpus/good.wav"
+cp "$repository_root/example/jap_files/csj-0001-me-0001.txt" "$partial_corpus/good.txt"
+cp "$repository_root/example/jap_files/csj-0001-me-0001.wav" "$partial_corpus/rejected.wav"
+: > "$partial_corpus/rejected.txt"
 echo "[5/7] Running Korean and Japanese CLI alignment"
 "$virtual_environment/bin/koreanfa" align \
   "$repository_root/example/kor_files/fv01_t01_s01.wav" \
@@ -101,8 +118,30 @@ echo "[5/7] Running Korean and Japanese CLI alignment"
 "$virtual_environment/bin/koreanfa" align-dir \
   "$repository_root/example/jap_files" --lang jap --output-dir "$results/cli-jap-directory"
 
+partial_stdout="$temporary_directory/partial-cli.stdout"
+partial_stderr="$temporary_directory/partial-cli.stderr"
+set +e
+"$virtual_environment/bin/koreanfa" align-dir \
+  "$partial_corpus" --lang jap --keep-workdir --output-dir "$results/cli-partial" \
+  >"$partial_stdout" 2>"$partial_stderr"
+partial_status=$?
+set -e
+[[ $partial_status -eq 2 ]] || {
+  cat "$partial_stdout" "$partial_stderr" >&2
+  echo "Expected partial-failure CLI exit status 2, received $partial_status." >&2
+  exit 1
+}
+grep -Fq 'summary: total=2 success=1 failed=1' "$partial_stderr"
+grep -Fq 'koreanfa: failed rejected.wav:' "$partial_stderr"
+test -f "$results/cli-partial/good.TextGrid"
+cli_diagnostics=$(sed -n 's/^koreanfa: diagnostics: //p' "$partial_stderr" | tail -n 1)
+[[ -n $cli_diagnostics && -d $cli_diagnostics ]]
+find "$cli_diagnostics" -type f -name summary.tsv -print -quit | grep -q .
+find "$cli_diagnostics" -type f -name 'process.pair_1.log' -print -quit | grep -q .
+
 echo "[6/7] Running Korean and Japanese Python API alignment"
 KOREANFA_REPOSITORY_ROOT="$repository_root" KOREANFA_TEST_RESULTS="$results" \
+  KOREANFA_PARTIAL_CORPUS="$partial_corpus" \
   "$virtual_environment/bin/python" - <<'PY'
 import os
 from pathlib import Path
@@ -113,6 +152,7 @@ root = Path(os.environ["KOREANFA_REPOSITORY_ROOT"])
 results = Path(os.environ["KOREANFA_TEST_RESULTS"])
 kor = root / "example" / "kor_files"
 jap = root / "example" / "jap_files"
+partial_corpus = Path(os.environ["KOREANFA_PARTIAL_CORPUS"])
 
 assert align(
     kor / "fv01_t01_s01.wav",
@@ -128,6 +168,22 @@ assert align(
 ).textgrid.is_file()
 assert len(align_directory(kor, lang="kor", output_dir=results / "api-kor-directory").results) == 3
 assert len(align_directory(jap, lang="auto", output_dir=results / "api-jap-directory").results) == 5
+partial = align_directory(
+    partial_corpus,
+    lang="jap",
+    output_dir=results / "api-partial",
+    keep_workdir=True,
+)
+assert len(partial.results) == 1
+assert len(partial.failures) == 1
+assert partial.results[0].audio.name == "good.wav"
+assert partial.results[0].textgrid.is_file()
+assert partial.failures[0].audio.name == "rejected.wav"
+assert partial.failures[0].reason
+assert partial.failures[0].work_dir and partial.failures[0].work_dir.is_dir()
+assert partial.work_dir and partial.work_dir.is_dir()
+assert any(partial.work_dir.rglob("summary.tsv"))
+assert any(partial.work_dir.rglob("process.pair_1.log"))
 PY
 
 echo "[7/7] Checking every generated TextGrid"
@@ -137,8 +193,8 @@ from pathlib import Path
 
 results = Path(os.environ["KOREANFA_TEST_RESULTS"])
 textgrids = sorted(results.rglob("*.TextGrid"))
-if len(textgrids) != 20:
-    raise RuntimeError(f"Expected 20 TextGrid files, received {len(textgrids)}")
+if len(textgrids) != 22:
+    raise RuntimeError(f"Expected 22 TextGrid files, received {len(textgrids)}")
 for textgrid in textgrids:
     contents = textgrid.read_text(encoding="utf-8")
     # KoreanFA currently emits Praat's short TextGrid form.  Accept either

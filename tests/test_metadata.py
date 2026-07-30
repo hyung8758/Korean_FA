@@ -68,3 +68,30 @@ def test_korean_g2p_no_longer_ships_kog2p_sources() -> None:
     assert not (runtime_pipeline / "g2p.py").exists()
     assert not (runtime_pipeline / "rulebook.txt").exists()
     assert not (runtime_pipeline / "text2lexicon.py").exists()
+
+
+def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
+    builder = (ROOT / "engine" / "build_macos.sh").read_text(encoding="utf-8")
+    verifier = (ROOT / "engine" / "verify_macos.py").read_text(encoding="utf-8")
+    candidate = (ROOT / "engine" / "test_macos_candidate.sh").read_text(encoding="utf-8")
+
+    assert "openblas_target=CORE2" in builder
+    assert "openblas_target=ARMV8" in builder
+    assert "DYNAMIC_ARCH=1 USE_LOCKING=1 USE_THREAD=0" in builder
+    assert 'codesign --force --sign - "$binary"' in builder
+    assert 'codesign --verify --strict "$binary"' in builder
+    assert '"openblas_target": "${openblas_target}"' in builder
+    assert '"openblas_threaded": false' in builder
+    assert '"engine_version": "${engine_version}"' in builder
+
+    assert "DEFAULT_MAX_ARCHIVE_BYTES" in verifier
+    assert "DEFAULT_MAX_EXTRACTED_BYTES" in verifier
+    assert "Bundled GCC runtime requires its license notice" in verifier
+    assert "_assert_code_signature(binary)" in verifier
+    assert "Engine archive, root, and metadata versions must match" in verifier
+
+    assert "Usage: $0 OUTPUT_DIRECTORY ENGINE_VERSION" in candidate
+    assert "engine_version=${2:-" not in candidate
+    assert "summary: total=2 success=1 failed=1" in candidate
+    assert "Expected 22 TextGrid files" in candidate
+    assert "2.0.1" not in candidate
