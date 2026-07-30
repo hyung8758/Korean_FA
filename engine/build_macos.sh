@@ -94,6 +94,8 @@ openfst_source="$work_directory/openfst-${openfst_version}"
 mecab_source="$work_directory/mecab"
 mecab_root="$work_directory/mecab-root"
 ipadic_archive="$work_directory/mecab-ipadic.tar.gz"
+iconv_probe_source="$work_directory/iconv-euc-jp-probe.c"
+iconv_probe="$work_directory/iconv-euc-jp-probe"
 
 copy_file() {
   local source=$1 destination=$2
@@ -225,32 +227,54 @@ printf '%s  %s\n' "$openfst_sha256" "$openfst_archive" | shasum -a 256 --check -
 download_archive "$ipadic_url" "$ipadic_archive" IPADIC
 printf '%s  %s\n' "$ipadic_sha256" "$ipadic_archive" | shasum -a 256 --check --status
 
-tar --extract --gzip --file "$openfst_archive" --directory "$work_directory"
-(
-  cd "$openfst_source"
-  ./configure --prefix="$kaldi_source/tools/openfst" --enable-static --enable-shared
-  make -j"$build_jobs"
-  make install
-)
+# Validate and build the macOS-specific MeCab path before the expensive Kaldi
+# compilation. gettext's generic AM_ICONV runtime probe rejects some Apple
+# iconv implementations for conversions that KoreanFA never uses. Prove the
+# required EUC-JP -> UTF-8 conversion directly, then cache that targeted result
+# for MeCab's configure script. The UTF-8 dictionary smoke test below remains
+# the final authority and fails the build if the conversion is not usable.
+cat > "$iconv_probe_source" <<'C'
+#include <iconv.h>
+#include <stddef.h>
+#include <string.h>
 
-(
-  cd "$kaldi_source/src"
-  # Kaldi's Darwin configuration uses Apple's system Accelerate framework.
-  # Do not build or bundle the Linux OpenBLAS toolchain on macOS.
-  OPENFST_VER="$openfst_version" ./configure --shared
-  grep -Fq -- '-framework Accelerate' kaldi.mk || {
-    echo 'Kaldi did not configure the expected macOS Accelerate framework.' >&2
-    exit 1
-  }
-  make -j"$build_jobs"
-)
+int main(void) {
+  unsigned char input[] = {
+    0xc6, 0xfc, 0xcb, 0xdc, 0xb8, 0xec, 0xa4, 0xce,
+    0xc6, 0xb0, 0xba, 0xee, 0xb3, 0xce, 0xc7, 0xa7
+  };
+  const unsigned char expected[] = {
+    0xe6, 0x97, 0xa5, 0xe6, 0x9c, 0xac, 0xe8, 0xaa,
+    0x9e, 0xe3, 0x81, 0xae, 0xe5, 0x8b, 0x95, 0xe4,
+    0xbd, 0x9c, 0xe7, 0xa2, 0xba, 0xe8, 0xaa, 0x8d
+  };
+  char output[64] = {0};
+  char *input_pointer = (char *)input;
+  char *output_pointer = output;
+  size_t input_left = sizeof(input);
+  size_t output_left = sizeof(output);
+  iconv_t converter = iconv_open("UTF-8", "EUC-JP");
+  if (converter == (iconv_t)-1) return 1;
+  if (iconv(converter, &input_pointer, &input_left,
+            &output_pointer, &output_left) == (size_t)-1) return 2;
+  if (iconv_close(converter) != 0) return 3;
+  if (input_left != 0 || sizeof(output) - output_left != sizeof(expected)) return 4;
+  return memcmp(output, expected, sizeof(expected)) == 0 ? 0 : 5;
+}
+C
+"$CC" -mmacosx-version-min="$minimum_macos" "$iconv_probe_source" -o "$iconv_probe"
+"$iconv_probe" || {
+  echo 'macOS system iconv cannot convert the EUC-JP input required by IPADIC.' >&2
+  exit 1
+}
 
 (
   cd "$mecab_source/mecab"
   ./autogen.sh
   # IPADIC sources are EUC-JP and must be converted by MeCab's iconv support.
   # Keep conversion enabled and compile UTF-8 scanning with unsigned bytes.
-  CFLAGS="${CFLAGS:-} -funsigned-char" \
+  am_cv_func_iconv_works=yes \
+    CFLAGS="${CFLAGS:-} -funsigned-char" \
     CXXFLAGS="${CXXFLAGS:-} -funsigned-char" \
     ./configure --prefix="$mecab_root" --enable-static --disable-shared --with-charset=utf8
   grep -Eq '^#define HAVE_ICONV 1$' config.h || {
@@ -270,8 +294,8 @@ tar --extract --gzip --file "$ipadic_archive" --directory "$work_directory"
 )
 
 # A successful dictionary build must accept and emit strict UTF-8.  This also
-# catches the misleading partial build where mecab-dict-index prints
-# "iconv_open is not supported" but still leaves dictionary files behind.
+# catches a partial build that leaves dictionary files but cannot convert the
+# original EUC-JP source data correctly.
 "$python_command" - "$mecab_root" <<'PY'
 import re
 import subprocess
@@ -295,6 +319,26 @@ result = subprocess.run(
 if "日本語" not in result or "EOS" not in result or "\ufffd" in result:
     raise RuntimeError(f"Bundled MeCab failed its strict UTF-8 smoke test:\n{result}")
 PY
+
+tar --extract --gzip --file "$openfst_archive" --directory "$work_directory"
+(
+  cd "$openfst_source"
+  ./configure --prefix="$kaldi_source/tools/openfst" --enable-static --enable-shared
+  make -j"$build_jobs"
+  make install
+)
+
+(
+  cd "$kaldi_source/src"
+  # Kaldi's Darwin configuration uses Apple's system Accelerate framework.
+  # Do not build or bundle the Linux OpenBLAS toolchain on macOS.
+  OPENFST_VER="$openfst_version" ./configure --shared
+  grep -Fq -- '-framework Accelerate' kaldi.mk || {
+    echo 'Kaldi did not configure the expected macOS Accelerate framework.' >&2
+    exit 1
+  }
+  make -j"$build_jobs"
+)
 
 required_kaldi_programs=(
   src/bin/ali-to-phones

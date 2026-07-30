@@ -83,11 +83,16 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "--depth=1 --no-tags" in builder
     assert "maximum_attempts=5" in builder
     assert "--retry-all-errors" in builder
+    assert "am_cv_func_iconv_works=yes" in builder
+    assert 'iconv_open("UTF-8", "EUC-JP")' in builder
     assert builder.index("https://github.com/shogo82148/mecab.git") < builder.index(
         'make -j"$build_jobs"'
     )
     assert builder.index('download_archive "$ipadic_url"') < builder.index(
         'make -j"$build_jobs"'
+    )
+    assert builder.index('cd "$mecab_source/mecab"') < builder.index(
+        'cd "$openfst_source"'
     )
     assert "-framework Accelerate" in builder
     assert "OpenMathLib/OpenBLAS" not in builder
