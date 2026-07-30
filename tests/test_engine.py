@@ -72,7 +72,7 @@ def _write_engine_archive(tmp_path: Path) -> tuple[Path, str]:
 
 
 def _write_manifest(tmp_path: Path, archive: Path, checksum: str, *, url: str | None = None) -> Path:
-    platform = status().platform
+    platform = engine._platform_tag()
     manifest = tmp_path / "manifest.json"
     manifest.write_text(
         json.dumps(
@@ -109,7 +109,7 @@ def test_engine_install_downloads_and_verifies_http_archive(tmp_path: Path) -> N
         installed = install(engine_home=tmp_path / "cache", manifest_path=manifest)
 
     assert installed.installed is True
-    assert installed.root == tmp_path / "cache" / "test-1" / status().platform
+    assert installed.root == tmp_path / "cache" / "test-1" / engine._platform_tag()
 
 
 def test_engine_manifest_can_be_overridden_for_candidate_testing(
@@ -140,7 +140,7 @@ def test_force_install_preserves_a_working_engine_when_replacement_fails(tmp_pat
     install(engine_home=cache, manifest_path=manifest)
     broken_manifest = tmp_path / "broken-manifest.json"
     broken_manifest.write_text(
-        json.dumps({"schema_version": 1, "engines": {status().platform: {"version": "test-1", "url": archive.as_uri(), "sha256": "0" * 64}}}),
+        json.dumps({"schema_version": 1, "engines": {engine._platform_tag(): {"version": "test-1", "url": archive.as_uri(), "sha256": "0" * 64}}}),
         encoding="utf-8",
     )
 
@@ -161,6 +161,23 @@ def test_engine_status_rejects_missing_japanese_runtime(tmp_path: Path) -> None:
 
 
 def test_alignment_runtime_uses_installed_engine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "engines": {
+                    engine._platform_tag(): {
+                        "version": "test-1",
+                        "url": None,
+                        "sha256": None,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("KOREANFA_ENGINE_MANIFEST", str(manifest))
     expected = status()
     engine_root = tmp_path / "cache" / expected.version / expected.platform
     binary = engine_root / "kaldi" / "src" / "bin" / "ali-to-phones"
@@ -272,6 +289,23 @@ def test_library_paths_are_prepended_without_overwriting_existing_values() -> No
 
 
 def test_alignment_runtime_explains_how_to_install_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "engines": {
+                    engine._platform_tag(): {
+                        "version": "test-1",
+                        "url": None,
+                        "sha256": None,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("KOREANFA_ENGINE_MANIFEST", str(manifest))
     monkeypatch.setenv("KOREANFA_ENGINE_HOME", str(tmp_path / "empty-cache"))
 
     with pytest.raises(EngineNotFoundError, match="native engine is required"):
