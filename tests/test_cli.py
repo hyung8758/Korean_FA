@@ -1,10 +1,9 @@
-import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from koreanfa.cli import build_parser, main
-from koreanfa.engine import _platform_tag
 from koreanfa.result import AlignmentFailure, BatchAlignmentResult
 
 
@@ -103,17 +102,13 @@ def test_cli_accepts_engine_commands() -> None:
     assert remove_args.yes is True
 
 
-def test_align_dir_alias_reaches_engine_validation(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_align_dir_alias_reaches_engine_validation(
+    tmp_path: Path, monkeypatch, capsys, write_test_manifest: Callable[..., Path]
+) -> None:
     (tmp_path / "sample.wav").write_bytes(b"")
     (tmp_path / "sample.txt").write_text("테스트", encoding="utf-8")
     monkeypatch.setenv("KOREANFA_ENGINE_HOME", str(tmp_path / "engine-cache"))
-    manifest = tmp_path / "manifest.json"
-    manifest.write_text(
-        json.dumps(
-            {"schema_version": 1, "engines": {_platform_tag(): {"version": "test-1", "url": None, "sha256": None}}}
-        ),
-        encoding="utf-8",
-    )
+    manifest = write_test_manifest(tmp_path, url=None, sha256=None)
     monkeypatch.setenv("KOREANFA_ENGINE_MANIFEST", str(manifest))
 
     assert main(["align-dir", str(tmp_path)]) == 2
