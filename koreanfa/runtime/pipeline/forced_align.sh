@@ -27,10 +27,11 @@ while [[ $# -gt 0 ]]; do
     -h|--help) usage; exit 0 ;;
     -s|--skip) skip_existing=true; shift ;;
     -iu|--ignore-unmatched)
-      if [[ ${2:-} =~ ^(true|1|yes)$ ]]; then ignore_unmatched=true; shift 2
-      elif [[ ${2:-} =~ ^(false|0|no)$ ]]; then ignore_unmatched=false; shift 2
-      else ignore_unmatched=true; shift
-      fi
+      case ${2:-} in
+        true|1|yes) ignore_unmatched=true; shift 2 ;;
+        false|0|no) ignore_unmatched=false; shift 2 ;;
+        *) ignore_unmatched=true; shift ;;
+      esac
       ;;
     -nj|--num-jobs|--num-job) [[ $# -ge 2 ]] || { echo "$1 requires a value" >&2; exit 2; }; num_jobs=$2; shift 2 ;;
     -nw|--no-word) word_option=--no-word; shift ;;
@@ -46,7 +47,7 @@ done
 [[ $language =~ ^[a-z][a-z0-9_-]*$ && -f $runtime_root/languages/$language/profile.sh ]] || {
   echo "No KoreanFA language profile exists for: $language" >&2; exit 2;
 }
-data_dir=$($python_executable -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1")
+data_dir=$("$python_executable" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1")
 [[ -d $data_dir ]] || { echo "Input directory does not exist: $data_dir" >&2; exit 2; }
 export KOREANFA_RUNTIME_ROOT="$runtime_root"
 source "$runtime_root/path.sh" "$kaldi"
@@ -55,27 +56,38 @@ mkdir -p "$log_dir"; : > "$log_dir/history.tsv"
 tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/koreanfa-runtime.XXXXXX")
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
-# Pair files by their full relative stem, matching the Python API's directory
-# behavior.  This lets shell callers opt into the same ignore_unmatched mode.
-declare -A audio_by_stem=() text_by_stem=()
-declare -a audio_files=() text_files=() missing_text=() missing_audio=()
-while IFS= read -r -d '' audio; do
-  audio_by_stem["${audio%.*}"]=$audio
-done < <(find "$data_dir" -type f -iname '*.wav' -print0)
-while IFS= read -r -d '' transcript; do
-  text_by_stem["${transcript%.*}"]=$transcript
-done < <(find "$data_dir" -type f -iname '*.txt' -print0)
-
-for stem in "${!audio_by_stem[@]}"; do
-  if [[ -z ${text_by_stem[$stem]+present} ]]; then
-    missing_text+=("${stem#"$data_dir"/}")
-  fi
-done
-for stem in "${!text_by_stem[@]}"; do
-  if [[ -z ${audio_by_stem[$stem]+present} ]]; then
-    missing_audio+=("${stem#"$data_dir"/}")
-  fi
-done
+# Pair files through the package's single Python implementation.  Writing the
+# NUL-delimited records to a file first preserves helper failures (unlike a
+# process substitution) and remains safe for spaces and newlines in paths.
+pair_records="$tmp_dir/pairs.bin"
+"$python_executable" "$runtime_root/pipeline/pair_corpus.py" "$data_dir" > "$pair_records"
+declare -a audio_files text_files missing_text missing_audio
+pair_count=0; missing_text_count=0; missing_audio_count=0
+while IFS= read -r -d '' record_type && \
+      IFS= read -r -d '' relative_stem && \
+      IFS= read -r -d '' audio && \
+      IFS= read -r -d '' transcript; do
+  case $record_type in
+    PAIR)
+      if [[ $skip_existing == true && -f ${audio%.*}.TextGrid ]]; then
+        printf 'KOREANFA_EVENT\tskipped\t-\t%s\texisting TextGrid\n' "$(basename -- "$audio")"
+        continue
+      fi
+      audio_files[pair_count]=$audio
+      text_files[pair_count]=$transcript
+      pair_count=$((pair_count + 1))
+      ;;
+    MISSING_TEXT)
+      missing_text[missing_text_count]=$relative_stem
+      missing_text_count=$((missing_text_count + 1))
+      ;;
+    MISSING_AUDIO)
+      missing_audio[missing_audio_count]=$relative_stem
+      missing_audio_count=$((missing_audio_count + 1))
+      ;;
+    *) echo "Invalid corpus pairing record: $record_type" >&2; exit 2 ;;
+  esac
+done < "$pair_records"
 
 print_unmatched() {
   local label=$1 item separator=
@@ -88,41 +100,26 @@ print_unmatched() {
   printf '\n' >&2
 }
 
-if (( ${#missing_text[@]} || ${#missing_audio[@]} )); then
+if (( missing_text_count || missing_audio_count )); then
   if [[ $ignore_unmatched == false ]]; then
     echo "Unmatched corpus files." >&2
-    (( ${#missing_text[@]} )) && print_unmatched "WAV without TXT" "${missing_text[@]}"
-    (( ${#missing_audio[@]} )) && print_unmatched "TXT without WAV" "${missing_audio[@]}"
+    (( missing_text_count )) && print_unmatched "WAV without TXT" "${missing_text[@]}"
+    (( missing_audio_count )) && print_unmatched "TXT without WAV" "${missing_audio[@]}"
     exit 2
   fi
   echo "koreanfa: warning: ignoring unmatched corpus files." >&2
-  (( ${#missing_text[@]} )) && print_unmatched "WAV without TXT" "${missing_text[@]}"
-  (( ${#missing_audio[@]} )) && print_unmatched "TXT without WAV" "${missing_audio[@]}"
-  for stem in "${missing_text[@]}"; do
+  (( missing_text_count )) && print_unmatched "WAV without TXT" "${missing_text[@]}"
+  (( missing_audio_count )) && print_unmatched "TXT without WAV" "${missing_audio[@]}"
+  for ((i = 0; i < missing_text_count; i++)); do
+    stem=${missing_text[i]}
     printf 'KOREANFA_EVENT\tskipped\t-\t%s\tmissing matching TXT\n' "$stem"
   done
-  for stem in "${missing_audio[@]}"; do
+  for ((i = 0; i < missing_audio_count; i++)); do
+    stem=${missing_audio[i]}
     printf 'KOREANFA_EVENT\tskipped\t-\t%s\tmissing matching WAV\n' "$stem"
   done
 fi
-
-# Sort matched stems so progress indices remain stable across invocations.
-while IFS= read -r -d '' stem; do
-  audio=${audio_by_stem[$stem]}
-  transcript=${text_by_stem[$stem]}
-  if [[ $skip_existing == true && -f ${audio%.*}.TextGrid ]]; then
-    printf 'KOREANFA_EVENT\tskipped\t-\t%s\texisting TextGrid\n' "$(basename -- "$audio")"
-    continue
-  fi
-  audio_files+=("$audio"); text_files+=("$transcript")
-done < <(
-  for stem in "${!audio_by_stem[@]}"; do
-    if [[ -n ${text_by_stem[$stem]+present} ]]; then
-      printf '%s\0' "$stem"
-    fi
-  done | LC_ALL=C sort -z
-)
-total=${#audio_files[@]}
+total=$pair_count
 (( total > 0 )) || { echo "No matched WAV/TXT pairs found in $data_dir" >&2; exit 2; }
 
 run_pair() {
@@ -134,14 +131,23 @@ run_pair() {
 }
 
 # Wait in batches to bound concurrent Kaldi processes to --num-jobs.
-failed=0; declare -a pids=()
-wait_batch() { local pid; for pid in "${pids[@]}"; do wait "$pid" || failed=$((failed + 1)); done; pids=(); }
+failed=0; declare -a pids; pid_count=0
+wait_batch() {
+  local index pid
+  for ((index = 0; index < pid_count; index++)); do
+    pid=${pids[index]}
+    wait "$pid" || failed=$((failed + 1))
+  done
+  pids=()
+  pid_count=0
+}
 for ((i = 0; i < total; i++)); do
   run_pair "$i" "${audio_files[i]}" "${text_files[i]}" &
-  pids+=("$!")
-  (( ${#pids[@]} < num_jobs )) || wait_batch
+  pids[pid_count]=$!
+  pid_count=$((pid_count + 1))
+  (( pid_count < num_jobs )) || wait_batch
 done
-wait_batch
+(( pid_count == 0 )) || wait_batch
 success=$(awk -F '\t' '$1 == "SUCCESS" { count++ } END { print count + 0 }' "$log_dir/history.tsv")
 failure=$(awk -F '\t' '$1 == "FAIL" { count++ } END { print count + 0 }' "$log_dir/history.tsv")
 if (( success + failure != total )); then failure=$((total - success)); failed=$failure; fi

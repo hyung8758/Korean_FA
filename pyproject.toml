@@ -10,7 +10,7 @@ name = "koreanfa"
 dynamic = ["version"]
 description = "Korean and Japanese forced alignment with a Python API and command-line interface"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "ko-speech-tools[g2p]==0.1.0",
     "numpy>=1.26",
@@ -24,10 +24,12 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Science/Research",
+    "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 keywords = ["forced-alignment", "kaldi", "korean", "japanese", "textgrid", "speech"]

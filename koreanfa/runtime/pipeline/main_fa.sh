@@ -70,11 +70,12 @@ initialize_workspace() {
 }
 
 record_failure() {
-  local exit_code=$?
+  local exit_code=$? failed_command=$BASH_COMMAND
+  trap - ERR
   # Functions that can identify an expected input rejection set a clearer
   # reason before returning non-zero. Keep that information for batch users.
   if [[ $FAILURE_REASON == "pipeline did not finish" ]]; then
-    FAILURE_REASON="command failed (exit $exit_code): ${BASH_COMMAND}"
+    FAILURE_REASON="command failed (exit $exit_code): ${failed_command}"
   fi
   return "$exit_code"
 }
@@ -133,7 +134,7 @@ prepare_features_and_aligner() {
     gmm)
       local mfcc_dir="$DATA_DIR/mfcc"
       bash "$RUNTIME_ROOT/pipeline/core/make_mfcc.sh" --nj 1 \
-        --cmd "$RUNTIME_ROOT/pipeline/core/run.pl" "$TRANS_DIR" "$JOB_LOG" "$mfcc_dir"
+        --cmd run.pl "$TRANS_DIR" "$JOB_LOG" "$mfcc_dir"
       bash "$RUNTIME_ROOT/pipeline/core/fix_data_dir.sh" "$TRANS_DIR"
       bash "$RUNTIME_ROOT/pipeline/core/compute_cmvn_stats.sh" "$TRANS_DIR" "$JOB_LOG" "$mfcc_dir"
       bash "$RUNTIME_ROOT/pipeline/core/fix_data_dir.sh" "$TRANS_DIR"
@@ -144,7 +145,7 @@ prepare_features_and_aligner() {
       [[ -n $mfcc_config ]] || { echo "nnet3 profile requires mfcc_config" >&2; exit 2; }
       local mfcc_dir="$TRANS_DIR/mfcchires"
       bash "$RUNTIME_ROOT/pipeline/core/make_mfcc.sh" --nj 1 \
-        --cmd "$RUNTIME_ROOT/pipeline/core/run.pl" --mfcc-config "$RUNTIME_ROOT/$mfcc_config" \
+        --cmd run.pl --mfcc-config "$RUNTIME_ROOT/$mfcc_config" \
         "$TRANS_DIR" "$JOB_LOG" "$mfcc_dir"
       bash "$RUNTIME_ROOT/pipeline/core/fix_data_dir.sh" "$TRANS_DIR"
       bash "$RUNTIME_ROOT/pipeline/core/compute_cmvn_stats.sh" "$TRANS_DIR" "$JOB_LOG" "$mfcc_dir"
@@ -152,7 +153,7 @@ prepare_features_and_aligner() {
 
       local ivector_dir="$TRANS_DIR/ivector"
       bash "$RUNTIME_ROOT/pipeline/core/extract_ivectors_online.sh" \
-        --cmd "$RUNTIME_ROOT/pipeline/core/run.pl" --nj 1 \
+        --cmd run.pl --nj 1 \
         "$TRANS_DIR" "$MODEL_DIR/ivector_extractor" "$ivector_dir"
       ALIGN_SCRIPT="$RUNTIME_ROOT/pipeline/core/align_nnet3.sh"
       ALIGN_ARGS=("$ivector_dir" "$LANG_DIR" "$MODEL_DIR" "$ALIGN_DIR")
@@ -178,7 +179,7 @@ decode_with_retries() {
     printf 'KOREANFA_EVENT\tattempt\t%s\t%s\t%s/3\n' "$JOB_ID" "$LOG_NAME" "$attempt"
 
     alignment_exit=0
-    bash "$ALIGN_SCRIPT" --nj 1 --cmd "$RUNTIME_ROOT/pipeline/core/run.pl" \
+    bash "$ALIGN_SCRIPT" --nj 1 --cmd run.pl \
       "${ALIGN_ARGS[@]}" "${beams[index]}" "${retry_beams[index]}" "$LOG_NAME" "$JOB_LOG" \
       || alignment_exit=$?
 
@@ -203,7 +204,6 @@ write_textgrid() {
   local fixed_ctm="$ALIGN_DIR/fixed_ali.ctm"
   local tagged_alignment="$RESULT_DIR/tmp_fa/tagged_final_ali.txt"
   local text_num="$RAW_SENT_DIR/text_num.raw"
-  local textgrid_options=()
 
   "$KALDI_DIR/src/bin/ali-to-phones" --ctm-output "$MODEL_DIR/final.mdl" \
     "ark:gunzip -c $ALIGN_DIR/ali.1.gz|" - > "$raw_ctm"
@@ -222,10 +222,13 @@ write_textgrid() {
   } > "$tagged_alignment"
   wc -l < "$PRONUNCIATION_DIR/sent_lexicon.txt" > "$text_num"
 
-  [[ -n $WORD_OPTION ]] && textgrid_options+=("$WORD_OPTION")
-  [[ -n $PHONE_OPTION ]] && textgrid_options+=("$PHONE_OPTION")
+  # Bash 3.2 with nounset treats an empty array expansion as an unbound
+  # variable. Build the optional arguments with positional parameters instead.
+  set --
+  [[ -n $WORD_OPTION ]] && set -- "$@" "$WORD_OPTION"
+  [[ -n $PHONE_OPTION ]] && set -- "$@" "$PHONE_OPTION"
   "$PYTHON_EXECUTABLE" "$RUNTIME_ROOT/pipeline/generate_textgrid.py" \
-    "${textgrid_options[@]}" "$RESULT_DIR/tmp_fa" "$PRONUNCIATION_DIR/sent_lexicon.txt" "$text_num" "$DATA_DIR"
+    "$@" "$RESULT_DIR/tmp_fa" "$PRONUNCIATION_DIR/sent_lexicon.txt" "$text_num" "$DATA_DIR"
   mv "$DATA_DIR/tagged_final_ali.TextGrid" "$OUTPUT_TEXTGRID"
 }
 

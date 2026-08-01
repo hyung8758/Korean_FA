@@ -45,6 +45,7 @@ class EngineStatus:
     mecab_dict: Path | None
     mecabrc: Path | None
     library_paths: tuple[Path, ...]
+    library_path_variable: str | None
 
     @property
     def environment(self) -> dict[str, str]:
@@ -56,8 +57,8 @@ class EngineStatus:
             values["KOREANFA_MECAB_DICT"] = str(self.mecab_dict)
         if self.mecabrc:
             values["MECABRC"] = str(self.mecabrc)
-        if self.library_paths:
-            values["LD_LIBRARY_PATH"] = ":".join(str(path) for path in self.library_paths)
+        if self.library_paths and self.library_path_variable:
+            values[self.library_path_variable] = ":".join(str(path) for path in self.library_paths)
         return values
 
 
@@ -163,9 +164,10 @@ def _engine_spec(manifest_path: str | Path | None = None) -> EngineSpec:
     current_platform = _platform_tag()
     entry = manifest.get("engines", {}).get(current_platform)
     if not entry:
+        available = ", ".join(sorted(map(str, manifest.get("engines", {})))) or "none"
         raise EngineUnavailableError(
             f"KoreanFA does not publish an engine for {current_platform}. "
-            "The first supported target is Linux x86_64."
+            f"Published targets: {available}."
         )
     return EngineSpec(
         platform=current_platform,
@@ -178,16 +180,23 @@ def _engine_spec(manifest_path: str | Path | None = None) -> EngineSpec:
 def _load_manifest(manifest_path: str | Path | None) -> dict[str, object]:
     if manifest_path:
         return json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    configured = os.environ.get("KOREANFA_ENGINE_MANIFEST")
+    if configured:
+        return json.loads(Path(configured).expanduser().read_text(encoding="utf-8"))
     manifest = resources.files("koreanfa").joinpath("engine_manifest.json")
     return json.loads(manifest.read_text(encoding="utf-8"))
 
 
 def _platform_tag() -> str:
-    if platform.system() != "Linux":
-        return f"{platform.system().lower()}-{platform.machine().lower()}"
     machine = platform.machine().lower()
-    aliases = {"x86_64": "x86_64", "amd64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}
-    return f"linux-{aliases.get(machine, machine)}"
+    system = platform.system()
+    if system == "Linux":
+        aliases = {"x86_64": "x86_64", "amd64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}
+        return f"linux-{aliases.get(machine, machine)}"
+    if system == "Darwin":
+        aliases = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}
+        return f"darwin-{aliases.get(machine, machine)}"
+    return f"{system.lower()}-{machine}"
 
 
 def _engine_home(override: str | Path | None = None) -> Path:
@@ -196,7 +205,12 @@ def _engine_home(override: str | Path | None = None) -> Path:
     configured = os.environ.get("KOREANFA_ENGINE_HOME")
     if configured:
         return Path(configured).expanduser().resolve()
-    cache_home = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    if "XDG_CACHE_HOME" in os.environ:
+        cache_home = Path(os.environ["XDG_CACHE_HOME"])
+    elif platform.system() == "Darwin":
+        cache_home = Path.home() / "Library" / "Caches"
+    else:
+        cache_home = Path.home() / ".cache"
     return (cache_home / "koreanfa" / "engines").resolve()
 
 
@@ -216,7 +230,10 @@ def _status_from_root(spec: EngineSpec, root: Path) -> EngineStatus:
         mecab_dict = root / str(metadata["mecab_dict"])
         mecabrc = root / str(metadata["mecabrc"])
         library_paths = tuple(root / str(path) for path in metadata["library_paths"])
+        library_path_variable = str(metadata.get("library_path_variable", "LD_LIBRARY_PATH"))
     except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError):
+        return _missing_status(spec, root)
+    if library_path_variable not in {"LD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"}:
         return _missing_status(spec, root)
     required = (
         (kaldi_dir / "src" / "bin" / "ali-to-phones").is_file(),
@@ -238,11 +255,12 @@ def _status_from_root(spec: EngineSpec, root: Path) -> EngineStatus:
         mecab_dict,
         mecabrc,
         library_paths,
+        library_path_variable,
     )
 
 
 def _missing_status(spec: EngineSpec, root: Path) -> EngineStatus:
-    return EngineStatus(spec.platform, spec.version, root, False, None, None, None, None, ())
+    return EngineStatus(spec.platform, spec.version, root, False, None, None, None, None, (), None)
 
 
 def _download(url: str, destination: Path) -> None:

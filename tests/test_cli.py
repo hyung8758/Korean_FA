@@ -1,7 +1,9 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
+from koreanfa import __version__
 from koreanfa.cli import build_parser, main
 from koreanfa.result import AlignmentFailure, BatchAlignmentResult
 
@@ -57,7 +59,7 @@ def test_cli_reports_partial_batch_failures_without_a_traceback(tmp_path: Path, 
 def test_cli_supports_short_version_option(capsys) -> None:
     with pytest.raises(SystemExit, match="0"):
         build_parser().parse_args(["-v"])
-    assert "koreanfa 2.1.0" in capsys.readouterr().out
+    assert f"koreanfa {__version__}" in capsys.readouterr().out
 
 
 def test_cli_accepts_single_alignment() -> None:
@@ -101,10 +103,14 @@ def test_cli_accepts_engine_commands() -> None:
     assert remove_args.yes is True
 
 
-def test_align_dir_alias_reaches_engine_validation(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_align_dir_alias_reaches_engine_validation(
+    tmp_path: Path, monkeypatch, capsys, write_test_manifest: Callable[..., Path]
+) -> None:
     (tmp_path / "sample.wav").write_bytes(b"")
     (tmp_path / "sample.txt").write_text("테스트", encoding="utf-8")
     monkeypatch.setenv("KOREANFA_ENGINE_HOME", str(tmp_path / "engine-cache"))
+    manifest = write_test_manifest(tmp_path, url=None, sha256=None)
+    monkeypatch.setenv("KOREANFA_ENGINE_MANIFEST", str(manifest))
 
     assert main(["align-dir", str(tmp_path)]) == 2
     assert "koreanfa engine install" in capsys.readouterr().err

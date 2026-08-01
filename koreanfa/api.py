@@ -8,17 +8,18 @@ import tempfile
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Callable
 
 from .audio import normalize_wav
 from .engine import installed_engine
 from .errors import AlignmentError, EngineNotFoundError, PairingError
 from .language import detect_language, normalize_language
+from .pairing import discover_corpus_files
 from .resources import runtime_root
 from .result import AlignmentFailure, AlignmentResult, BatchAlignmentResult, InputPair
 
 
-_LIBRARY_PATH_VARIABLES = frozenset({"LD_LIBRARY_PATH"})
+_LIBRARY_PATH_VARIABLES = frozenset({"LD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"})
 DEFAULT_NUM_JOBS = 4
 ProgressCallback = Callable[[str, int, int, str], None]
 
@@ -42,21 +43,9 @@ def _collect_pairs(
     """Discover pairs, optionally retaining auto-detection rejections per file."""
     root = Path(directory).expanduser().resolve()
     requested_lang = normalize_language(lang)
-    if not root.is_dir():
-        raise PairingError(f"Input directory does not exist: {root}")
-    files: Iterable[Path] = root.rglob("*") if recursive else root.iterdir()
-    audio: dict[Path, Path] = {}
-    text: dict[Path, Path] = {}
-    for path in files:
-        if path.is_file():
-            key = path.relative_to(root).with_suffix("")
-            if path.suffix.lower() == ".wav":
-                audio[key] = path
-            elif path.suffix.lower() == ".txt":
-                text[key] = path
-    if not audio or not text:
-        raise PairingError(f"A corpus needs both WAV and TXT files: {root}")
-    missing_audio, missing_text = sorted(set(text) - set(audio)), sorted(set(audio) - set(text))
+    discovery = discover_corpus_files(root, recursive=recursive)
+    missing_audio = list(discovery.missing_audio)
+    missing_text = list(discovery.missing_text)
     if not ignore_unmatched and (missing_audio or missing_text):
         raise PairingError("Unmatched corpus files. " + _unmatched_details(missing_text, missing_audio))
     if ignore_unmatched and (missing_audio or missing_text):
@@ -67,15 +56,22 @@ def _collect_pairs(
         )
     pairs: list[InputPair] = []
     failures: list[AlignmentFailure] = []
-    for key in sorted(set(audio) & set(text)):
+    for discovered in discovery.pairs:
         try:
-            language = _resolve_language(text[key], requested_lang)
+            language = _resolve_language(discovered.transcript, requested_lang)
         except PairingError as error:
             if not collect_language_failures:
                 raise
-            failures.append(AlignmentFailure(audio[key], text[key], "auto", str(error)))
+            failures.append(AlignmentFailure(discovered.audio, discovered.transcript, "auto", str(error)))
             continue
-        pairs.append(InputPair(audio=audio[key], transcript=text[key], relative_stem=key, language=language))
+        pairs.append(
+            InputPair(
+                audio=discovered.audio,
+                transcript=discovered.transcript,
+                relative_stem=discovered.relative_stem,
+                language=language,
+            )
+        )
     return tuple(pairs), tuple(failures)
 
 

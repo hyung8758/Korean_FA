@@ -13,13 +13,42 @@ def test_package_and_engine_release_metadata_are_consistent() -> None:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     manifest = json.loads((ROOT / "koreanfa" / "engine_manifest.json").read_text(encoding="utf-8"))
     workflow = (ROOT / ".github" / "workflows" / "engine-candidate.yml").read_text(encoding="utf-8")
-    engine = manifest["engines"]["linux-x86_64"]
-    engine_version = engine["version"]
+    engines = manifest["engines"]
+    linux_engine = engines["linux-x86_64"]
 
     assert pyproject["project"]["dynamic"] == ["version"]
-    assert re.fullmatch(r"\d+\.\d+\.\d+", __version__)
-    assert engine["url"].endswith(f"koreanfa-engine-v{engine_version}-linux-x86_64.tar.gz")
-    assert re.search(rf'ENGINE_VERSION: "{re.escape(engine_version)}"', workflow)
+    assert pyproject["project"]["requires-python"] == ">=3.12,<3.14"
+    assert "Programming Language :: Python :: 3.13" in pyproject["project"]["classifiers"]
+    assert __version__ == "2.2.0"
+    assert set(engines) == {"linux-x86_64", "darwin-arm64", "darwin-x86_64"}
+    for platform, engine in engines.items():
+        engine_version = engine["version"]
+        filename = f"koreanfa-engine-v{engine_version}-{platform}.tar.gz"
+        assert engine["url"].endswith(
+            f"/koreanfa-engine-v{engine_version}/{filename}"
+        )
+        assert re.fullmatch(r"[0-9a-f]{64}", engine["sha256"])
+    assert re.search(
+        rf'ENGINE_VERSION: "{re.escape(linux_engine["version"])}"', workflow
+    )
+
+
+def test_macos_release_metadata_matches_verified_archives() -> None:
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    manifest = json.loads((ROOT / "koreanfa" / "engine_manifest.json").read_text(encoding="utf-8"))
+    engines = manifest["engines"]
+
+    assert "Operating System :: MacOS :: MacOS X" in pyproject["project"]["classifiers"]
+    assert engines["darwin-arm64"] == {
+        "version": "2.2.0",
+        "url": "https://github.com/hyung8758/Korean_FA/releases/download/koreanfa-engine-v2.2.0/koreanfa-engine-v2.2.0-darwin-arm64.tar.gz",
+        "sha256": "cd6cca74141a088a856fb8c55256ec61e798ab10ef2a24e68fb21d00cff013b9",
+    }
+    assert engines["darwin-x86_64"] == {
+        "version": "2.2.0",
+        "url": "https://github.com/hyung8758/Korean_FA/releases/download/koreanfa-engine-v2.2.0/koreanfa-engine-v2.2.0-darwin-x86_64.tar.gz",
+        "sha256": "45a273853044191fe55221db933112766c36fe4abce4fdffeed8d4c8831a700d",
+    }
 
 
 def test_engine_candidate_uses_the_supported_glibc_baseline() -> None:
@@ -68,3 +97,117 @@ def test_korean_g2p_no_longer_ships_kog2p_sources() -> None:
     assert not (runtime_pipeline / "g2p.py").exists()
     assert not (runtime_pipeline / "rulebook.txt").exists()
     assert not (runtime_pipeline / "text2lexicon.py").exists()
+
+
+def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
+    builder = (ROOT / "engine" / "build_macos.sh").read_text(encoding="utf-8")
+    verifier = (ROOT / "engine" / "verify_macos.py").read_text(encoding="utf-8")
+    candidate = (ROOT / "engine" / "test_macos_candidate.sh").read_text(encoding="utf-8")
+    candidate_report = (ROOT / "engine" / "candidate_report.py").read_text(encoding="utf-8")
+    runtime_validator = (ROOT / "engine" / "validate_candidate_runtime.py").read_text(encoding="utf-8")
+    runtime_entrypoint = (ROOT / "koreanfa" / "runtime" / "pipeline" / "forced_align.sh").read_text(
+        encoding="utf-8"
+    )
+    single_pair_runtime = (ROOT / "koreanfa" / "runtime" / "pipeline" / "main_fa.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "source_revision=$(git" in builder
+    assert "source_tracked_files_clean=true" in builder
+    assert "KOREANFA_ALLOW_DIRTY_BUILD" in builder
+    assert "fetch_git_revision()" in builder
+    assert "http.version=HTTP/1.1" in builder
+    assert "--depth=1 --no-tags" in builder
+    assert "maximum_attempts=5" in builder
+    assert "--retry-all-errors" in builder
+    assert "am_cv_func_iconv_works=yes" in builder
+    assert 'iconv_open("UTF-8", "EUC-JP")' in builder
+    assert '"$iconv_probe_source" -liconv' in builder
+    gettext_formula_m4 = '"$gettext_formula_prefix/share/gettext/m4"'
+    gettext_homebrew_m4 = '"$(brew --prefix)/share/gettext/m4"'
+    assert "brew --prefix gettext" in builder
+    assert gettext_formula_m4 in builder
+    assert gettext_homebrew_m4 in builder
+    assert builder.index(gettext_formula_m4) < builder.index(gettext_homebrew_m4)
+    assert builder.index("https://github.com/shogo82148/mecab.git") < builder.index(
+        'make -j"$build_jobs"'
+    )
+    assert builder.index('download_archive "$ipadic_url"') < builder.index(
+        'make -j"$build_jobs"'
+    )
+    assert builder.index('cd "$mecab_source/mecab"') < builder.index(
+        'cd "$openfst_source"'
+    )
+    assert "-framework Accelerate" in builder
+    assert "OpenMathLib/OpenBLAS" not in builder
+    assert "--mathlib=OPENBLAS" not in builder
+    assert "gfortran" not in builder.lower()
+    assert "--with-charset=utf8" in builder
+    assert "#define HAVE_ICONV 1" in builder
+    assert "config-charset = UTF-8" in builder
+    assert "IPADIC failed to use iconv" in builder
+    assert "make -j1" in builder
+    assert "ensure_macho_rpath" in builder
+    assert "|| true" not in builder
+    assert '"日本語": ("ニホンゴ", "ニホンゴ")' in builder
+    assert "details_result.returncode not in (0, 1)" in builder
+    assert 'decode("utf-8", errors="strict")' in builder
+    assert 'codesign --force --sign - "$binary"' in builder
+    assert 'codesign --verify --strict "$binary"' in builder
+    assert '"source_revision": "${source_revision}"' in builder
+    assert '"source_tracked_files_clean": ${source_tracked_files_clean}' in builder
+    assert '"math_library": "Accelerate"' in builder
+    assert '"engine_version": "${engine_version}"' in builder
+
+    assert "DEFAULT_MAX_ARCHIVE_BYTES" in verifier
+    assert "DEFAULT_MAX_EXTRACTED_BYTES" in verifier
+    assert "without changes to tracked source files" in verifier
+    assert 'os.environ.get("KOREANFA_ALLOW_DIRTY_BUILD") == "1"' in verifier
+    assert "release_ready=" in verifier
+    assert "No packaged Kaldi binary links Apple's Accelerate framework" in verifier
+    assert "KOREANFA_EXPECTED_SOURCE_REVISION" in verifier
+    assert 'decode("utf-8", errors="strict")' in verifier
+    assert "dictionary_result.returncode not in (0, 1)" in verifier
+    assert "_dicrc_charset(dictionary_dicrc)" in verifier
+    assert '"日本語": ("ニホンゴ", "ニホンゴ")' in verifier
+    assert "OPENBLAS.txt" in verifier
+    assert "_assert_code_signature(binary)" in verifier
+    assert "Engine archive, root, and metadata versions must match" in verifier
+
+    assert "Usage: $0 OUTPUT_DIRECTORY ENGINE_VERSION" in candidate
+    assert "engine_version=${2:-" not in candidate
+    assert "candidate_http_server.py" in candidate
+    assert "validate_candidate_runtime.py" in candidate
+    assert "candidate_report.py" in candidate
+    assert "KOREANFA_REUSE_ARCHIVE is only allowed" in candidate
+    assert "and not archive_reused" in candidate_report
+    assert 'engine_home="$unicode_root/엔진 설치 日本語"' in candidate
+    assert 'virtual_environment="$temporary_directory/venv"' in candidate
+    assert 'export TMPDIR="$temporary_directory/tmp"' in candidate
+    assert 'export PATH="$virtual_environment/bin:/usr/bin:/bin:/usr/sbin:/sbin"' in candidate
+    assert "summary: total=2 success=1 failed=1" in runtime_validator
+    assert "failed_name = \"실패 失敗.wav\"" in runtime_validator
+    assert 'rglob("summary.tsv")' in runtime_validator
+    assert 'rglob("process.pair_1.log")' in runtime_validator
+    assert 'read_text(encoding="utf-8", errors="strict")' in runtime_validator
+    assert "failure.work_dir is None" in runtime_validator
+    assert "partial_api.work_dir is None" in runtime_validator
+    assert "Expected 22 TextGrid files" in runtime_validator
+    assert "for repeat in range(1, 4)" in runtime_validator
+    assert '("今日", "日本", "音声")' in runtime_validator
+    assert 'data_dir=$("$python_executable" -c' in runtime_entrypoint
+    assert "data_dir=$($python_executable -c" not in runtime_entrypoint
+    assert single_pair_runtime.count("--cmd run.pl") == 4
+    assert '--cmd "$RUNTIME_ROOT/pipeline/core/run.pl"' not in single_pair_runtime
+    assert "local exit_code=$? failed_command=$BASH_COMMAND" in single_pair_runtime
+    assert "trap - ERR" in single_pair_runtime
+    assert "2.0.1" not in candidate
+
+
+def test_engine_manifest_setup_is_centralized_in_the_pytest_fixture() -> None:
+    fixture = (ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
+    assert "def write_test_manifest" in fixture
+    assert "manifest.write_text" in fixture
+    for relative in ("test_cli.py", "test_cli_engine_warning.py", "test_engine.py"):
+        contents = (ROOT / "tests" / relative).read_text(encoding="utf-8")
+        assert "manifest.write_text" not in contents
