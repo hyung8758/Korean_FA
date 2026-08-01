@@ -1,7 +1,7 @@
 # KoreanFA
 
-[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20x86__64-FCC624?logo=linux&logoColor=black)](#requirements)
+[![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20x86__64%20%7C%20macOS%2012%2B-555555)](#requirements)
 [![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](license)
 
 [한국어](README.ko.md)
@@ -18,14 +18,15 @@ KoreanFA creates Praat TextGrid files from Korean or Japanese WAV audio and a ma
 ## Requirements
 
 - Linux x86_64
-- Python 3.12 or later
+- macOS 12 or later on Apple Silicon (arm64) or Intel (x86_64)
+- Python 3.12 or 3.13
 - WAV audio and UTF-8 text transcripts
 
-macOS and Windows are not supported yet.
+Windows is not supported yet. KoreanFA automatically downloads the native engine matching a supported Linux or macOS system.
 
 ## Install from source
 
-KoreanFA is not published on PyPI yet. Standard `pip install koreanfa` will be available after the upcoming PyPI release. Until then, install the latest source from GitHub on Linux x86_64, then install the matching alignment engine once.
+KoreanFA is not published on PyPI yet. Standard `pip install koreanfa` will be available after the upcoming PyPI release. Until then, install the latest source from GitHub on a supported Linux or macOS system, then install the matching alignment engine once.
 
 ```bash
 git clone --depth 1 https://github.com/hyung8758/Korean_FA.git

@@ -1,7 +1,7 @@
 # KoreanFA
 
-[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20x86__64-FCC624?logo=linux&logoColor=black)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
+[![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20x86__64%20%7C%20macOS%2012%2B-555555)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
 [![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](license)
 
 [English](README.md)
@@ -18,14 +18,15 @@ KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 P
 ## 지원 환경
 
 - Linux x86_64
-- Python 3.12 이상
+- Apple Silicon(arm64) 또는 Intel(x86_64) 기반 macOS 12 이상
+- Python 3.12 또는 3.13
 - WAV 음성 파일과 UTF-8 TXT 전사 파일
 
-macOS와 Windows는 아직 지원하지 않습니다.
+Windows는 아직 지원하지 않습니다. KoreanFA는 지원되는 Linux 또는 macOS 환경에 맞는 네이티브 엔진을 자동으로 내려받습니다.
 
 ## 소스 설치
 
-KoreanFA는 아직 PyPI에 등록되지 않았습니다. 일반적인 `pip install koreanfa` 방식은 추후 PyPI 배포 후 제공될 예정입니다. 그전까지는 Linux x86_64 환경에서 GitHub의 최신 소스를 내려받아 설치한 뒤, 호환 엔진을 최초 한 번 설치하세요.
+KoreanFA는 아직 PyPI에 등록되지 않았습니다. 일반적인 `pip install koreanfa` 방식은 추후 PyPI 배포 후 제공될 예정입니다. 그전까지는 지원되는 Linux 또는 macOS 환경에서 GitHub의 최신 소스를 내려받아 설치한 뒤, 호환 엔진을 최초 한 번 설치하세요.
 
 ```bash
 git clone --depth 1 https://github.com/hyung8758/Korean_FA.git
