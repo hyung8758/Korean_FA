@@ -97,7 +97,7 @@ def _assert_partial_diagnostics(workdir: Path) -> None:
 def _language_examples(repository: Path, workspace: Path) -> dict[str, Path | tuple[Path, Path]]:
     inputs = workspace / "입력 경로 Korean 日本語"
     kor_source = repository / "example" / "kor_files" / "fv01_t01_s01"
-    jap_source = repository / "example" / "jap_files" / "csj-0001-me-0001"
+    jap_source = repository / "example" / "jap_files" / "covost2-native-ja-dev0004"
     kor_single = _copy_pair(kor_source, "한국어 단일 파일", inputs / "단일 파일")
     jap_single = _copy_pair(jap_source, "日本語 単一ファイル", inputs / "단일 파일")
     kor_directory = inputs / "한국어 디렉터리"
@@ -217,9 +217,9 @@ def _validate_repeat(
     validate_labels(api_kor_single, golden_languages["kor"]["tiers"])
     validate_labels(api_jap_single, golden_languages["jap"]["tiers"])
     japanese_words = sequences[
-        "cli-jap-directory/csj-0001-me-0001.TextGrid"
+        "cli-jap-directory/covost2-native-ja-dev0004.TextGrid"
     ]["word"]
-    for label in ("今日", "日本", "音声"):
+    for label in ("朝", "雨", "今", "晴れ"):
         if label not in japanese_words:
             raise RuntimeError(f"Expected Japanese word label {label!r} is absent")
     return sequences, {"success": 22, "failed": 2, "textgrids": len(textgrids)}

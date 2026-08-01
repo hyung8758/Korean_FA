@@ -68,6 +68,7 @@ def test_release_legal_documents_are_declared_in_package_metadata() -> None:
         "license",
         "THIRD_PARTY_NOTICES.md",
         "koreanfa/runtime/model/kor_model/NOTICE.md",
+        "koreanfa/runtime/model/jap_model/NOTICE.md",
     ]
     assert "GCC-RUNTIME.txt" in third_party_notices
     assert "ko-speech-tools" in third_party_notices
@@ -83,9 +84,34 @@ def test_model_notices_describe_their_terms() -> None:
 
     assert "Apache License, Version 2.0" in japanese_notice
     assert "cmqim4lxy00tunr07cjkcupeg" in japanese_notice
+    assert "cv-corpus-26.0-2026-06-12" in japanese_notice
+    assert "prohibit attempts to identify speakers" in japanese_notice
     assert "Mediazen" in korean_notice
+    assert "commercial or non-commercial purposes" in korean_notice
     assert "may not modify" in korean_notice
     assert "may not redistribute" in korean_notice
+
+
+def test_example_data_notices_and_japanese_fixtures_are_current() -> None:
+    notice = (ROOT / "example" / "NOTICE.md").read_text(encoding="utf-8")
+    japanese_directory = ROOT / "example" / "jap_files"
+    expected_stems = {
+        "covost2-native-ja-dev0004",
+        "covost2-native-ja-train0008",
+        "covost2-native-ja-train0252",
+        "covost2-native-ja-train0602",
+        "covost2-native-ja-train1056",
+    }
+
+    assert "서울말 낭독체 발화 말뭉치" in notice
+    assert "Korea Open Government License Type 1" in notice
+    assert "CoVoST 2 Native Japanese Dataset" in notice
+    assert "Creative Commons Attribution 4.0 International" in notice
+    assert "48 kHz mono MP3" in notice
+    assert "16 kHz mono PCM WAV" in notice
+    assert {path.stem for path in japanese_directory.glob("*.wav")} == expected_stems
+    assert {path.stem for path in japanese_directory.glob("*.txt")} == expected_stems
+    assert not list(japanese_directory.glob("csj-*"))
 
 
 def test_korean_g2p_no_longer_ships_kog2p_sources() -> None:
@@ -194,7 +220,7 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "partial_api.work_dir is None" in runtime_validator
     assert "Expected 22 TextGrid files" in runtime_validator
     assert "for repeat in range(1, 4)" in runtime_validator
-    assert '("今日", "日本", "音声")' in runtime_validator
+    assert '("朝", "雨", "今", "晴れ")' in runtime_validator
     assert 'data_dir=$("$python_executable" -c' in runtime_entrypoint
     assert "data_dir=$($python_executable -c" not in runtime_entrypoint
     assert single_pair_runtime.count("--cmd run.pl") == 4
