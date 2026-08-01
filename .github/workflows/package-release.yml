@@ -130,7 +130,7 @@ jobs:
           ).textgrid.is_file()
           assert len(align_directory(korean, output_dir=output / "api-kor-dir").results) == 3
 
-          japanese_wav = japanese / "csj-0001-me-0001.wav"
+          japanese_wav = japanese / "covost2-native-ja-dev0004.wav"
           assert align(
               japanese_wav,
               japanese_wav.with_suffix(".txt"),
@@ -146,8 +146,8 @@ jobs:
           KOREANFA_ENGINE_HOME="$engine_home" "$wheel_venv/bin/koreanfa" align \
             example/kor_files --output-dir "$output/cli-kor-dir"
           KOREANFA_ENGINE_HOME="$engine_home" "$wheel_venv/bin/koreanfa" align \
-            example/jap_files/csj-0001-me-0001.wav \
-            example/jap_files/csj-0001-me-0001.txt \
+            example/jap_files/covost2-native-ja-dev0004.wav \
+            example/jap_files/covost2-native-ja-dev0004.txt \
             --output-dir "$output/cli-jap-single"
           KOREANFA_ENGINE_HOME="$engine_home" "$wheel_venv/bin/koreanfa" align \
             example/jap_files --output-dir "$output/cli-jap-dir"

@@ -1,11 +1,11 @@
 # KoreanFA
 
-[![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://github.com/hyung8758/Korean_FA/blob/master/pyproject.toml)
 [![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
 [![macOS](https://img.shields.io/badge/macOS-12%2B%20%7C%20Apple%20Silicon%20%7C%20Intel-000000?logo=apple&logoColor=white)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
-[![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](license)
+[![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](https://github.com/hyung8758/Korean_FA/blob/master/license)
 
-[English](README.md)
+[English](https://github.com/hyung8758/Korean_FA/blob/master/README.md)
 
 KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 Praat TextGrid를 만드는 강제 정렬 라이브러리입니다. Python API와 CLI를 제공하며, 기본적으로 전사 텍스트를 분석해 한국어·일본어 모델을 자동 선택합니다.
 
@@ -61,7 +61,7 @@ koreanfa align corpus
 koreanfa align corpus -r -o aligned
 ```
 
-같은 상대 경로와 파일 이름을 가진 파일을 한 쌍으로 처리합니다. 예를 들어 `session_01.wav`에는 `session_01.txt`가 필요합니다. 기본적으로 짝이 없는 파일이 있으면 기본적으로 해당 파일을 건너뛰고 경고를 출력합니다.
+같은 상대 경로와 파일 이름을 가진 파일을 한 쌍으로 처리합니다. 예를 들어 `session_01.wav`에는 `session_01.txt`가 필요합니다. 짝이 없는 파일은 기본적으로 건너뛰고 경고를 출력합니다.
 
 CLI는 파일별 준비·디코딩 단계, 디렉터리 진행 막대, 마지막 `total / success / failed` 요약을 출력합니다. 일부 파일이 실패해도 성공한 파일의 TextGrid는 보존하며, CLI는 실패 파일과 사유를 출력한 뒤 종료 코드 2로 끝납니다. 진단을 위해 `logs/summary.tsv`와 파일별 Kaldi 로그를 보관하려면 `--keep-workdir`를 사용하세요.
 
@@ -115,7 +115,7 @@ for failure in batch.failures:
     print(f"제외됨: {failure.audio} ({failure.reason})")
 ```
 
-라이브러리 함수는 기본적으로 진행 로그를 출력하지 않으며, 짝이 없는 입력 파일은 Python 경고 시스템으로 알립니다. 호스트 프로그램에서 진행 상태가 필요하면 `progress` 콜백을 넘기고, `logs/summary.tsv`를 보관하려면 `keep_workdir=True`를 사용하세요. 디렉터리 정렬 결과에서 성공 파일은 `batch.results`, 정상적으로 제외된 파일은 `batch.failures`로 각각 확인할 수 있습니다.
+라이브러리 함수는 기본적으로 진행 로그를 출력하지 않으며, 짝이 없는 입력 파일은 Python 경고 시스템으로 알립니다. 호스트 프로그램에서 진행 상태가 필요하면 `progress` 콜백을 넘기고, `logs/summary.tsv`를 보관하려면 `keep_workdir=True`를 사용하세요. 디렉터리 정렬 결과에서 성공 파일은 `batch.results`, 처리하지 못한 파일과 실패 사유는 `batch.failures`로 각각 확인할 수 있습니다.
 
 ## 입력 자료 안내
 
@@ -134,8 +134,8 @@ koreanfa engine install -f
 koreanfa engine remove -y
 ```
 
-`KOREANFA_ENGINE_HOME`으로 엔진 cache 위치를 변경할 수 있습니다. 고급 사용자는 `KOREANFA_KALDI_DIR` 또는 `kaldi_dir=`로 외부 Kaldi runtime을 지정할 수 있습니다.
+`KOREANFA_ENGINE_HOME`으로 엔진 캐시 위치를 변경할 수 있습니다. 고급 사용자는 `KOREANFA_KALDI_DIR` 또는 `kaldi_dir=`로 외부 Kaldi 런타임을 지정할 수 있습니다.
 
 ## 라이선스
 
-KoreanFA 코드와 일본어 음향 모델은 [Apache-2.0](license)으로 배포됩니다. 한국어 음향 모델은 Mediazen의 proprietary 자산으로 KoreanFA에서만 사용할 수 있으며, 이용 조건은 [모델 고지](koreanfa/runtime/model/kor_model/NOTICE.md)를 확인하세요. 포함 소스와 별도 다운로드되는 엔진의 고지는 [제3자 고지](THIRD_PARTY_NOTICES.md)를 확인하세요.
+KoreanFA 코드와 일본어 음향 모델은 [Apache-2.0](https://github.com/hyung8758/Korean_FA/blob/master/license)으로 배포됩니다. 한국어 음향 모델은 Mediazen의 독점 자산이며 상업적·비상업적 목적 모두에 사용할 수 있지만 KoreanFA의 구성 요소로만 사용해야 합니다. 모델을 수정하거나 별도로 재배포하려면 Mediazen의 사전 서면 허가가 필요합니다. 자세한 내용은 한국어 모델 [고지](https://github.com/hyung8758/Korean_FA/blob/master/koreanfa/runtime/model/kor_model/NOTICE.md)를 확인하세요. 예제 데이터에는 별도 조건이 적용되므로 [예제 데이터 고지](https://github.com/hyung8758/Korean_FA/blob/master/example/NOTICE.md)를 확인하세요. 포함 소스와 별도 다운로드되는 엔진의 고지는 [제3자 고지](https://github.com/hyung8758/Korean_FA/blob/master/THIRD_PARTY_NOTICES.md)를 확인하세요.

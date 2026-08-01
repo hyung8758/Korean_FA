@@ -1,11 +1,11 @@
 # KoreanFA
 
-[![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://github.com/hyung8758/Korean_FA/blob/master/pyproject.toml)
 [![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)](#requirements)
 [![macOS](https://img.shields.io/badge/macOS-12%2B%20%7C%20Apple%20Silicon%20%7C%20Intel-000000?logo=apple&logoColor=white)](#requirements)
-[![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](license)
+[![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](https://github.com/hyung8758/Korean_FA/blob/master/license)
 
-[한국어](README.ko.md)
+[한국어](https://github.com/hyung8758/Korean_FA/blob/master/README.ko.md)
 
 KoreanFA creates Praat TextGrid files from Korean or Japanese WAV audio and a matching UTF-8 transcript. It provides both a Python API and a command-line interface, with automatic Korean/Japanese model selection by default.
 
@@ -138,4 +138,4 @@ Set `KOREANFA_ENGINE_HOME` to choose the engine cache location. Advanced users c
 
 ## License
 
-KoreanFA code and the Japanese acoustic model are licensed under [Apache-2.0](license). The Korean acoustic model is proprietary to Mediazen and may be used only as part of KoreanFA; see its [model notice](koreanfa/runtime/model/kor_model/NOTICE.md). See the [third-party notices](THIRD_PARTY_NOTICES.md) for bundled source material and the separately downloaded engine.
+KoreanFA code and the Japanese acoustic model are licensed under [Apache-2.0](https://github.com/hyung8758/Korean_FA/blob/master/license). The Korean acoustic model is proprietary to Mediazen and may be used for commercial or non-commercial purposes only as part of KoreanFA; modification or separate redistribution requires prior written permission. See the Korean model [notice](https://github.com/hyung8758/Korean_FA/blob/master/koreanfa/runtime/model/kor_model/NOTICE.md), the [example-data notice](https://github.com/hyung8758/Korean_FA/blob/master/example/NOTICE.md), and the [third-party notices](https://github.com/hyung8758/Korean_FA/blob/master/THIRD_PARTY_NOTICES.md) for bundled source material and the separately downloaded engine.
