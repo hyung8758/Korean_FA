@@ -5,6 +5,16 @@
       "version": "2.0.0",
       "url": "https://github.com/hyung8758/Korean_FA/releases/download/koreanfa-engine-v2.0.0/koreanfa-engine-v2.0.0-linux-x86_64.tar.gz",
       "sha256": "df54fb8fa903db7c925e6e0469eb592efb2027c0550691ab6af445e7f7326314"
+    },
+    "darwin-arm64": {
+      "version": "2.2.0",
+      "url": "https://github.com/hyung8758/Korean_FA/releases/download/koreanfa-engine-v2.2.0/koreanfa-engine-v2.2.0-darwin-arm64.tar.gz",
+      "sha256": "cd6cca74141a088a856fb8c55256ec61e798ab10ef2a24e68fb21d00cff013b9"
+    },
+    "darwin-x86_64": {
+      "version": "2.2.0",
+      "url": "https://github.com/hyung8758/Korean_FA/releases/download/koreanfa-engine-v2.2.0/koreanfa-engine-v2.2.0-darwin-x86_64.tar.gz",
+      "sha256": "45a273853044191fe55221db933112766c36fe4abce4fdffeed8d4c8831a700d"
     }
   }
 }

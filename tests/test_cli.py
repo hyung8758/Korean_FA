@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from koreanfa import __version__
 from koreanfa.cli import build_parser, main
 from koreanfa.result import AlignmentFailure, BatchAlignmentResult
 
@@ -58,7 +59,7 @@ def test_cli_reports_partial_batch_failures_without_a_traceback(tmp_path: Path, 
 def test_cli_supports_short_version_option(capsys) -> None:
     with pytest.raises(SystemExit, match="0"):
         build_parser().parse_args(["-v"])
-    assert "koreanfa 2.1.0" in capsys.readouterr().out
+    assert f"koreanfa {__version__}" in capsys.readouterr().out
 
 
 def test_cli_accepts_single_alignment() -> None:

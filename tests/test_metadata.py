@@ -13,13 +13,42 @@ def test_package_and_engine_release_metadata_are_consistent() -> None:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     manifest = json.loads((ROOT / "koreanfa" / "engine_manifest.json").read_text(encoding="utf-8"))
     workflow = (ROOT / ".github" / "workflows" / "engine-candidate.yml").read_text(encoding="utf-8")
-    engine = manifest["engines"]["linux-x86_64"]
-    engine_version = engine["version"]
+    engines = manifest["engines"]
+    linux_engine = engines["linux-x86_64"]
 
     assert pyproject["project"]["dynamic"] == ["version"]
-    assert re.fullmatch(r"\d+\.\d+\.\d+", __version__)
-    assert engine["url"].endswith(f"koreanfa-engine-v{engine_version}-linux-x86_64.tar.gz")
-    assert re.search(rf'ENGINE_VERSION: "{re.escape(engine_version)}"', workflow)
+    assert pyproject["project"]["requires-python"] == ">=3.12,<3.14"
+    assert "Programming Language :: Python :: 3.13" in pyproject["project"]["classifiers"]
+    assert __version__ == "2.2.0"
+    assert set(engines) == {"linux-x86_64", "darwin-arm64", "darwin-x86_64"}
+    for platform, engine in engines.items():
+        engine_version = engine["version"]
+        filename = f"koreanfa-engine-v{engine_version}-{platform}.tar.gz"
+        assert engine["url"].endswith(
+            f"/koreanfa-engine-v{engine_version}/{filename}"
+        )
+        assert re.fullmatch(r"[0-9a-f]{64}", engine["sha256"])
+    assert re.search(
+        rf'ENGINE_VERSION: "{re.escape(linux_engine["version"])}"', workflow
+    )
+
+
+def test_macos_release_metadata_matches_verified_archives() -> None:
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    manifest = json.loads((ROOT / "koreanfa" / "engine_manifest.json").read_text(encoding="utf-8"))
+    engines = manifest["engines"]
+
+    assert "Operating System :: MacOS :: MacOS X" in pyproject["project"]["classifiers"]
+    assert engines["darwin-arm64"] == {
+        "version": "2.2.0",
+        "url": "https://github.com/hyung8758/Korean_FA/releases/download/koreanfa-engine-v2.2.0/koreanfa-engine-v2.2.0-darwin-arm64.tar.gz",
+        "sha256": "cd6cca74141a088a856fb8c55256ec61e798ab10ef2a24e68fb21d00cff013b9",
+    }
+    assert engines["darwin-x86_64"] == {
+        "version": "2.2.0",
+        "url": "https://github.com/hyung8758/Korean_FA/releases/download/koreanfa-engine-v2.2.0/koreanfa-engine-v2.2.0-darwin-x86_64.tar.gz",
+        "sha256": "45a273853044191fe55221db933112766c36fe4abce4fdffeed8d4c8831a700d",
+    }
 
 
 def test_engine_candidate_uses_the_supported_glibc_baseline() -> None:
