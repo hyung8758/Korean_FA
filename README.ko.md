@@ -1,7 +1,8 @@
 # KoreanFA
 
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20x86__64%20%7C%20macOS%2012%2B-555555)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
+[![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
+[![macOS](https://img.shields.io/badge/macOS-12%2B%20%7C%20Apple%20Silicon%20%7C%20Intel-000000?logo=apple&logoColor=white)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
 [![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](license)
 
 [English](README.md)
