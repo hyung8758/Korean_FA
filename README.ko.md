@@ -1,5 +1,6 @@
 # KoreanFA
 
+[![PyPI](https://img.shields.io/pypi/v/koreanfa?logo=pypi&logoColor=white)](https://pypi.org/project/koreanfa/)
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://github.com/hyung8758/Korean_FA/blob/master/pyproject.toml)
 [![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
 [![macOS](https://img.shields.io/badge/macOS-12%2B%20%7C%20Apple%20Silicon%20%7C%20Intel-000000?logo=apple&logoColor=white)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
@@ -25,9 +26,16 @@ KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 P
 
 Windows는 아직 지원하지 않습니다. KoreanFA는 지원되는 Linux 또는 macOS 환경에 맞는 네이티브 엔진을 자동으로 내려받습니다.
 
-## 소스 설치
+## 설치
 
-KoreanFA는 아직 PyPI에 등록되지 않았습니다. 일반적인 `pip install koreanfa` 방식은 추후 PyPI 배포 후 제공될 예정입니다. 그전까지는 지원되는 Linux 또는 macOS 환경에서 GitHub의 최신 소스를 내려받아 설치한 뒤, 호환 엔진을 최초 한 번 설치하세요.
+PyPI에서 KoreanFA를 설치한 뒤, 현재 시스템에 맞는 네이티브 정렬 엔진을 최초 한 번 설치합니다.
+
+```bash
+python -m pip install koreanfa
+koreanfa engine install
+```
+
+원격 기본 브랜치의 최신 개발 소스를 사용하려면 다음과 같이 설치합니다.
 
 ```bash
 git clone --depth 1 https://github.com/hyung8758/Korean_FA.git
@@ -36,7 +44,7 @@ python -m pip install .
 koreanfa engine install
 ```
 
-엔진 상태는 언제든 확인할 수 있습니다.
+엔진 상태는 다음 명령으로 언제든 확인할 수 있습니다.
 
 ```bash
 koreanfa engine status
