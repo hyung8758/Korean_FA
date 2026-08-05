@@ -35,7 +35,16 @@ def detect_language(transcript: str | Path) -> str:
     Mixed Hangul/Kana text is intentionally rejected: callers must force a
     model with ``lang='kor'`` or ``lang='jap'``.
     """
-    text = Path(transcript).read_text(encoding="utf-8") if isinstance(transcript, Path) else transcript
+    if isinstance(transcript, Path):
+        try:
+            text = transcript.read_text(encoding="utf-8", errors="strict")
+        except UnicodeDecodeError as error:
+            raise PairingError(f"Transcript is not valid UTF-8: {transcript}") from error
+    else:
+        text = transcript
+    if not text.strip():
+        location = f": {transcript}" if isinstance(transcript, Path) else ""
+        raise PairingError(f"Transcript is empty{location}")
     has_hangul = bool(HANGUL.search(text))
     has_kana = bool(JAPANESE_KANA.search(text))
     if has_hangul and has_kana:

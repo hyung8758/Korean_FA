@@ -12,7 +12,7 @@ from typing import Callable
 
 from .audio import normalize_wav
 from .engine import installed_engine
-from .errors import AlignmentError, EngineNotFoundError, PairingError
+from .errors import AlignmentError, AudioPreparationError, EngineNotFoundError, PairingError
 from .language import detect_language, normalize_language
 from .pairing import discover_corpus_files
 from .resources import runtime_root
@@ -212,13 +212,36 @@ def _run_language_group(
     input_dir, log_dir = work_dir / "input", work_dir / "logs"
     input_dir.mkdir(); log_dir.mkdir()
     staged: list[tuple[InputPair, str]] = []
+    failures: list[AlignmentFailure] = []
     completed_normally = False
     try:
-        for index, pair in enumerate(pairs):
-            stem = f"pair_{index:06d}"
-            normalize_wav(pair.audio, input_dir / f"{stem}.wav")
+        for pair in pairs:
+            stem = f"pair_{len(staged):06d}"
+            try:
+                normalize_wav(pair.audio, input_dir / f"{stem}.wav")
+            except AudioPreparationError as error:
+                failures.append(
+                    AlignmentFailure(
+                        pair.audio,
+                        pair.transcript,
+                        language,
+                        str(error),
+                        work_dir if keep_workdir else None,
+                    )
+                )
+                if progress:
+                    progress(
+                        "failed",
+                        completed_before + len(failures),
+                        total,
+                        f"{pair.audio.name} ({error})",
+                    )
+                continue
             shutil.copy2(pair.transcript, input_dir / f"{stem}.txt")
             staged.append((pair, stem))
+        if not staged:
+            completed_normally = True
+            return [], failures, work_dir if keep_workdir else None
         command = ["bash", str(resources / "pipeline" / "forced_align.sh"), "-nj", str(num_jobs)]
         if not word_tier: command.append("-nw")
         if not phone_tier: command.append("-np")
@@ -232,7 +255,13 @@ def _run_language_group(
         })
         _merge_engine_environment(env, engine_env)
         completed = _run_runtime_command(
-            command, resources, env, progress, completed_before, total, tuple(pair.audio.name for pair, _ in staged),
+            command,
+            resources,
+            env,
+            progress,
+            completed_before + len(failures),
+            total,
+            tuple(pair.audio.name for pair, _ in staged),
         )
         missing = [stem for _, stem in staged if not (input_dir / f"{stem}.TextGrid").is_file()]
         if completed.returncode != 0 or missing:
@@ -244,7 +273,6 @@ def _run_language_group(
                 )
         failure_reasons = _runtime_failure_reasons(completed.stdout)
         results = []
-        failures = []
         for pair, stem in staged:
             textgrid_source = input_dir / f"{stem}.TextGrid"
             if not textgrid_source.is_file():
@@ -303,25 +331,26 @@ def _run_runtime_command(
     assert process.stdout is not None
     output: list[str] = []
     local_done = 0
-    for line in process.stdout:
-        output.append(line)
-        fields = line.rstrip("\n").split("\t")
-        if fields[0] == "KOREANFA_SUMMARY":
-            continue
-        if len(fields) < 2 or fields[0] != "KOREANFA_EVENT":
-            continue
-        phase = fields[1]
-        if phase in {"completed", "failed", "skipped"}:
-            local_done += 1
-        if progress:
-            detail = fields[3] if len(fields) >= 4 else ""
-            if len(fields) >= 3 and fields[2].isdigit() and int(fields[2]) < len(input_names):
-                detail = input_names[int(fields[2])]
-            if phase == "attempt" and len(fields) >= 5:
-                detail += f" (attempt {fields[4]})"
-            if phase == "failed" and len(fields) >= 5:
-                detail += f" ({fields[4]})"
-            progress(phase, min(completed_before + local_done, total), total, detail)
+    with process.stdout:
+        for line in process.stdout:
+            output.append(line)
+            fields = line.rstrip("\n").split("\t")
+            if fields[0] == "KOREANFA_SUMMARY":
+                continue
+            if len(fields) < 2 or fields[0] != "KOREANFA_EVENT":
+                continue
+            phase = fields[1]
+            if phase in {"completed", "failed", "skipped"}:
+                local_done += 1
+            if progress:
+                detail = fields[3] if len(fields) >= 4 else ""
+                if len(fields) >= 3 and fields[2].isdigit() and int(fields[2]) < len(input_names):
+                    detail = input_names[int(fields[2])]
+                if phase == "attempt" and len(fields) >= 5:
+                    detail += f" (attempt {fields[4]})"
+                if phase == "failed" and len(fields) >= 5:
+                    detail += f" ({fields[4]})"
+                progress(phase, min(completed_before + local_done, total), total, detail)
     returncode = process.wait()
     return subprocess.CompletedProcess(command, returncode, "".join(output), "")
 

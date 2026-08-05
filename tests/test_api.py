@@ -1,9 +1,11 @@
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from koreanfa import BatchAlignmentResult, PairingError, discover_pairs
-from koreanfa.api import _runtime_failure_reasons, align_directory
+from koreanfa import BatchAlignmentResult, InputPair, PairingError, discover_pairs
+from koreanfa.api import _run_language_group, _runtime_failure_reasons, align_directory
+from koreanfa.errors import AudioPreparationError
 from koreanfa.pairing import _index_corpus_path
 
 
@@ -93,3 +95,60 @@ def test_directory_auto_mode_collects_unknown_language_as_a_file_failure(
     assert len(result.failures) == 1
     assert result.failures[0].audio.name == "unknown.wav"
     assert "Could not detect" in result.failures[0].reason
+
+
+def test_audio_preparation_failure_does_not_abort_the_rest_of_a_batch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    input_root = tmp_path / "source"
+    output_root = tmp_path / "output"
+    input_root.mkdir()
+    output_root.mkdir()
+    pairs = []
+    for stem in ("broken", "good"):
+        audio = input_root / f"{stem}.wav"
+        transcript = input_root / f"{stem}.txt"
+        audio.write_bytes(b"audio")
+        transcript.write_text("테스트", encoding="utf-8")
+        pairs.append(InputPair(audio, transcript, Path(stem), "kor"))
+
+    def fake_normalize(source: Path, destination: Path) -> None:
+        if source.stem == "broken":
+            raise AudioPreparationError("invalid test audio")
+        destination.write_bytes(b"normalized")
+
+    def fake_runtime(command, *_args, **_kwargs):
+        staged = Path(command[-1])
+        (staged / "pair_000000.TextGrid").write_text("textgrid", encoding="utf-8")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            "KOREANFA_SUMMARY\ttotal=1\tsuccess=1\tfailed=0\n",
+            "",
+        )
+
+    monkeypatch.setattr("koreanfa.api.normalize_wav", fake_normalize)
+    monkeypatch.setattr("koreanfa.api._run_runtime_command", fake_runtime)
+
+    results, failures, work_dir = _run_language_group(
+        tuple(pairs),
+        "kor",
+        output_root,
+        tmp_path / "engine",
+        {},
+        tmp_path / "resources",
+        1,
+        True,
+        True,
+        False,
+        None,
+        0,
+        2,
+        None,
+    )
+
+    assert work_dir is None
+    assert [result.audio.stem for result in results] == ["good"]
+    assert [failure.audio.stem for failure in failures] == ["broken"]
+    assert failures[0].reason == "invalid test audio"
+    assert results[0].textgrid.is_file()

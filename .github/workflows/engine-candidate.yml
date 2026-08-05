@@ -30,8 +30,8 @@ jobs:
   build-linux-x86_64:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Build engine archive in the manylinux2014 (glibc 2.17) builder
@@ -96,7 +96,7 @@ jobs:
               assert jap.textgrid.is_file()
           PY
       - name: Upload verified candidate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: koreanfa-engine-v${{ env.ENGINE_VERSION }}-linux-x86_64
           path: |

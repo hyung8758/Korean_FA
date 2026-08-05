@@ -11,6 +11,10 @@ class PairingError(KoreanFAError):
     """A directory does not contain an unambiguous WAV/TXT corpus."""
 
 
+class AudioPreparationError(KoreanFAError):
+    """An input WAV cannot be decoded or normalized for the engine."""
+
+
 class EngineNotFoundError(KoreanFAError):
     """No compatible Kaldi runtime was provided."""
 
