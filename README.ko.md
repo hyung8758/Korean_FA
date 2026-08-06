@@ -144,6 +144,10 @@ koreanfa engine remove -y
 
 `KOREANFA_ENGINE_HOME`으로 엔진 캐시 위치를 변경할 수 있습니다. 고급 사용자는 `KOREANFA_KALDI_DIR` 또는 `kaldi_dir=`로 외부 Kaldi 런타임을 지정할 수 있습니다.
 
+## 인용
+
+연구에서 KoreanFA를 사용한 경우 실제 연구에 사용한 버전을 명시하여 인용해 주세요. 인용 메타데이터는 [`CITATION.cff`](https://github.com/hyung8758/Korean_FA/blob/master/CITATION.cff)와 GitHub 저장소의 **Cite this repository** 메뉴에서 확인할 수 있습니다.
+
 ## 라이선스
 
 KoreanFA 코드와 일본어 음향 모델은 [Apache-2.0](https://github.com/hyung8758/Korean_FA/blob/master/license)으로 배포됩니다. 한국어 음향 모델은 Mediazen의 독점 자산이며 상업적·비상업적 목적 모두에 사용할 수 있지만 KoreanFA의 구성 요소로만 사용해야 합니다. 모델을 수정하거나 별도로 재배포하려면 Mediazen의 사전 서면 허가가 필요합니다. 자세한 내용은 한국어 모델 [고지](https://github.com/hyung8758/Korean_FA/blob/master/koreanfa/runtime/model/kor_model/NOTICE.md)를 확인하세요. 예제 데이터에는 별도 조건이 적용되므로 [예제 데이터 고지](https://github.com/hyung8758/Korean_FA/blob/master/example/NOTICE.md)를 확인하세요. 포함 소스와 별도 다운로드되는 엔진의 고지는 [제3자 고지](https://github.com/hyung8758/Korean_FA/blob/master/THIRD_PARTY_NOTICES.md)를 확인하세요.

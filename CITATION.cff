@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use KoreanFA in your research, please cite the software using the metadata below."
+type: software
+title: "KoreanFA"
+authors:
+  - family-names: "Yang"
+    given-names: "Hyungwon"
+    orcid: "https://orcid.org/0009-0004-4284-8250"
+version: "2.2.1"
+date-released: "2026-08-06"
+repository-code: "https://github.com/hyung8758/Korean_FA"
+url: "https://pypi.org/project/koreanfa/"
+abstract: "A Python package and command-line tool for Korean and Japanese forced alignment."
+keywords:
+  - "forced alignment"
+  - "Korean"
+  - "Japanese"
+  - "speech"
+  - "Kaldi"
+  - "TextGrid"
