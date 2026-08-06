@@ -144,6 +144,10 @@ koreanfa engine remove -y
 
 Set `KOREANFA_ENGINE_HOME` to choose the engine cache location. Advanced users can set `KOREANFA_KALDI_DIR` or pass `kaldi_dir=` to use an externally managed Kaldi runtime instead.
 
+## Citation
+
+If you use KoreanFA in academic work, please cite the specific version used in your research. Citation metadata is provided in [`CITATION.cff`](https://github.com/hyung8758/Korean_FA/blob/master/CITATION.cff) and through the **Cite this repository** menu on GitHub.
+
 ## License
 
 KoreanFA code and the Japanese acoustic model are licensed under [Apache-2.0](https://github.com/hyung8758/Korean_FA/blob/master/license). The Korean acoustic model is proprietary to Mediazen and may be used for commercial or non-commercial purposes only as part of KoreanFA; modification or separate redistribution requires prior written permission. See the Korean model [notice](https://github.com/hyung8758/Korean_FA/blob/master/koreanfa/runtime/model/kor_model/NOTICE.md), the [example-data notice](https://github.com/hyung8758/Korean_FA/blob/master/example/NOTICE.md), and the [third-party notices](https://github.com/hyung8758/Korean_FA/blob/master/THIRD_PARTY_NOTICES.md) for bundled source material and the separately downloaded engine.
