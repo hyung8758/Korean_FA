@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from unicodedata import normalize
 
 from .errors import PairingError
 
@@ -22,6 +23,25 @@ class CorpusDiscovery:
     pairs: tuple[DiscoveredFilePair, ...]
     missing_text: tuple[Path, ...]
     missing_audio: tuple[Path, ...]
+
+
+def _portable_output_key(relative_stem: Path) -> str:
+    """Represent a TextGrid path as case-insensitive, normalized Unicode."""
+    return normalize("NFC", relative_stem.as_posix()).casefold()
+
+
+def _reject_output_collisions(relative_stems: set[Path]) -> None:
+    """Reject pairs that could overwrite each other on a common macOS volume."""
+    destinations: dict[str, Path] = {}
+    for relative_stem in sorted(relative_stems):
+        key = _portable_output_key(relative_stem)
+        previous = destinations.get(key)
+        if previous is not None and previous != relative_stem:
+            raise PairingError(
+                "Corpus pairs would share a TextGrid path on a case-insensitive filesystem: "
+                f"{previous.with_suffix('.TextGrid')} and {relative_stem.with_suffix('.TextGrid')}"
+            )
+        destinations[key] = relative_stem
 
 
 def _index_corpus_path(
@@ -67,9 +87,11 @@ def discover_corpus_files(directory: str | Path, *, recursive: bool) -> CorpusDi
 
     audio_stems = set(audio)
     text_stems = set(text)
+    matched_stems = audio_stems & text_stems
+    _reject_output_collisions(matched_stems)
     pairs = tuple(
         DiscoveredFilePair(stem, audio[stem], text[stem])
-        for stem in sorted(audio_stems & text_stems)
+        for stem in sorted(matched_stems)
     )
     return CorpusDiscovery(
         pairs=pairs,

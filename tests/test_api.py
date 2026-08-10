@@ -6,8 +6,7 @@ import pytest
 from koreanfa import BatchAlignmentResult, InputPair, PairingError, discover_pairs
 from koreanfa.api import _run_language_group, _runtime_failure_reasons, align_directory
 from koreanfa.errors import AudioPreparationError
-from koreanfa.pairing import _index_corpus_path
-
+from koreanfa.pairing import _index_corpus_path, _portable_output_key, _reject_output_collisions
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -65,6 +64,24 @@ def test_pairing_rejects_duplicate_case_insensitive_extensions(tmp_path: Path) -
 
     with pytest.raises(PairingError, match="Ambiguous corpus files"):
         _index_corpus_path(tmp_path, tmp_path / "same.WAV", audio, text)
+
+
+def test_pairing_rejects_case_insensitive_textgrid_collisions() -> None:
+    with pytest.raises(PairingError, match="case-insensitive filesystem"):
+        _reject_output_collisions({Path("Speaker/Sample"), Path("speaker/sample")})
+
+
+def test_pairing_normalizes_unicode_before_comparing_textgrid_paths() -> None:
+    composed = Path("café/sample")
+    decomposed = Path("cafe\u0301/sample")
+
+    assert _portable_output_key(composed) == _portable_output_key(decomposed)
+    with pytest.raises(PairingError, match="share a TextGrid path"):
+        _reject_output_collisions({composed, decomposed})
+
+
+def test_pairing_allows_portably_distinct_textgrid_paths() -> None:
+    _reject_output_collisions({Path("speaker-a/sample"), Path("speaker-b/sample")})
 
 
 def test_reads_per_file_runtime_failure_reasons() -> None:
