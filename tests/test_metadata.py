@@ -5,7 +5,6 @@ from pathlib import Path
 
 from koreanfa import __version__
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -31,6 +30,33 @@ def test_package_and_engine_release_metadata_are_consistent() -> None:
     assert re.search(
         rf'ENGINE_VERSION: "{re.escape(linux_engine["version"])}"', workflow
     )
+
+
+def test_package_quality_tooling_and_typed_marker_are_declared() -> None:
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    package_data = pyproject["tool"]["setuptools"]["package-data"]["koreanfa"]
+
+    assert set(pyproject["project"]["optional-dependencies"]["dev"]) >= {
+        "build>=1.2,<2",
+        "mypy>=1.11,<2",
+        "pytest>=8.3,<10",
+        "ruff>=0.9,<1",
+        "twine>=5.1,<8",
+    }
+    assert "py.typed" in package_data
+    assert (ROOT / "koreanfa" / "py.typed").is_file()
+    assert not (ROOT / "setup.py").exists()
+
+
+def test_workflows_separate_lightweight_and_native_engine_checks() -> None:
+    package_workflow = (ROOT / ".github" / "workflows" / "package.yml").read_text(encoding="utf-8")
+    engine_workflow = (ROOT / ".github" / "workflows" / "engine-candidate.yml").read_text(encoding="utf-8")
+
+    assert "pull_request:\n    branches: [master]" in package_workflow
+    assert '"engine/build_linux_x86_64.sh"' in engine_workflow
+    assert '"engine/verify_linux_x86_64.py"' in engine_workflow
+    assert '"koreanfa/runtime/**"' not in engine_workflow
+    assert '"koreanfa/**"' not in engine_workflow
 
 
 def test_macos_release_metadata_matches_verified_archives() -> None:

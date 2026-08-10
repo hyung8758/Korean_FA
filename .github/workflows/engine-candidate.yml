@@ -8,12 +8,8 @@ on:
     branches: [master]
     paths:
       - ".github/workflows/engine-candidate.yml"
-      - "engine/**"
-      - "koreanfa/runtime/**"
-      - "koreanfa/**"
-      - "example/**"
-      - "pyproject.toml"
-      - "setup.py"
+      - "engine/build_linux_x86_64.sh"
+      - "engine/verify_linux_x86_64.py"
   workflow_dispatch:
 
 concurrency:
