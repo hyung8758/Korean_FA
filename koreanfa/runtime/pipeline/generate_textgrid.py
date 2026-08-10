@@ -8,6 +8,7 @@ interval tiers and keeps the historic command-line arguments for compatibility.
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TextIO
 
 
 @dataclass(frozen=True)
@@ -125,7 +126,7 @@ def _word_items(events: list[PhoneEvent], words: list[str]) -> list[tuple[float,
     return items
 
 
-def _write_tier(stream, name: str, end_time: float, intervals: list[tuple[float, float, str]]) -> None:
+def _write_tier(stream: TextIO, name: str, end_time: float, intervals: list[tuple[float, float, str]]) -> None:
     stream.write(f'"IntervalTier"\n"{_escape(name)}"\n0\n{end_time:.6f}\n{len(intervals)}\n')
     for start, end, label in intervals:
         stream.write(f"{start:.6f}\n{end:.6f}\n\"{_escape(label)}\"\n")

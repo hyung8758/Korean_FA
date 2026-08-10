@@ -12,8 +12,7 @@ import sys
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
-from typing import Sequence
-
+from typing import Protocol, Sequence, cast
 
 _HANGUL_START = 0xAC00
 _HANGUL_END = 0xD7A3
@@ -43,8 +42,13 @@ class KoreanG2PError(ValueError):
     """A transcript cannot be converted to KoreanFA model phones."""
 
 
+class _Pronouncer(Protocol):
+    def __call__(self, text: str) -> str:
+        """Return the normalized phonetic Hangul for one token."""
+
+
 @lru_cache(maxsize=1)
-def _pronouncer():
+def _pronouncer() -> _Pronouncer:
     """Create one MeCab-backed G2P instance per Python process."""
     try:
         from ko_speech_tools import G2p
@@ -53,7 +57,7 @@ def _pronouncer():
             "Korean G2P support is unavailable. Reinstall KoreanFA with its required dependencies."
         ) from error
     try:
-        return G2p()
+        return cast(_Pronouncer, G2p())
     except Exception as error:  # pragma: no cover - depends on the local MeCab runtime
         raise KoreanG2PError("Korean G2P could not initialize its bundled MeCab dictionary.") from error
 

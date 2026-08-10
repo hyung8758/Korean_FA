@@ -4,7 +4,6 @@ import pytest
 
 from koreanfa._korean_g2p import KoreanG2PError, phones_for_word, pronunciation_to_phones
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
