@@ -12,7 +12,6 @@ on:
       - "koreanfa/**"
       - "MANIFEST.in"
       - "pyproject.toml"
-      - "setup.py"
   workflow_dispatch:
 
 concurrency:

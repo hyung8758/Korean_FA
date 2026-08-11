@@ -17,6 +17,7 @@ dependencies = [
     "soundfile>=0.12",
     "soxr>=0.3",
 ]
+
 license = "Apache-2.0 AND LicenseRef-Proprietary"
 license-files = ["license", "THIRD_PARTY_NOTICES.md", "koreanfa/runtime/model/kor_model/NOTICE.md", "koreanfa/runtime/model/jap_model/NOTICE.md"]
 authors = [{ name = "Hyungwon Yang" }]
@@ -42,6 +43,15 @@ Issues = "https://github.com/hyung8758/Korean_FA/issues"
 [project.scripts]
 koreanfa = "koreanfa.cli:main"
 
+[project.optional-dependencies]
+dev = [
+    "build>=1.2,<2",
+    "mypy>=1.11,<2",
+    "pytest>=8.3,<10",
+    "ruff>=0.9,<1",
+    "twine>=5.1,<8",
+]
+
 [tool.setuptools]
 packages = ["koreanfa"]
 # Runtime is intentionally non-importable package data, not a collection of
@@ -52,7 +62,7 @@ include-package-data = false
 version = {attr = "koreanfa._version.__version__"}
 
 [tool.setuptools.package-data]
-koreanfa = ["engine_manifest.json", "path.sh", "runtime/**/*"]
+koreanfa = ["engine_manifest.json", "path.sh", "py.typed", "runtime/**/*"]
 
 [tool.setuptools.exclude-package-data]
 koreanfa = ["runtime/pipeline/__pycache__/*", "runtime/**/*.pyc"]
@@ -60,3 +70,21 @@ koreanfa = ["runtime/pipeline/__pycache__/*", "runtime/**/*.pyc"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["koreanfa"]
+strict = true
+pretty = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["ko_speech_tools", "ko_speech_tools.*", "soundfile", "soxr"]
+ignore_missing_imports = true

@@ -13,13 +13,33 @@ import platform
 import shutil
 import tarfile
 import tempfile
+import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
-from urllib.request import urlopen
+from typing import BinaryIO, Iterator, Protocol
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from .errors import EngineNotFoundError, EngineUnavailableError
+
+_DOWNLOAD_ATTEMPTS = 3
+_DOWNLOAD_CHUNK_BYTES = 1024 * 1024
+_DOWNLOAD_TIMEOUT_SECONDS = 30.0
+_MAX_ENGINE_ARCHIVE_BYTES = 256 * 1024 * 1024
+_RETRYABLE_HTTP_STATUS = frozenset({408, 429, 500, 502, 503, 504})
+
+
+class _ResponseHeaders(Protocol):
+    def get(self, name: str, default: str | None = None) -> str | None: ...
+
+
+class _DownloadResponse(Protocol):
+    headers: _ResponseHeaders
+
+    def read(self, size: int = -1) -> bytes: ...
 
 
 @dataclass(frozen=True)
@@ -78,7 +98,15 @@ def install(*, force: bool = False, engine_home: str | Path | None = None, manif
         raise EngineUnavailableError("The packaged KoreanFA engine manifest has an invalid SHA-256 checksum.")
 
     home = _engine_home(engine_home)
+    home.mkdir(parents=True, exist_ok=True)
+    with _installation_lock(home):
+        return _install_locked(spec, home, force=force)
+
+
+def _install_locked(spec: EngineSpec, home: Path, *, force: bool) -> EngineStatus:
+    """Install one engine while the cache-wide process lock is held."""
     target = home / spec.version / spec.platform
+    target_existed = target.exists()
     current = _status_for(spec, home)
     if current.installed and not force:
         return current
@@ -86,12 +114,13 @@ def install(*, force: bool = False, engine_home: str | Path | None = None, manif
         raise EngineUnavailableError(
             f"An incomplete KoreanFA engine exists at {target}. Run 'koreanfa engine install --force' to replace it."
         )
-    home.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix="koreanfa-engine-", dir=home))
     archive = staging / "engine.tar.gz"
     replacement = target.parent / f".{target.name}.new-{uuid.uuid4().hex}"
     backup: Path | None = None
     try:
+        if spec.url is None or spec.sha256 is None:  # validated by ``install``; retain a typed boundary here.
+            raise EngineUnavailableError("The KoreanFA engine specification is incomplete.")
         _download(spec.url, archive)
         _verify_checksum(archive, spec.sha256)
         extracted = staging / "extracted"
@@ -106,24 +135,46 @@ def install(*, force: bool = False, engine_home: str | Path | None = None, manif
         if target.exists():
             backup = target.parent / f".{target.name}.backup-{uuid.uuid4().hex}"
             target.rename(backup)
-        try:
-            replacement.rename(target)
-        except Exception:
-            if backup and backup.exists():
-                backup.rename(target)
-            raise
-    except Exception:
+        replacement.rename(target)
+        installed = _status_for(spec, home)
+        if not installed.installed:
+            raise EngineNotFoundError(f"Downloaded KoreanFA engine is invalid after installation: {target}")
+    except BaseException:
         shutil.rmtree(replacement, ignore_errors=True)
+        if backup and backup.exists():
+            try:
+                if target.exists():
+                    shutil.rmtree(target)
+                backup.rename(target)
+            except OSError as rollback_error:
+                raise EngineUnavailableError(
+                    "KoreanFA could not restore the previous engine after installation failed. "
+                    f"The preserved backup remains at {backup}."
+                ) from rollback_error
+        elif backup is None and not target_existed and target.exists():
+            shutil.rmtree(target, ignore_errors=True)
         raise
     finally:
         shutil.rmtree(staging, ignore_errors=True)
-        if backup and backup.exists():
-            shutil.rmtree(backup, ignore_errors=True)
-
-    installed = _status_for(spec, home)
-    if not installed.installed:
-        raise EngineNotFoundError(f"Downloaded KoreanFA engine is invalid: {target}")
+    if backup and backup.exists():
+        shutil.rmtree(backup, ignore_errors=True)
     return installed
+
+
+@contextmanager
+def _installation_lock(home: Path) -> Iterator[None]:
+    """Serialize installers and removers, with automatic release after crashes."""
+    try:
+        import fcntl
+    except ImportError as error:  # pragma: no cover - published engines currently target POSIX platforms only
+        raise EngineUnavailableError("KoreanFA engine installation requires a POSIX file-lock implementation.") from error
+    lock_path = home / ".install.lock"
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def ensure_installed(*, install_if_missing: bool = False, engine_home: str | Path | None = None) -> EngineStatus:
@@ -152,39 +203,62 @@ def installed_engine(*, engine_home: str | Path | None = None) -> EngineStatus |
 
 def remove(*, engine_home: str | Path | None = None, manifest_path: str | Path | None = None) -> bool:
     """Remove only the compatible engine version managed by this package."""
-    current = status(engine_home=engine_home, manifest_path=manifest_path)
-    if not current.root.exists():
+    spec = _engine_spec(manifest_path)
+    home = _engine_home(engine_home)
+    if not home.exists():
         return False
-    shutil.rmtree(current.root)
-    return True
+    with _installation_lock(home):
+        current = _status_for(spec, home)
+        if not current.root.exists():
+            return False
+        shutil.rmtree(current.root)
+        return True
 
 
 def _engine_spec(manifest_path: str | Path | None = None) -> EngineSpec:
     manifest = _load_manifest(manifest_path)
     current_platform = _platform_tag()
-    entry = manifest.get("engines", {}).get(current_platform)
-    if not entry:
-        available = ", ".join(sorted(map(str, manifest.get("engines", {})))) or "none"
+    engines = manifest.get("engines")
+    if not isinstance(engines, dict):
+        raise EngineUnavailableError("The KoreanFA engine manifest does not contain an engines mapping.")
+    entry = engines.get(current_platform)
+    if not isinstance(entry, dict):
+        available = ", ".join(sorted(str(platform_name) for platform_name in engines)) or "none"
         raise EngineUnavailableError(
             f"KoreanFA does not publish an engine for {current_platform}. "
             f"Published targets: {available}."
         )
+    version = entry.get("version")
+    url = entry.get("url")
+    sha256 = entry.get("sha256")
+    if not isinstance(version, str) or not version:
+        raise EngineUnavailableError(f"The KoreanFA engine manifest has no valid version for {current_platform}.")
+    if url is not None and not isinstance(url, str):
+        raise EngineUnavailableError(f"The KoreanFA engine manifest has an invalid URL for {current_platform}.")
+    if sha256 is not None and not isinstance(sha256, str):
+        raise EngineUnavailableError(f"The KoreanFA engine manifest has an invalid SHA-256 for {current_platform}.")
     return EngineSpec(
         platform=current_platform,
-        version=str(entry["version"]),
-        url=entry.get("url"),
-        sha256=entry.get("sha256"),
+        version=version,
+        url=url,
+        sha256=sha256,
     )
 
 
 def _load_manifest(manifest_path: str | Path | None) -> dict[str, object]:
     if manifest_path:
-        return json.loads(Path(manifest_path).read_text(encoding="utf-8"))
-    configured = os.environ.get("KOREANFA_ENGINE_MANIFEST")
-    if configured:
-        return json.loads(Path(configured).expanduser().read_text(encoding="utf-8"))
-    manifest = resources.files("koreanfa").joinpath("engine_manifest.json")
-    return json.loads(manifest.read_text(encoding="utf-8"))
+        contents = Path(manifest_path).read_text(encoding="utf-8")
+    else:
+        configured = os.environ.get("KOREANFA_ENGINE_MANIFEST")
+        if configured:
+            contents = Path(configured).expanduser().read_text(encoding="utf-8")
+        else:
+            manifest = resources.files("koreanfa").joinpath("engine_manifest.json")
+            contents = manifest.read_text(encoding="utf-8")
+    parsed: object = json.loads(contents)
+    if not isinstance(parsed, dict) or not all(isinstance(key, str) for key in parsed):
+        raise EngineUnavailableError("The KoreanFA engine manifest must be a JSON object with string keys.")
+    return {str(key): value for key, value in parsed.items()}
 
 
 def _platform_tag() -> str:
@@ -263,12 +337,64 @@ def _missing_status(spec: EngineSpec, root: Path) -> EngineStatus:
     return EngineStatus(spec.platform, spec.version, root, False, None, None, None, None, (), None)
 
 
-def _download(url: str, destination: Path) -> None:
-    try:
-        with urlopen(url) as response, destination.open("wb") as stream:
-            shutil.copyfileobj(response, stream)
-    except OSError as error:
-        raise EngineUnavailableError(f"Could not download KoreanFA engine from {url}: {error}") from error
+def _download(
+    url: str,
+    destination: Path,
+    *,
+    attempts: int = _DOWNLOAD_ATTEMPTS,
+    timeout: float = _DOWNLOAD_TIMEOUT_SECONDS,
+    max_bytes: int = _MAX_ENGINE_ARCHIVE_BYTES,
+) -> None:
+    """Download an engine with bounded retries, time, and archive size."""
+    if attempts < 1:
+        raise ValueError("Engine download attempts must be at least 1.")
+    if timeout <= 0:
+        raise ValueError("Engine download timeout must be positive.")
+    if max_bytes < 1:
+        raise ValueError("Maximum engine archive size must be positive.")
+    request = Request(url, headers={"User-Agent": "KoreanFA engine installer"})
+    for attempt in range(1, attempts + 1):
+        try:
+            with urlopen(request, timeout=timeout) as response, destination.open("wb") as stream:
+                _copy_download(response, stream, max_bytes=max_bytes)
+            return
+        except HTTPError as error:
+            should_retry = error.code in _RETRYABLE_HTTP_STATUS and attempt < attempts
+            failure: OSError = error
+        except (OSError, URLError, TimeoutError) as error:
+            should_retry = attempt < attempts
+            failure = error
+        except EngineUnavailableError:
+            destination.unlink(missing_ok=True)
+            raise
+        destination.unlink(missing_ok=True)
+        if not should_retry:
+            raise EngineUnavailableError(
+                f"Could not download KoreanFA engine from {url} after {attempt} attempt(s): {failure}"
+            ) from failure
+        time.sleep(0.5 * 2 ** (attempt - 1))
+
+
+def _copy_download(response: _DownloadResponse, destination: BinaryIO, *, max_bytes: int) -> None:
+    """Copy one HTTP response without accepting an unexpectedly large asset."""
+    content_length = response.headers.get("Content-Length")
+    if content_length:
+        try:
+            declared_size = int(content_length)
+        except ValueError:
+            declared_size = None
+        if declared_size is not None and declared_size > max_bytes:
+            raise EngineUnavailableError(
+                f"KoreanFA engine archive is too large: {declared_size} bytes exceeds the {max_bytes}-byte limit."
+            )
+    downloaded = 0
+    while chunk := response.read(_DOWNLOAD_CHUNK_BYTES):
+        downloaded += len(chunk)
+        if downloaded > max_bytes:
+            raise EngineUnavailableError(
+                f"KoreanFA engine archive exceeded the {max_bytes}-byte download limit."
+            )
+        destination.write(chunk)
 
 
 def _verify_checksum(path: Path, expected: str) -> None:

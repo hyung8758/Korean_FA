@@ -1,0 +1,83 @@
+from pathlib import Path
+
+import koreanfa.fa as fa
+from koreanfa import align_directory_files, align_file
+from koreanfa.result import AlignmentResult, BatchAlignmentResult
+
+
+def test_align_file_forwards_every_public_option(tmp_path: Path, monkeypatch) -> None:
+    wav = tmp_path / "sample.wav"
+    text = tmp_path / "sample.txt"
+    output = tmp_path / "output"
+    expected = AlignmentResult(wav, text, output / "sample.TextGrid", "kor")
+    received: dict[str, object] = {}
+
+    def fake_align(audio: Path, transcript: Path, **options: object) -> AlignmentResult:
+        received.update(options)
+        assert (audio, transcript) == (wav, text)
+        return expected
+
+    monkeypatch.setattr(fa, "align", fake_align)
+    result = align_file(
+        wav,
+        text,
+        lang="kor",
+        output_dir=output,
+        kaldi_dir="engine",
+        num_jobs=2,
+        word_tier=False,
+        phone_tier=True,
+        keep_workdir=True,
+    )
+
+    assert result is expected
+    assert received == {
+        "lang": "kor",
+        "output_dir": output,
+        "kaldi_dir": "engine",
+        "num_jobs": 2,
+        "word_tier": False,
+        "phone_tier": True,
+        "keep_workdir": True,
+        "progress": None,
+    }
+
+
+def test_align_directory_files_and_alias_forward_every_public_option(tmp_path: Path, monkeypatch) -> None:
+    output = tmp_path / "output"
+    expected = BatchAlignmentResult((), output)
+    received: dict[str, object] = {}
+
+    def fake_align_directory(directory: Path, **options: object) -> BatchAlignmentResult:
+        received.update(options)
+        assert directory == tmp_path
+        return expected
+
+    monkeypatch.setattr(fa, "align_directory", fake_align_directory)
+    result = fa.directory(
+        tmp_path,
+        lang="jap",
+        output_dir=output,
+        kaldi_dir="engine",
+        num_jobs=3,
+        recursive=True,
+        ignore_unmatched=False,
+        word_tier=True,
+        phone_tier=False,
+        keep_workdir=True,
+    )
+
+    assert result is expected
+    assert align_directory_files is fa.align_directory_files
+    assert received == {
+        "lang": "jap",
+        "output_dir": output,
+        "kaldi_dir": "engine",
+        "num_jobs": 3,
+        "recursive": True,
+        "ignore_unmatched": False,
+        "word_tier": True,
+        "phone_tier": False,
+        "keep_workdir": True,
+        "progress": None,
+    }

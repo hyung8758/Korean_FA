@@ -18,7 +18,6 @@ from .pairing import discover_corpus_files
 from .resources import runtime_root
 from .result import AlignmentFailure, AlignmentResult, BatchAlignmentResult, InputPair
 
-
 _LIBRARY_PATH_VARIABLES = frozenset({"LD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"})
 DEFAULT_NUM_JOBS = 4
 ProgressCallback = Callable[[str, int, int, str], None]
@@ -210,7 +209,8 @@ def _run_language_group(
         tempfile.mkdtemp(prefix=f"koreanfa-{language}-")
     )
     input_dir, log_dir = work_dir / "input", work_dir / "logs"
-    input_dir.mkdir(); log_dir.mkdir()
+    input_dir.mkdir()
+    log_dir.mkdir()
     staged: list[tuple[InputPair, str]] = []
     failures: list[AlignmentFailure] = []
     completed_normally = False
@@ -243,8 +243,10 @@ def _run_language_group(
             completed_normally = True
             return [], failures, work_dir if keep_workdir else None
         command = ["bash", str(resources / "pipeline" / "forced_align.sh"), "-nj", str(num_jobs)]
-        if not word_tier: command.append("-nw")
-        if not phone_tier: command.append("-np")
+        if not word_tier:
+            command.append("-nw")
+        if not phone_tier:
+            command.append("-np")
         command.append(str(input_dir))
         env = os.environ.copy()
         env.update({
@@ -301,7 +303,11 @@ def _runtime_summary(output: str) -> tuple[int, int, int]:
         fields = line.split("\t")
         if fields and fields[0] == "KOREANFA_SUMMARY":
             values = dict(field.split("=", 1) for field in fields[1:] if "=" in field)
-            return tuple(int(values.get(key, "0")) for key in ("total", "success", "failed"))
+            return (
+                int(values.get("total", "0")),
+                int(values.get("success", "0")),
+                int(values.get("failed", "0")),
+            )
     return 0, 0, 0
 
 
@@ -385,6 +391,8 @@ def _resolve_kaldi_dir(kaldi_dir: str | Path | None) -> tuple[Path, dict[str, st
             "KoreanFA native engine is required but not installed. Run 'koreanfa engine install' or call "
             "'from koreanfa.engine import install; install()'."
         )
+    if engine.kaldi_dir is None:
+        raise EngineNotFoundError("The installed KoreanFA engine does not declare a usable Kaldi runtime.")
     return engine.kaldi_dir, engine.environment
 
 

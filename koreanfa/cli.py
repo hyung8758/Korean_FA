@@ -11,6 +11,7 @@ from .engine import install as install_engine
 from .engine import remove as remove_engine
 from .engine import status as engine_status
 from .errors import EngineNotFoundError, KoreanFAError
+from .result import AlignmentResult, BatchAlignmentResult
 
 
 class _CliProgress:
@@ -113,19 +114,33 @@ def main(argv: list[str] | None = None) -> int:
                 print("Removed KoreanFA engine." if removed else "No KoreanFA engine was installed.")
             return 0
         aligner = Aligner(lang=args.lang, kaldi_dir=args.kaldi_dir, num_jobs=args.num_jobs)
-        options = {
-            "output_dir": args.output_dir,
-            "word_tier": not args.no_word,
-            "phone_tier": not args.no_phone,
-            "keep_workdir": args.keep_workdir,
-            "progress": _CliProgress(),
-        }
+        result: AlignmentResult | BatchAlignmentResult
         if args.input.is_dir():
-            options["recursive"] = args.recursive
-            options["ignore_unmatched"] = args.ignore_unmatched
-        result = aligner.align(args.input, getattr(args, "transcript", None), **options)
+            result = aligner.align(
+                args.input,
+                output_dir=args.output_dir,
+                recursive=args.recursive,
+                ignore_unmatched=args.ignore_unmatched,
+                word_tier=not args.no_word,
+                phone_tier=not args.no_phone,
+                keep_workdir=args.keep_workdir,
+                progress=_CliProgress(),
+            )
+        else:
+            transcript: Path | None = getattr(args, "transcript", None)
+            if transcript is None:
+                raise ValueError("A WAV input requires its matching TXT transcript.")
+            result = aligner.align(
+                args.input,
+                transcript,
+                output_dir=args.output_dir,
+                word_tier=not args.no_word,
+                phone_tier=not args.no_phone,
+                keep_workdir=args.keep_workdir,
+                progress=_CliProgress(),
+            )
         has_partial_failures = False
-        if hasattr(result, "results"):
+        if isinstance(result, BatchAlignmentResult):
             for item in result.results:
                 print(item.textgrid)
             for failure in result.failures:

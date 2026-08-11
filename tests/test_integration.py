@@ -12,7 +12,6 @@ import pytest
 
 from koreanfa import align_directory
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 KALDI_DIR = os.environ.get("KOREANFA_KALDI_DIR")
 

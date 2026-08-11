@@ -4,7 +4,6 @@
 import sys
 from pathlib import Path
 
-
 # This script is invoked from package data as a file.  Make the installed
 # package (or source checkout) importable without depending on the caller's cwd.
 PACKAGE_PARENT = Path(__file__).resolve().parents[3]
