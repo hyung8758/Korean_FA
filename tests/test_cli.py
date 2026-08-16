@@ -5,6 +5,7 @@ import pytest
 
 from koreanfa import __version__
 from koreanfa.cli import build_parser, main
+from koreanfa.errors import EngineUnavailableError
 from koreanfa.result import AlignmentFailure, BatchAlignmentResult
 
 
@@ -101,6 +102,54 @@ def test_cli_accepts_engine_commands() -> None:
 
     remove_args = build_parser().parse_args(["engine", "remove", "-y"])
     assert remove_args.yes is True
+
+
+def test_cli_reports_engine_download_progress_and_actionable_failure(monkeypatch, capsys) -> None:
+    def failed_install(*, force: bool, progress) -> None:
+        assert force is False
+        progress("downloading engine (attempt 1/3)...")
+        progress("checksum verification failed on attempt 1/3; retrying...")
+        raise EngineUnavailableError(
+            "KoreanFA engine checksum mismatch after 3 download attempts. "
+            "Please try again later or see docs/troubleshooting.md."
+        )
+
+    monkeypatch.setattr("koreanfa.cli.install_engine", failed_install)
+
+    assert main(["engine", "install"]) == 2
+
+    captured = capsys.readouterr()
+    assert "downloading engine (attempt 1/3)" in captured.err
+    assert "checksum verification failed" in captured.err
+    assert "koreanfa: error:" in captured.err
+    assert "try again later" in captured.err
+    assert "docs/troubleshooting.md" in captured.err
+    assert captured.out == ""
+
+
+def test_cli_explains_unsupported_glibc_before_downloading(
+    tmp_path: Path, monkeypatch, capsys, write_test_manifest: Callable[..., Path]
+) -> None:
+    monkeypatch.setattr("koreanfa.engine.platform.system", lambda: "Linux")
+    monkeypatch.setattr("koreanfa.engine.platform.machine", lambda: "x86_64")
+    monkeypatch.setattr("koreanfa.engine._linux_libc", lambda: ("glibc", (2, 16)))
+    manifest = write_test_manifest(
+        tmp_path,
+        url="https://example.invalid/engine.tar.gz",
+        sha256="0" * 64,
+        minimum_glibc="2.17",
+    )
+    monkeypatch.setenv("KOREANFA_ENGINE_MANIFEST", str(manifest))
+    monkeypatch.setenv("KOREANFA_ENGINE_HOME", str(tmp_path / "cache"))
+
+    assert main(["engine", "install"]) == 2
+
+    captured = capsys.readouterr()
+    assert "koreanfa: error:" in captured.err
+    assert "requires x86_64 Linux with glibc 2.17 or later" in captured.err
+    assert "detected glibc 2.16" in captured.err
+    assert "downloading engine" not in captured.err
+    assert captured.out == ""
 
 
 def test_align_dir_alias_reaches_engine_validation(

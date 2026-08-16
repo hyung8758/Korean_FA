@@ -18,18 +18,22 @@ def write_test_manifest() -> Callable[..., Path]:
         sha256: str | None,
         version: str = "test-1",
         filename: str = "manifest.json",
+        minimum_glibc: str | None = None,
     ) -> Path:
         manifest = directory / filename
+        entry = {
+            "version": version,
+            "url": url,
+            "sha256": sha256,
+        }
+        if minimum_glibc is not None:
+            entry["minimum_glibc"] = minimum_glibc
         manifest.write_text(
             json.dumps(
                 {
                     "schema_version": 1,
                     "engines": {
-                        _platform_tag(): {
-                            "version": version,
-                            "url": url,
-                            "sha256": sha256,
-                        }
+                        _platform_tag(): entry,
                     },
                 }
             ),

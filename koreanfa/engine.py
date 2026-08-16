@@ -10,11 +10,13 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import tarfile
 import tempfile
 import time
 import uuid
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib import resources
@@ -30,6 +32,9 @@ _DOWNLOAD_CHUNK_BYTES = 1024 * 1024
 _DOWNLOAD_TIMEOUT_SECONDS = 30.0
 _MAX_ENGINE_ARCHIVE_BYTES = 256 * 1024 * 1024
 _RETRYABLE_HTTP_STATUS = frozenset({408, 429, 500, 502, 503, 504})
+_TROUBLESHOOTING_URL = "https://github.com/hyung8758/Korean_FA/blob/master/docs/troubleshooting.md"
+
+EngineProgress = Callable[[str], None]
 
 
 class _ResponseHeaders(Protocol):
@@ -50,6 +55,7 @@ class EngineSpec:
     version: str
     url: str | None
     sha256: str | None
+    minimum_glibc: tuple[int, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -82,11 +88,19 @@ class EngineStatus:
         return values
 
 
-def install(*, force: bool = False, engine_home: str | Path | None = None, manifest_path: str | Path | None = None) -> EngineStatus:
+def install(
+    *,
+    force: bool = False,
+    engine_home: str | Path | None = None,
+    manifest_path: str | Path | None = None,
+    progress: EngineProgress | None = None,
+) -> EngineStatus:
     """Install the compatible engine archive and return its verified status.
 
-    ``manifest_path`` exists for KoreanFA release tooling and tests.  Normal
+    ``manifest_path`` exists for KoreanFA release tooling and tests. Normal
     callers should use the manifest packaged with the installed library.
+    ``progress`` receives human-readable download and retry events; it is
+    silent by default for library callers.
     """
     spec = _engine_spec(manifest_path)
     if not spec.url or not spec.sha256:
@@ -96,14 +110,21 @@ def install(*, force: bool = False, engine_home: str | Path | None = None, manif
         )
     if len(spec.sha256) != 64 or any(char not in "0123456789abcdef" for char in spec.sha256.lower()):
         raise EngineUnavailableError("The packaged KoreanFA engine manifest has an invalid SHA-256 checksum.")
+    _validate_platform_requirements(spec)
 
     home = _engine_home(engine_home)
     home.mkdir(parents=True, exist_ok=True)
     with _installation_lock(home):
-        return _install_locked(spec, home, force=force)
+        return _install_locked(spec, home, force=force, progress=progress)
 
 
-def _install_locked(spec: EngineSpec, home: Path, *, force: bool) -> EngineStatus:
+def _install_locked(
+    spec: EngineSpec,
+    home: Path,
+    *,
+    force: bool,
+    progress: EngineProgress | None,
+) -> EngineStatus:
     """Install one engine while the cache-wide process lock is held."""
     target = home / spec.version / spec.platform
     target_existed = target.exists()
@@ -121,8 +142,7 @@ def _install_locked(spec: EngineSpec, home: Path, *, force: bool) -> EngineStatu
     try:
         if spec.url is None or spec.sha256 is None:  # validated by ``install``; retain a typed boundary here.
             raise EngineUnavailableError("The KoreanFA engine specification is incomplete.")
-        _download(spec.url, archive)
-        _verify_checksum(archive, spec.sha256)
+        _download(spec.url, archive, expected_sha256=spec.sha256, progress=progress)
         extracted = staging / "extracted"
         extracted.mkdir()
         _safe_extract(archive, extracted)
@@ -231,17 +251,26 @@ def _engine_spec(manifest_path: str | Path | None = None) -> EngineSpec:
     version = entry.get("version")
     url = entry.get("url")
     sha256 = entry.get("sha256")
+    minimum_glibc_value = entry.get("minimum_glibc")
     if not isinstance(version, str) or not version:
         raise EngineUnavailableError(f"The KoreanFA engine manifest has no valid version for {current_platform}.")
     if url is not None and not isinstance(url, str):
         raise EngineUnavailableError(f"The KoreanFA engine manifest has an invalid URL for {current_platform}.")
     if sha256 is not None and not isinstance(sha256, str):
         raise EngineUnavailableError(f"The KoreanFA engine manifest has an invalid SHA-256 for {current_platform}.")
+    minimum_glibc: tuple[int, int] | None = None
+    if minimum_glibc_value is not None:
+        if not isinstance(minimum_glibc_value, str):
+            raise EngineUnavailableError(f"The KoreanFA engine manifest has an invalid minimum_glibc for {current_platform}.")
+        minimum_glibc = _parse_version_pair(minimum_glibc_value)
+        if minimum_glibc is None:
+            raise EngineUnavailableError(f"The KoreanFA engine manifest has an invalid minimum_glibc for {current_platform}.")
     return EngineSpec(
         platform=current_platform,
         version=version,
         url=url,
         sha256=sha256,
+        minimum_glibc=minimum_glibc,
     )
 
 
@@ -271,6 +300,59 @@ def _platform_tag() -> str:
         aliases = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}
         return f"darwin-{aliases.get(machine, machine)}"
     return f"{system.lower()}-{machine}"
+
+
+def _parse_version_pair(value: str) -> tuple[int, int] | None:
+    """Parse a leading major.minor version without accepting partial values."""
+    match = re.fullmatch(r"(\d+)\.(\d+)", value.strip())
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _linux_libc() -> tuple[str, tuple[int, int] | None]:
+    """Return the detected Linux libc family and its major/minor version."""
+    try:
+        configured = os.confstr("CS_GNU_LIBC_VERSION")
+    except (AttributeError, OSError, ValueError):
+        configured = None
+    if configured:
+        match = re.fullmatch(r"glibc\s+(\d+)\.(\d+)(?:\.\d+)?", configured.strip(), flags=re.IGNORECASE)
+        if match:
+            return "glibc", (int(match.group(1)), int(match.group(2)))
+
+    name, version_text = platform.libc_ver()
+    normalized_name = name.strip().lower()
+    match = re.match(r"(\d+)\.(\d+)", version_text.strip())
+    version = (int(match.group(1)), int(match.group(2))) if match else None
+    return normalized_name or "unknown", version
+
+
+def _validate_platform_requirements(spec: EngineSpec) -> None:
+    """Reject an incompatible Linux libc before downloading the engine."""
+    if not spec.platform.startswith("linux-") or spec.minimum_glibc is None:
+        return
+    libc_name, detected = _linux_libc()
+    required_text = ".".join(map(str, spec.minimum_glibc))
+    if libc_name != "glibc":
+        detected_text = libc_name
+        if detected is not None:
+            detected_text += " " + ".".join(map(str, detected))
+        raise EngineUnavailableError(
+            f"The KoreanFA Linux engine requires x86_64 Linux with glibc {required_text} or later; "
+            f"detected {detected_text}. Alpine Linux and other musl-based distributions are not supported."
+        )
+    if detected is None:
+        raise EngineUnavailableError(
+            f"The KoreanFA Linux engine requires glibc {required_text} or later, but the installed glibc version "
+            "could not be detected."
+        )
+    if detected < spec.minimum_glibc:
+        detected_text = ".".join(map(str, detected))
+        raise EngineUnavailableError(
+            f"The KoreanFA Linux engine requires x86_64 Linux with glibc {required_text} or later; "
+            f"detected glibc {detected_text}. This Linux environment is not supported."
+        )
 
 
 def _engine_home(override: str | Path | None = None) -> Path:
@@ -341,11 +423,13 @@ def _download(
     url: str,
     destination: Path,
     *,
+    expected_sha256: str | None = None,
     attempts: int = _DOWNLOAD_ATTEMPTS,
     timeout: float = _DOWNLOAD_TIMEOUT_SECONDS,
     max_bytes: int = _MAX_ENGINE_ARCHIVE_BYTES,
+    progress: EngineProgress | None = None,
 ) -> None:
-    """Download an engine with bounded retries, time, and archive size."""
+    """Download and optionally verify an engine with one bounded retry loop."""
     if attempts < 1:
         raise ValueError("Engine download attempts must be at least 1.")
     if timeout <= 0:
@@ -354,9 +438,28 @@ def _download(
         raise ValueError("Maximum engine archive size must be positive.")
     request = Request(url, headers={"User-Agent": "KoreanFA engine installer"})
     for attempt in range(1, attempts + 1):
+        _report(progress, f"downloading engine (attempt {attempt}/{attempts})...")
         try:
             with urlopen(request, timeout=timeout) as response, destination.open("wb") as stream:
                 _copy_download(response, stream, max_bytes=max_bytes)
+            if expected_sha256 is not None:
+                actual_sha256 = _file_sha256(destination)
+                if actual_sha256.lower() != expected_sha256.lower():
+                    size = destination.stat().st_size
+                    if attempt == attempts:
+                        raise EngineUnavailableError(
+                            f"KoreanFA engine checksum mismatch after {attempts} download attempts. "
+                            f"Expected {expected_sha256}, last received {actual_sha256} ({size} bytes). "
+                            "The download may have been corrupted or modified by a proxy, VPN, network cache, "
+                            f"or security gateway. Please try again later or see {_TROUBLESHOOTING_URL}."
+                        )
+                    destination.unlink(missing_ok=True)
+                    _report(
+                        progress,
+                        f"checksum verification failed on attempt {attempt}/{attempts}; retrying...",
+                    )
+                    time.sleep(0.5 * 2 ** (attempt - 1))
+                    continue
             return
         except HTTPError as error:
             should_retry = error.code in _RETRYABLE_HTTP_STATUS and attempt < attempts
@@ -370,19 +473,22 @@ def _download(
         destination.unlink(missing_ok=True)
         if not should_retry:
             raise EngineUnavailableError(
-                f"Could not download KoreanFA engine from {url} after {attempt} attempt(s): {failure}"
+                f"Could not download KoreanFA engine from {url} after {attempt} attempt(s): {failure}. "
+                f"Please try again later or see {_TROUBLESHOOTING_URL}."
             ) from failure
+        _report(progress, f"download attempt {attempt}/{attempts} failed; retrying...")
         time.sleep(0.5 * 2 ** (attempt - 1))
 
 
 def _copy_download(response: _DownloadResponse, destination: BinaryIO, *, max_bytes: int) -> None:
     """Copy one HTTP response without accepting an unexpectedly large asset."""
     content_length = response.headers.get("Content-Length")
+    declared_size: int | None = None
     if content_length:
         try:
             declared_size = int(content_length)
         except ValueError:
-            declared_size = None
+            pass
         if declared_size is not None and declared_size > max_bytes:
             raise EngineUnavailableError(
                 f"KoreanFA engine archive is too large: {declared_size} bytes exceeds the {max_bytes}-byte limit."
@@ -395,15 +501,18 @@ def _copy_download(response: _DownloadResponse, destination: BinaryIO, *, max_by
                 f"KoreanFA engine archive exceeded the {max_bytes}-byte download limit."
             )
         destination.write(chunk)
+    if declared_size is not None and downloaded != declared_size:
+        raise OSError(f"incomplete download: expected {declared_size} bytes, received {downloaded}")
 
 
-def _verify_checksum(path: Path, expected: str) -> None:
+def _file_sha256(path: Path) -> str:
     with path.open("rb") as stream:
-        actual = hashlib.file_digest(stream, "sha256").hexdigest()
-    if actual.lower() != expected.lower():
-        raise EngineUnavailableError(
-            f"KoreanFA engine checksum mismatch for {path.name}. Expected {expected}, received {actual}."
-        )
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def _report(progress: EngineProgress | None, message: str) -> None:
+    if progress is not None:
+        progress(message)
 
 
 def _safe_extract(archive: Path, destination: Path) -> None:
