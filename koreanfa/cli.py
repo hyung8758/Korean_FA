@@ -10,7 +10,7 @@ from .api import DEFAULT_NUM_JOBS
 from .engine import install as install_engine
 from .engine import remove as remove_engine
 from .engine import status as engine_status
-from .errors import EngineNotFoundError, KoreanFAError
+from .errors import EngineNotFoundError, EngineUnavailableError, KoreanFAError
 from .result import AlignmentResult, BatchAlignmentResult
 
 
@@ -56,6 +56,11 @@ def _boolean_argument(value: str) -> bool:
     raise argparse.ArgumentTypeError("expected true or false")
 
 
+def _engine_install_progress(message: str) -> None:
+    """Display engine download progress without making library calls noisy."""
+    print(f"koreanfa: {message}", file=sys.stderr)
+
+
 def _options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-l", "--lang", default="auto", help="Language adapter ID; use auto for Korean/Japanese detection")
     parser.add_argument("-o", "--output-dir", type=Path)
@@ -99,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "engine":
             if args.engine_command == "install":
-                installed = install_engine(force=args.force)
+                installed = install_engine(force=args.force, progress=_engine_install_progress)
                 print(f"Installed KoreanFA engine {installed.version} at {installed.root}")
             elif args.engine_command == "status":
                 installed = engine_status()
@@ -152,6 +157,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"koreanfa: diagnostics: {result.work_dir}", file=sys.stderr)
         if has_partial_failures:
             return 2
+    except EngineUnavailableError as error:
+        print(f"koreanfa: error: {error}", file=sys.stderr)
+        return 2
     except EngineNotFoundError as error:
         print(f"koreanfa: warning: {error}", file=sys.stderr)
         return 2

@@ -20,7 +20,7 @@ class EngineNotFoundError(KoreanFAError):
 
 
 class EngineUnavailableError(EngineNotFoundError):
-    """An engine is supported but has not been published for installation."""
+    """The compatible engine cannot be downloaded or installed safely."""
 
 
 class AlignmentError(KoreanFAError):

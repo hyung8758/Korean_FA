@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 import tarfile
 from collections.abc import Callable
@@ -24,6 +25,17 @@ class _QuietArchiveHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format: str, *args: object) -> None:
         return None
+
+
+class _MemoryDownloadResponse:
+    """Small response double for Content-Length edge cases."""
+
+    def __init__(self, contents: bytes, content_length: str | None) -> None:
+        self._stream = io.BytesIO(contents)
+        self.headers = {} if content_length is None else {"Content-Length": content_length}
+
+    def read(self, size: int = -1) -> bytes:
+        return self._stream.read(size)
 
 
 @contextmanager
@@ -130,6 +142,68 @@ def test_engine_download_retries_transient_network_errors(
     assert attempts == [7.5, 7.5, 7.5]
 
 
+def test_engine_download_retries_checksum_mismatch_then_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    damaged = tmp_path / "damaged.tar.gz"
+    verified = tmp_path / "verified.tar.gz"
+    destination = tmp_path / "downloaded.tar.gz"
+    damaged.write_bytes(b"damaged engine archive")
+    verified.write_bytes(b"verified engine archive")
+    expected = hashlib.sha256(verified.read_bytes()).hexdigest()
+    sources = iter((damaged.as_uri(), verified.as_uri()))
+    real_urlopen = engine.urlopen
+    messages: list[str] = []
+
+    def sequenced_urlopen(_request, *, timeout: float):
+        return real_urlopen(next(sources), timeout=timeout)
+
+    monkeypatch.setattr(engine, "urlopen", sequenced_urlopen)
+    monkeypatch.setattr(engine.time, "sleep", lambda _seconds: None)
+
+    engine._download(
+        "https://example.invalid/engine.tar.gz",
+        destination,
+        expected_sha256=expected,
+        attempts=3,
+        progress=messages.append,
+    )
+
+    assert destination.read_bytes() == verified.read_bytes()
+    assert messages == [
+        "downloading engine (attempt 1/3)...",
+        "checksum verification failed on attempt 1/3; retrying...",
+        "downloading engine (attempt 2/3)...",
+    ]
+
+
+def test_engine_download_reports_repeated_checksum_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "damaged.tar.gz"
+    destination = tmp_path / "downloaded.tar.gz"
+    source.write_bytes(b"damaged engine archive")
+    actual = hashlib.sha256(source.read_bytes()).hexdigest()
+    monkeypatch.setattr(engine.time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(EngineUnavailableError) as failure:
+        engine._download(
+            source.as_uri(),
+            destination,
+            expected_sha256="0" * 64,
+            attempts=3,
+        )
+
+    message = str(failure.value)
+    assert "checksum mismatch after 3 download attempts" in message
+    assert "Expected " + "0" * 64 in message
+    assert f"last received {actual}" in message
+    assert f"({source.stat().st_size} bytes)" in message
+    assert "proxy, VPN, network cache" in message
+    assert "docs/troubleshooting.md" in message
+    assert not destination.exists()
+
+
 def test_engine_download_rejects_oversized_archives(tmp_path: Path) -> None:
     source = tmp_path / "oversized.tar.gz"
     destination = tmp_path / "downloaded.tar.gz"
@@ -139,6 +213,24 @@ def test_engine_download_rejects_oversized_archives(tmp_path: Path) -> None:
         engine._download(source.as_uri(), destination, attempts=1, max_bytes=4)
 
     assert not destination.exists()
+
+
+def test_engine_download_accepts_response_without_content_length(tmp_path: Path) -> None:
+    destination = tmp_path / "downloaded.tar.gz"
+    response = _MemoryDownloadResponse(b"complete archive", None)
+
+    with destination.open("wb") as stream:
+        engine._copy_download(response, stream, max_bytes=1024)
+
+    assert destination.read_bytes() == b"complete archive"
+
+
+def test_engine_download_rejects_incomplete_declared_response(tmp_path: Path) -> None:
+    destination = tmp_path / "downloaded.tar.gz"
+    response = _MemoryDownloadResponse(b"short", "10")
+
+    with destination.open("wb") as stream, pytest.raises(OSError, match="expected 10 bytes, received 5"):
+        engine._copy_download(response, stream, max_bytes=1024)
 
 
 def test_concurrent_engine_installs_share_one_download(
@@ -213,18 +305,106 @@ def test_engine_manifest_rejects_invalid_shapes(
         status(manifest_path=manifest_path)
 
 
-def test_engine_install_rejects_checksum_mismatch(
+def test_engine_manifest_rejects_invalid_minimum_glibc(
     tmp_path: Path, write_test_manifest: Callable[..., Path]
+) -> None:
+    manifest = write_test_manifest(
+        tmp_path,
+        url="https://example.invalid/engine.tar.gz",
+        sha256="0" * 64,
+        minimum_glibc="2.x",
+    )
+
+    with pytest.raises(EngineUnavailableError, match="invalid minimum_glibc"):
+        status(manifest_path=manifest)
+
+
+def test_linux_libc_prefers_the_gnu_confstr_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(engine.os, "confstr", lambda _name: "glibc 2.27")
+    monkeypatch.setattr(engine.platform, "libc_ver", lambda: ("unexpected", "0.0"))
+
+    assert engine._linux_libc() == ("glibc", (2, 27))
+
+
+def test_linux_libc_falls_back_to_platform_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(engine.os, "confstr", lambda _name: None)
+    monkeypatch.setattr(engine.platform, "libc_ver", lambda: ("musl", "1.2.5"))
+
+    assert engine._linux_libc() == ("musl", (1, 2))
+
+
+@pytest.mark.parametrize(
+    ("libc_name", "detected", "message"),
+    [
+        ("glibc", (2, 16), "detected glibc 2.16"),
+        ("musl", (1, 2), "detected musl 1.2"),
+        ("unknown", None, "detected unknown"),
+    ],
+)
+def test_engine_install_rejects_unsupported_linux_libc_before_download(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    write_test_manifest: Callable[..., Path],
+    libc_name: str,
+    detected: tuple[int, int] | None,
+    message: str,
+) -> None:
+    monkeypatch.setattr(engine.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(engine.platform, "machine", lambda: "x86_64")
+    manifest = write_test_manifest(
+        tmp_path,
+        url="https://example.invalid/engine.tar.gz",
+        sha256="0" * 64,
+        minimum_glibc="2.17",
+    )
+    monkeypatch.setattr(engine, "_linux_libc", lambda: (libc_name, detected))
+    download_called = False
+
+    def unexpected_download(*_args, **_kwargs) -> None:
+        nonlocal download_called
+        download_called = True
+
+    monkeypatch.setattr(engine, "_download", unexpected_download)
+
+    with pytest.raises(EngineUnavailableError, match=message):
+        install(engine_home=tmp_path / "cache", manifest_path=manifest)
+
+    assert download_called is False
+
+
+def test_engine_install_accepts_minimum_supported_glibc(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, write_test_manifest: Callable[..., Path]
+) -> None:
+    monkeypatch.setattr(engine.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(engine.platform, "machine", lambda: "x86_64")
+    archive, checksum = _write_engine_archive(tmp_path)
+    manifest = write_test_manifest(
+        tmp_path,
+        url=archive.as_uri(),
+        sha256=checksum,
+        minimum_glibc="2.17",
+    )
+    monkeypatch.setattr(engine, "_linux_libc", lambda: ("glibc", (2, 17)))
+
+    installed = install(engine_home=tmp_path / "cache", manifest_path=manifest)
+
+    assert installed.installed is True
+
+
+def test_engine_install_rejects_checksum_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, write_test_manifest: Callable[..., Path]
 ) -> None:
     archive, _ = _write_engine_archive(tmp_path)
     manifest = write_test_manifest(tmp_path, url=archive.as_uri(), sha256="0" * 64)
 
-    with pytest.raises(EngineUnavailableError, match="checksum mismatch"):
+    monkeypatch.setattr(engine.time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(EngineUnavailableError, match="checksum mismatch after 3 download attempts"):
         install(engine_home=tmp_path / "cache", manifest_path=manifest)
 
 
 def test_force_install_preserves_a_working_engine_when_replacement_fails(
-    tmp_path: Path, write_test_manifest: Callable[..., Path]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, write_test_manifest: Callable[..., Path]
 ) -> None:
     archive, checksum = _write_engine_archive(tmp_path)
     manifest = write_test_manifest(tmp_path, url=archive.as_uri(), sha256=checksum)
@@ -236,6 +416,7 @@ def test_force_install_preserves_a_working_engine_when_replacement_fails(
         sha256="0" * 64,
         filename="broken-manifest.json",
     )
+    monkeypatch.setattr(engine.time, "sleep", lambda _seconds: None)
 
     with pytest.raises(EngineUnavailableError, match="checksum mismatch"):
         install(force=True, engine_home=cache, manifest_path=broken_manifest)

@@ -1,3 +1,3 @@
 """Single source for the KoreanFA Python package version."""
 
-__version__ = "2.2.1"
+__version__ = "2.2.2"
