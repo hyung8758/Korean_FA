@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/koreanfa?logo=pypi&logoColor=white)](https://pypi.org/project/koreanfa/)
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://github.com/hyung8758/Korean_FA/blob/master/pyproject.toml)
-[![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04%20LTS-E95420?logo=ubuntu&logoColor=white)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
 [![macOS](https://img.shields.io/badge/macOS-12%2B%20%7C%20Apple%20Silicon%20%7C%20Intel-000000?logo=apple&logoColor=white)](#%EC%A7%80%EC%9B%90-%ED%99%98%EA%B2%BD)
 [![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](https://github.com/hyung8758/Korean_FA/blob/master/license)
 
@@ -19,7 +19,9 @@ KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 P
 
 ## 지원 환경
 
-- Linux x86_64
+- glibc 2.17 이상인 Linux x86_64
+  - 공식 지원 및 검증: Ubuntu 22.04 LTS, Ubuntu 24.04 LTS
+  - 이전 Ubuntu 버전과 기타 glibc 기반 Linux 배포판에서도 동작할 수 있지만 현재 KoreanFA의 공식 테스트 범위에는 포함되지 않습니다
 - Apple Silicon(arm64) 또는 Intel(x86_64) 기반 macOS 12 이상
 - Python 3.12 또는 3.13
 - WAV 음성 파일과 UTF-8 TXT 전사 파일
@@ -143,6 +145,8 @@ koreanfa engine remove -y
 ```
 
 `KOREANFA_ENGINE_HOME`으로 엔진 캐시 위치를 변경할 수 있습니다. 고급 사용자는 `KOREANFA_KALDI_DIR` 또는 `kaldi_dir=`로 외부 Kaldi 런타임을 지정할 수 있습니다.
+
+엔진 다운로드 또는 체크섬 검증에 실패하면 [엔진 설치 문제 해결 문서(영문)](https://github.com/hyung8758/Korean_FA/blob/master/docs/troubleshooting.md)를 확인하세요. KoreanFA는 SHA-256 체크섬이 배포 manifest와 일치하지 않는 엔진을 설치하지 않습니다.
 
 ## 인용
 

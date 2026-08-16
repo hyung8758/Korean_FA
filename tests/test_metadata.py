@@ -20,6 +20,7 @@ def test_package_and_engine_release_metadata_are_consistent() -> None:
     assert "Programming Language :: Python :: 3.13" in pyproject["project"]["classifiers"]
     assert __version__ == "2.2.1"
     assert set(engines) == {"linux-x86_64", "darwin-arm64", "darwin-x86_64"}
+    assert linux_engine["minimum_glibc"] == "2.17"
     for platform, engine in engines.items():
         engine_version = engine["version"]
         filename = f"koreanfa-engine-v{engine_version}-{platform}.tar.gz"
@@ -83,6 +84,23 @@ def test_engine_candidate_uses_the_supported_glibc_baseline() -> None:
     assert "quay.io/pypa/manylinux2014_x86_64" in workflow
     assert "KOREANFA_GLIBC_BASELINE=2.17" in workflow
     assert "yum --setopt=tsflags= reinstall -y devtoolset-10-gcc" in workflow
+
+
+def test_linux_support_and_engine_troubleshooting_are_documented() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    korean_readme = (ROOT / "README.ko.md").read_text(encoding="utf-8")
+    troubleshooting = (ROOT / "docs" / "troubleshooting.md").read_text(encoding="utf-8")
+    source_manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+
+    for document in (readme, korean_readme):
+        assert "glibc 2.17" in document
+        assert "Ubuntu 22.04 LTS" in document
+        assert "24.04 LTS" in document
+        assert "docs/troubleshooting.md" in document
+    assert "sha256sum --check --strict" in troubleshooting
+    assert "Do not bypass checksum verification" in troubleshooting
+    assert "Alpine Linux and other musl-based distributions are not supported" in troubleshooting
+    assert "include docs/troubleshooting.md" in source_manifest
 
 
 def test_release_legal_documents_are_declared_in_package_metadata() -> None:

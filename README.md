@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/koreanfa?logo=pypi&logoColor=white)](https://pypi.org/project/koreanfa/)
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](https://github.com/hyung8758/Korean_FA/blob/master/pyproject.toml)
-[![Linux](https://img.shields.io/badge/Linux-x86__64-FCC624?logo=linux&logoColor=black)](#requirements)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04%20%7C%2024.04%20LTS-E95420?logo=ubuntu&logoColor=white)](#requirements)
 [![macOS](https://img.shields.io/badge/macOS-12%2B%20%7C%20Apple%20Silicon%20%7C%20Intel-000000?logo=apple&logoColor=white)](#requirements)
 [![License](https://img.shields.io/badge/License-Apache--2.0%20%2B%20proprietary-3DA639)](https://github.com/hyung8758/Korean_FA/blob/master/license)
 
@@ -19,7 +19,9 @@ KoreanFA creates Praat TextGrid files from Korean or Japanese WAV audio and a ma
 
 ## Requirements
 
-- Linux x86_64
+- Linux x86_64 with glibc 2.17 or later
+  - Officially supported and tested: Ubuntu 22.04 LTS and 24.04 LTS
+  - Older Ubuntu releases and other glibc-based Linux distributions may work, but are not currently covered by KoreanFA's official test matrix
 - macOS 12 or later on Apple Silicon (arm64) or Intel (x86_64)
 - Python 3.12 or 3.13
 - WAV audio and UTF-8 text transcripts
@@ -143,6 +145,8 @@ koreanfa engine remove -y
 ```
 
 Set `KOREANFA_ENGINE_HOME` to choose the engine cache location. Advanced users can set `KOREANFA_KALDI_DIR` or pass `kaldi_dir=` to use an externally managed Kaldi runtime instead.
+
+If an engine download or checksum verification fails, see the [engine installation troubleshooting guide](https://github.com/hyung8758/Korean_FA/blob/master/docs/troubleshooting.md). KoreanFA never installs an engine whose SHA-256 checksum does not match the published manifest.
 
 ## Citation
 
