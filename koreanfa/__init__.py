@@ -7,7 +7,20 @@ from .engine import ensure_installed
 from .engine import install as install_engine
 from .errors import AlignmentError, EngineNotFoundError, EngineUnavailableError, KoreanFAError, PairingError
 from .fa import align_directory_files, align_file
-from .result import AlignmentFailure, AlignmentResult, BatchAlignmentResult, InputPair
+from .result import (
+    AlignmentFailure,
+    AlignmentInterval,
+    AlignmentOutputs,
+    AlignmentReport,
+    AlignmentResult,
+    AlignmentSkip,
+    AlignmentSummary,
+    BatchAlignmentResult,
+    ExistingOutputPolicy,
+    ExportFormat,
+    InputPair,
+)
+from .validation import ValidatedPair, ValidationIssue, ValidationReport, validate
 
 __all__ = [
     "align",
@@ -18,14 +31,25 @@ __all__ = [
     "discover_pairs",
     "AlignmentError",
     "AlignmentFailure",
+    "AlignmentInterval",
+    "AlignmentOutputs",
+    "AlignmentReport",
     "AlignmentResult",
+    "AlignmentSkip",
+    "AlignmentSummary",
     "BatchAlignmentResult",
     "EngineNotFoundError",
     "EngineUnavailableError",
+    "ExistingOutputPolicy",
+    "ExportFormat",
     "InputPair",
     "KoreanFAError",
     "PairingError",
     "ensure_installed",
     "install_engine",
+    "validate",
+    "ValidatedPair",
+    "ValidationIssue",
+    "ValidationReport",
     "__version__",
 ]

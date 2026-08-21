@@ -40,6 +40,16 @@ def test_cli_stops_cleanly_for_unmatched_files_when_disabled(tmp_path: Path, cap
     assert "Traceback" not in captured.err
 
 
+def test_align_dir_reports_a_missing_directory_as_a_directory_error(tmp_path: Path, capsys) -> None:
+    missing = tmp_path / "missing-corpus"
+
+    assert main(["align-dir", str(missing)]) == 2
+
+    captured = capsys.readouterr()
+    assert "Input directory does not exist" in captured.err
+    assert "requires its matching TXT" not in captured.err
+
+
 def test_cli_reports_partial_batch_failures_without_a_traceback(tmp_path: Path, monkeypatch, capsys) -> None:
     audio = tmp_path / "rejected.wav"
     transcript = tmp_path / "rejected.txt"
@@ -67,6 +77,22 @@ def test_cli_accepts_single_alignment() -> None:
     args = build_parser().parse_args(["align", "audio.wav", "audio.txt", "-np"])
     assert args.command == "align"
     assert args.no_phone is True
+
+
+def test_cli_accepts_workflow_outputs_and_validation_options() -> None:
+    align_args = build_parser().parse_args(
+        ["align", "corpus", "--existing", "skip", "--export", "json", "--export", "ctm", "--report", "run.json"]
+    )
+    validate_args = build_parser().parse_args(
+        ["validate", "corpus", "--recursive", "--strict", "--no-engine-check", "--report", "validation.json"]
+    )
+
+    assert align_args.existing == "skip"
+    assert align_args.exports == ["json", "ctm"]
+    assert align_args.report == Path("run.json")
+    assert validate_args.recursive is True
+    assert validate_args.strict is True
+    assert validate_args.no_engine_check is True
 
 
 def test_cli_supports_short_forms_for_every_alignment_option() -> None:
@@ -130,9 +156,11 @@ def test_cli_reports_engine_download_progress_and_actionable_failure(monkeypatch
 def test_cli_explains_unsupported_glibc_before_downloading(
     tmp_path: Path, monkeypatch, capsys, write_test_manifest: Callable[..., Path]
 ) -> None:
-    monkeypatch.setattr("koreanfa.engine.platform.system", lambda: "Linux")
-    monkeypatch.setattr("koreanfa.engine.platform.machine", lambda: "x86_64")
-    monkeypatch.setattr("koreanfa.engine._linux_libc", lambda: ("glibc", (2, 16)))
+    monkeypatch.setattr("koreanfa._engine_config.platform.system", lambda: "Linux")
+    monkeypatch.setattr("koreanfa._engine_config.platform.machine", lambda: "x86_64")
+    monkeypatch.setattr(
+        "koreanfa._engine_config.linux_libc", lambda: ("glibc", (2, 16))
+    )
     manifest = write_test_manifest(
         tmp_path,
         url="https://example.invalid/engine.tar.gz",
@@ -176,3 +204,13 @@ def test_cli_writes_validation_errors_to_standard_error(tmp_path: Path, capsys) 
     captured = capsys.readouterr()
     assert "At least one" in captured.err
     assert captured.out == ""
+
+
+def test_cli_reports_filesystem_errors_without_a_traceback(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr("koreanfa.cli.validate", lambda *_args, **_kwargs: (_ for _ in ()).throw(PermissionError("denied")))
+
+    assert main(["validate", str(tmp_path)]) == 2
+
+    captured = capsys.readouterr()
+    assert "koreanfa: error: denied" in captured.err
+    assert "Traceback" not in captured.err
