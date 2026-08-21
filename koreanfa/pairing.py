@@ -23,11 +23,23 @@ class CorpusDiscovery:
     pairs: tuple[DiscoveredFilePair, ...]
     missing_text: tuple[Path, ...]
     missing_audio: tuple[Path, ...]
+    unmatched_audio: tuple[Path, ...] = ()
+    unmatched_transcripts: tuple[Path, ...] = ()
 
 
 def _portable_output_key(relative_stem: Path) -> str:
     """Represent a TextGrid path as case-insensitive, normalized Unicode."""
-    return normalize("NFC", relative_stem.as_posix()).casefold()
+    return _portable_path_key(_textgrid_relative_path(relative_stem))
+
+
+def _textgrid_relative_path(relative_stem: Path) -> Path:
+    """Append the TextGrid extension without discarding dots in a stem."""
+    return relative_stem.parent / f"{relative_stem.name}.TextGrid"
+
+
+def _portable_path_key(path: Path) -> str:
+    """Represent any path as it would compare on a common macOS volume."""
+    return normalize("NFC", path.as_posix()).casefold()
 
 
 def _reject_output_collisions(relative_stems: set[Path]) -> None:
@@ -39,7 +51,7 @@ def _reject_output_collisions(relative_stems: set[Path]) -> None:
         if previous is not None and previous != relative_stem:
             raise PairingError(
                 "Corpus pairs would share a TextGrid path on a case-insensitive filesystem: "
-                f"{previous.with_suffix('.TextGrid')} and {relative_stem.with_suffix('.TextGrid')}"
+                f"{_textgrid_relative_path(previous)} and {_textgrid_relative_path(relative_stem)}"
             )
         destinations[key] = relative_stem
 
@@ -62,7 +74,7 @@ def _index_corpus_path(
     destination[relative_stem] = path
 
 
-def discover_corpus_files(directory: str | Path, *, recursive: bool) -> CorpusDiscovery:
+def discover_corpus_files(directory: str | Path, *, recursive: bool, require_both: bool = True) -> CorpusDiscovery:
     """Index WAV and TXT files once and match them by exact relative stem.
 
     A corpus containing two audio or transcript files with the same relative
@@ -82,7 +94,7 @@ def discover_corpus_files(directory: str | Path, *, recursive: bool) -> CorpusDi
             continue
         _index_corpus_path(root, path, audio, text)
 
-    if not audio or not text:
+    if require_both and (not audio or not text):
         raise PairingError(f"A corpus needs both WAV and TXT files: {root}")
 
     audio_stems = set(audio)
@@ -93,8 +105,12 @@ def discover_corpus_files(directory: str | Path, *, recursive: bool) -> CorpusDi
         DiscoveredFilePair(stem, audio[stem], text[stem])
         for stem in sorted(matched_stems)
     )
+    missing_text = tuple(sorted(audio_stems - text_stems))
+    missing_audio = tuple(sorted(text_stems - audio_stems))
     return CorpusDiscovery(
         pairs=pairs,
-        missing_text=tuple(sorted(audio_stems - text_stems)),
-        missing_audio=tuple(sorted(text_stems - audio_stems)),
+        missing_text=missing_text,
+        missing_audio=missing_audio,
+        unmatched_audio=tuple(audio[stem] for stem in missing_text),
+        unmatched_transcripts=tuple(text[stem] for stem in missing_audio),
     )
