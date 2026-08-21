@@ -17,8 +17,9 @@ def test_package_and_engine_release_metadata_are_consistent() -> None:
 
     assert pyproject["project"]["dynamic"] == ["version"]
     assert pyproject["project"]["requires-python"] == ">=3.12,<3.14"
+    assert "Development Status :: 4 - Beta" in pyproject["project"]["classifiers"]
     assert "Programming Language :: Python :: 3.13" in pyproject["project"]["classifiers"]
-    assert __version__ == "2.2.2"
+    assert __version__ == "2.3.0"
     assert set(engines) == {"linux-x86_64", "darwin-arm64", "darwin-x86_64"}
     assert linux_engine["minimum_glibc"] == "2.17"
     for platform, engine in engines.items():
@@ -170,7 +171,10 @@ def test_korean_g2p_no_longer_ships_kog2p_sources() -> None:
 
 
 def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
-    builder = (ROOT / "engine" / "build_macos.sh").read_text(encoding="utf-8")
+    builder_entrypoint = (ROOT / "engine" / "build_macos.sh").read_text(encoding="utf-8")
+    builder_helpers = (ROOT / "engine" / "macos_build_helpers.sh").read_text(encoding="utf-8")
+    mecab_builder = (ROOT / "engine" / "macos_build_mecab.sh").read_text(encoding="utf-8")
+    builder = "\n".join((builder_entrypoint, builder_helpers, mecab_builder))
     verifier = (ROOT / "engine" / "verify_macos.py").read_text(encoding="utf-8")
     candidate = (ROOT / "engine" / "test_macos_candidate.sh").read_text(encoding="utf-8")
     candidate_report = (ROOT / "engine" / "candidate_report.py").read_text(encoding="utf-8")
@@ -198,14 +202,14 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "brew --prefix gettext" in builder
     assert gettext_formula_m4 in builder
     assert gettext_homebrew_m4 in builder
-    assert builder.index(gettext_formula_m4) < builder.index(gettext_homebrew_m4)
-    assert builder.index("https://github.com/shogo82148/mecab.git") < builder.index(
+    assert builder_entrypoint.index(gettext_formula_m4) < builder_entrypoint.index(gettext_homebrew_m4)
+    assert builder_entrypoint.index("https://github.com/shogo82148/mecab.git") < builder_entrypoint.index(
         'make -j"$build_jobs"'
     )
-    assert builder.index('download_archive "$ipadic_url"') < builder.index(
+    assert builder_entrypoint.index('download_archive "$ipadic_url"') < builder_entrypoint.index(
         'make -j"$build_jobs"'
     )
-    assert builder.index('cd "$mecab_source/mecab"') < builder.index(
+    assert builder_entrypoint.index("build_macos_mecab") < builder_entrypoint.index(
         'cd "$openfst_source"'
     )
     assert "-framework Accelerate" in builder
@@ -238,10 +242,10 @@ def test_macos_engine_candidate_enforces_release_safety_policies() -> None:
     assert "KOREANFA_EXPECTED_SOURCE_REVISION" in verifier
     assert 'decode("utf-8", errors="strict")' in verifier
     assert "dictionary_result.returncode not in (0, 1)" in verifier
-    assert "_dicrc_charset(dictionary_dicrc)" in verifier
+    assert "dicrc_charset(dictionary_dicrc)" in verifier
     assert '"日本語": ("ニホンゴ", "ニホンゴ")' in verifier
     assert "OPENBLAS.txt" in verifier
-    assert "_assert_code_signature(binary)" in verifier
+    assert "assert_code_signature(binary)" in verifier
     assert "Engine archive, root, and metadata versions must match" in verifier
 
     assert "Usage: $0 OUTPUT_DIRECTORY ENGINE_VERSION" in candidate

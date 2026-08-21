@@ -2,8 +2,15 @@
 
 from pathlib import Path
 
-from .api import DEFAULT_NUM_JOBS, ProgressCallback, align, align_directory
-from .result import AlignmentResult, BatchAlignmentResult
+from .api import DEFAULT_NUM_JOBS, align, align_directory
+from .result import (
+    AlignmentResult,
+    AlignmentSkip,
+    BatchAlignmentResult,
+    ExistingOutputPolicy,
+    ExportFormat,
+    ProgressCallback,
+)
 
 
 def align_file(
@@ -18,7 +25,10 @@ def align_file(
     phone_tier: bool = True,
     keep_workdir: bool = False,
     progress: ProgressCallback | None = None,
-) -> AlignmentResult:
+    existing: ExistingOutputPolicy = "overwrite",
+    exports: tuple[ExportFormat, ...] = (),
+    report_path: str | Path | None = None,
+) -> AlignmentResult | AlignmentSkip:
     """Force-align one WAV/TXT pair and return its TextGrid result."""
     return align(
         audio,
@@ -31,6 +41,9 @@ def align_file(
         phone_tier=phone_tier,
         keep_workdir=keep_workdir,
         progress=progress,
+        existing=existing,
+        exports=exports,
+        report_path=report_path,
     )
 
 
@@ -47,6 +60,9 @@ def align_directory_files(
     phone_tier: bool = True,
     keep_workdir: bool = False,
     progress: ProgressCallback | None = None,
+    existing: ExistingOutputPolicy = "overwrite",
+    exports: tuple[ExportFormat, ...] = (),
+    report_path: str | Path | None = None,
 ) -> BatchAlignmentResult:
     """Force-align every automatically discovered WAV/TXT pair in a directory."""
     return align_directory(
@@ -61,6 +77,9 @@ def align_directory_files(
         phone_tier=phone_tier,
         keep_workdir=keep_workdir,
         progress=progress,
+        existing=existing,
+        exports=exports,
+        report_path=report_path,
     )
 
 

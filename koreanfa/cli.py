@@ -11,7 +11,8 @@ from .engine import install as install_engine
 from .engine import remove as remove_engine
 from .engine import status as engine_status
 from .errors import EngineNotFoundError, EngineUnavailableError, KoreanFAError
-from .result import AlignmentResult, BatchAlignmentResult
+from .result import AlignmentResult, AlignmentSkip, BatchAlignmentResult
+from .validation import validate
 
 
 class _CliProgress:
@@ -75,6 +76,15 @@ def _options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-nw", "--no-word", action="store_true")
     parser.add_argument("-np", "--no-phone", action="store_true")
     parser.add_argument("-kw", "--keep-workdir", action="store_true")
+    parser.add_argument(
+        "--existing", choices=("overwrite", "skip", "error"), default="overwrite",
+        help="How to handle an existing TextGrid (default: overwrite)",
+    )
+    parser.add_argument(
+        "--export", dest="exports", action="append", choices=("json", "csv", "ctm"), default=[],
+        help="Write an additional format; may be repeated",
+    )
+    parser.add_argument("--report", type=Path, help="Write an atomic JSON execution report")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -88,6 +98,19 @@ def build_parser() -> argparse.ArgumentParser:
     directory_parser = commands.add_parser("align-dir", help="Alias for 'align DIRECTORY'")
     directory_parser.add_argument("input", type=Path)
     _options(directory_parser)
+
+    validate_parser = commands.add_parser("validate", help="Check inputs and engine readiness without alignment")
+    validate_parser.add_argument("input", type=Path, help="WAV file or corpus directory")
+    validate_parser.add_argument("transcript", nargs="?", type=Path, help="TXT transcript; required for a WAV input")
+    validate_parser.add_argument("-l", "--lang", default="auto")
+    validate_parser.add_argument("-r", "--recursive", action="store_true")
+    validate_parser.add_argument(
+        "-iu", "--ignore-unmatched", dest="ignore_unmatched", type=_boolean_argument, nargs="?", const=True,
+        default=True, metavar="{true,false}",
+    )
+    validate_parser.add_argument("--no-engine-check", action="store_true")
+    validate_parser.add_argument("--strict", action="store_true", help="Treat warnings as a failed validation")
+    validate_parser.add_argument("--report", type=Path, help="Write an atomic JSON validation report")
 
     engine_parser = commands.add_parser("engine", help="Install and manage the local KoreanFA engine")
     engine_commands = engine_parser.add_subparsers(dest="engine_command", required=True)
@@ -118,9 +141,32 @@ def main(argv: list[str] | None = None) -> int:
                 removed = remove_engine()
                 print("Removed KoreanFA engine." if removed else "No KoreanFA engine was installed.")
             return 0
+        if args.command == "validate":
+            report = validate(
+                args.input,
+                args.transcript,
+                lang=args.lang,
+                recursive=args.recursive,
+                ignore_unmatched=args.ignore_unmatched,
+                check_engine=not args.no_engine_check,
+                report_path=args.report,
+            )
+            for issue in report.issues:
+                location = f" {issue.path}" if issue.path else ""
+                print(
+                    f"koreanfa: {issue.severity}: {issue.code}:{location}: {issue.message} {issue.suggestion}",
+                    file=sys.stderr,
+                )
+            print(
+                f"pairs={len(report.pairs)} errors={report.error_count} warnings={report.warning_count} "
+                f"valid={str(report.valid).lower()}"
+            )
+            return 2 if not report.valid or (args.strict and report.warning_count) else 0
         aligner = Aligner(lang=args.lang, kaldi_dir=args.kaldi_dir, num_jobs=args.num_jobs)
-        result: AlignmentResult | BatchAlignmentResult
-        if args.input.is_dir():
+        result: AlignmentResult | AlignmentSkip | BatchAlignmentResult
+        if args.command == "align-dir" and not args.input.is_dir():
+            raise ValueError(f"Input directory does not exist: {args.input.expanduser().resolve()}")
+        if args.command == "align-dir" or args.input.is_dir():
             result = aligner.align(
                 args.input,
                 output_dir=args.output_dir,
@@ -130,6 +176,9 @@ def main(argv: list[str] | None = None) -> int:
                 phone_tier=not args.no_phone,
                 keep_workdir=args.keep_workdir,
                 progress=_CliProgress(),
+                existing=args.existing,
+                exports=tuple(args.exports),
+                report_path=args.report,
             )
         else:
             transcript: Path | None = getattr(args, "transcript", None)
@@ -143,6 +192,9 @@ def main(argv: list[str] | None = None) -> int:
                 phone_tier=not args.no_phone,
                 keep_workdir=args.keep_workdir,
                 progress=_CliProgress(),
+                existing=args.existing,
+                exports=tuple(args.exports),
+                report_path=args.report,
             )
         has_partial_failures = False
         if isinstance(result, BatchAlignmentResult):
@@ -150,11 +202,16 @@ def main(argv: list[str] | None = None) -> int:
                 print(item.textgrid)
             for failure in result.failures:
                 print(f"koreanfa: failed {failure.audio.name}: {failure.reason}", file=sys.stderr)
+            for skipped in result.skipped:
+                print(f"koreanfa: skipped {skipped.audio.name}: {skipped.reason}", file=sys.stderr)
             has_partial_failures = bool(result.failures)
         else:
             print(result.textgrid)
-        if args.keep_workdir and result.work_dir:
-            print(f"koreanfa: diagnostics: {result.work_dir}", file=sys.stderr)
+            if isinstance(result, AlignmentSkip):
+                print(f"koreanfa: skipped {result.audio.name}: {result.reason}", file=sys.stderr)
+        work_dir = getattr(result, "work_dir", None)
+        if args.keep_workdir and work_dir:
+            print(f"koreanfa: diagnostics: {work_dir}", file=sys.stderr)
         if has_partial_failures:
             return 2
     except EngineUnavailableError as error:
@@ -163,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     except EngineNotFoundError as error:
         print(f"koreanfa: warning: {error}", file=sys.stderr)
         return 2
-    except (KoreanFAError, ValueError) as error:
+    except (KoreanFAError, OSError, ValueError) as error:
         print(f"koreanfa: error: {error}", file=sys.stderr)
         return 2
     return 0

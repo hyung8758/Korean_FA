@@ -9,6 +9,7 @@ def test_align_file_forwards_every_public_option(tmp_path: Path, monkeypatch) ->
     wav = tmp_path / "sample.wav"
     text = tmp_path / "sample.txt"
     output = tmp_path / "output"
+    report = tmp_path / "run.json"
     expected = AlignmentResult(wav, text, output / "sample.TextGrid", "kor")
     received: dict[str, object] = {}
 
@@ -28,6 +29,9 @@ def test_align_file_forwards_every_public_option(tmp_path: Path, monkeypatch) ->
         word_tier=False,
         phone_tier=True,
         keep_workdir=True,
+        existing="error",
+        exports=("json",),
+        report_path=report,
     )
 
     assert result is expected
@@ -40,11 +44,15 @@ def test_align_file_forwards_every_public_option(tmp_path: Path, monkeypatch) ->
         "phone_tier": True,
         "keep_workdir": True,
         "progress": None,
+        "existing": "error",
+        "exports": ("json",),
+        "report_path": report,
     }
 
 
 def test_align_directory_files_and_alias_forward_every_public_option(tmp_path: Path, monkeypatch) -> None:
     output = tmp_path / "output"
+    report = tmp_path / "run.json"
     expected = BatchAlignmentResult((), output)
     received: dict[str, object] = {}
 
@@ -65,6 +73,9 @@ def test_align_directory_files_and_alias_forward_every_public_option(tmp_path: P
         word_tier=True,
         phone_tier=False,
         keep_workdir=True,
+        existing="skip",
+        exports=("csv", "ctm"),
+        report_path=report,
     )
 
     assert result is expected
@@ -80,4 +91,7 @@ def test_align_directory_files_and_alias_forward_every_public_option(tmp_path: P
         "phone_tier": False,
         "keep_workdir": True,
         "progress": None,
+        "existing": "skip",
+        "exports": ("csv", "ctm"),
+        "report_path": report,
     }

@@ -22,7 +22,7 @@ license = "Apache-2.0 AND LicenseRef-Proprietary"
 license-files = ["license", "THIRD_PARTY_NOTICES.md", "koreanfa/runtime/model/kor_model/NOTICE.md", "koreanfa/runtime/model/jap_model/NOTICE.md"]
 authors = [{ name = "Hyungwon Yang" }]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Science/Research",
     "Operating System :: MacOS :: MacOS X",

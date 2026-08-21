@@ -1,0 +1,66 @@
+"""Validated options shared by alignment execution and reports."""
+
+from dataclasses import dataclass
+
+from .result import ExistingOutputPolicy, ExportFormat
+
+
+@dataclass(frozen=True)
+class WorkflowOptions:
+    existing: ExistingOutputPolicy
+    exports: tuple[ExportFormat, ...]
+    num_jobs: int
+    word_tier: bool
+    phone_tier: bool
+    keep_workdir: bool
+    requested_language: str
+    recursive: bool
+    ignore_unmatched: bool
+
+    def report_values(self) -> dict[str, object]:
+        """Return the stable subset recorded in execution reports."""
+        return {
+            "existing": self.existing,
+            "exports": list(self.exports),
+            "num_jobs": self.num_jobs,
+            "word_tier": self.word_tier,
+            "phone_tier": self.phone_tier,
+            "keep_workdir": self.keep_workdir,
+            "language": self.requested_language,
+            "recursive": self.recursive,
+            "ignore_unmatched": self.ignore_unmatched,
+        }
+
+
+def normalize_workflow_options(
+    existing: ExistingOutputPolicy,
+    exports: tuple[ExportFormat, ...],
+    num_jobs: int,
+    word_tier: bool,
+    phone_tier: bool,
+    keep_workdir: bool,
+    requested_language: str,
+    recursive: bool,
+    ignore_unmatched: bool,
+) -> WorkflowOptions:
+    """Validate user options once before filesystem or engine work."""
+    if num_jobs < 1:
+        raise ValueError("num_jobs must be at least 1")
+    if not word_tier and not phone_tier:
+        raise ValueError("At least one of word_tier or phone_tier must be enabled")
+    if existing not in {"overwrite", "skip", "error"}:
+        raise ValueError("existing must be one of: overwrite, skip, error")
+    normalized_exports = tuple(dict.fromkeys(exports))
+    if any(value not in {"json", "csv", "ctm"} for value in normalized_exports):
+        raise ValueError("exports must contain only: json, csv, ctm")
+    return WorkflowOptions(
+        existing,
+        normalized_exports,
+        num_jobs,
+        word_tier,
+        phone_tier,
+        keep_workdir,
+        requested_language,
+        recursive,
+        ignore_unmatched,
+    )

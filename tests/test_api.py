@@ -4,9 +4,17 @@ from pathlib import Path
 import pytest
 
 from koreanfa import BatchAlignmentResult, InputPair, PairingError, discover_pairs
-from koreanfa.api import _run_language_group, _runtime_failure_reasons, align_directory
+from koreanfa._alignment_runtime import run_language_group as _run_language_group
+from koreanfa._alignment_runtime import runtime_attempt_counts as _runtime_attempt_counts
+from koreanfa._alignment_runtime import runtime_failure_reasons as _runtime_failure_reasons
+from koreanfa.api import align_directory
 from koreanfa.errors import AudioPreparationError
-from koreanfa.pairing import _index_corpus_path, _portable_output_key, _reject_output_collisions
+from koreanfa.pairing import (
+    _index_corpus_path,
+    _portable_output_key,
+    _reject_output_collisions,
+    _textgrid_relative_path,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -84,6 +92,11 @@ def test_pairing_allows_portably_distinct_textgrid_paths() -> None:
     _reject_output_collisions({Path("speaker-a/sample"), Path("speaker-b/sample")})
 
 
+def test_textgrid_path_preserves_dots_in_the_corpus_stem() -> None:
+    assert _textgrid_relative_path(Path("speaker/session.v1")) == Path("speaker/session.v1.TextGrid")
+    _reject_output_collisions({Path("foo"), Path("foo.bar")})
+
+
 def test_reads_per_file_runtime_failure_reasons() -> None:
     output = (
         "KOREANFA_EVENT\tfailed\t7\tpair_7\tJapanese transcript produced no entries.\n"
@@ -93,6 +106,16 @@ def test_reads_per_file_runtime_failure_reasons() -> None:
     assert _runtime_failure_reasons(output) == {
         "pair_000007": "Japanese transcript produced no entries.",
     }
+
+
+def test_reads_greatest_runtime_attempt_count() -> None:
+    output = (
+        "KOREANFA_EVENT\tattempt\t0\tpair_0\t1/3\n"
+        "KOREANFA_EVENT\tattempt\t0\tpair_0\t2/3\n"
+        "KOREANFA_EVENT\tattempt\t1\tpair_1\t1/3\n"
+    )
+
+    assert _runtime_attempt_counts(output) == {"pair_000000": 2, "pair_000001": 1}
 
 
 def test_directory_auto_mode_collects_unknown_language_as_a_file_failure(
@@ -144,8 +167,8 @@ def test_audio_preparation_failure_does_not_abort_the_rest_of_a_batch(
             "",
         )
 
-    monkeypatch.setattr("koreanfa.api.normalize_wav", fake_normalize)
-    monkeypatch.setattr("koreanfa.api._run_runtime_command", fake_runtime)
+    monkeypatch.setattr("koreanfa._alignment_runtime.normalize_wav", fake_normalize)
+    monkeypatch.setattr("koreanfa._alignment_runtime.run_runtime_command", fake_runtime)
 
     results, failures, work_dir = _run_language_group(
         tuple(pairs),
