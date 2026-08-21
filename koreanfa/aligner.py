@@ -3,9 +3,16 @@
 from pathlib import Path
 from typing import overload
 
-from .api import DEFAULT_NUM_JOBS, ProgressCallback, align, align_directory
+from .api import DEFAULT_NUM_JOBS, align, align_directory
 from .language import normalize_language
-from .result import AlignmentResult, BatchAlignmentResult
+from .result import (
+    AlignmentResult,
+    AlignmentSkip,
+    BatchAlignmentResult,
+    ExistingOutputPolicy,
+    ExportFormat,
+    ProgressCallback,
+)
 
 
 class Aligner:
@@ -34,7 +41,10 @@ class Aligner:
         phone_tier: bool = True,
         keep_workdir: bool = False,
         progress: ProgressCallback | None = None,
-    ) -> AlignmentResult: ...
+        existing: ExistingOutputPolicy = "overwrite",
+        exports: tuple[ExportFormat, ...] = (),
+        report_path: str | Path | None = None,
+    ) -> AlignmentResult | AlignmentSkip: ...
 
     @overload
     def align(
@@ -52,6 +62,9 @@ class Aligner:
         phone_tier: bool = True,
         keep_workdir: bool = False,
         progress: ProgressCallback | None = None,
+        existing: ExistingOutputPolicy = "overwrite",
+        exports: tuple[ExportFormat, ...] = (),
+        report_path: str | Path | None = None,
     ) -> BatchAlignmentResult: ...
 
     def align(
@@ -69,7 +82,10 @@ class Aligner:
         phone_tier: bool = True,
         keep_workdir: bool = False,
         progress: ProgressCallback | None = None,
-    ) -> AlignmentResult | BatchAlignmentResult:
+        existing: ExistingOutputPolicy = "overwrite",
+        exports: tuple[ExportFormat, ...] = (),
+        report_path: str | Path | None = None,
+    ) -> AlignmentResult | AlignmentSkip | BatchAlignmentResult:
         """Align one WAV/TXT pair or every discovered pair in a directory.
 
         Values configured on the instance remain the defaults. ``lang``,
@@ -96,6 +112,9 @@ class Aligner:
                 phone_tier=phone_tier,
                 keep_workdir=keep_workdir,
                 progress=progress,
+                existing=existing,
+                exports=exports,
+                report_path=report_path,
             )
         if transcript is None:
             raise ValueError("A WAV input requires its matching TXT transcript.")
@@ -110,4 +129,7 @@ class Aligner:
             phone_tier=phone_tier,
             keep_workdir=keep_workdir,
             progress=progress,
+            existing=existing,
+            exports=exports,
+            report_path=report_path,
         )
