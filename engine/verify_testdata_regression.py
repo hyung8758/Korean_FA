@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Validate KoreanFA against the immutable public regression corpus."""
 
-from __future__ import annotations
-
 import argparse
 import hashlib
 import json

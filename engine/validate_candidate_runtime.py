@@ -7,7 +7,6 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 from alignment_labels import read_short_textgrid_labels, validate_labels
