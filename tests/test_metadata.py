@@ -17,8 +17,9 @@ def test_package_and_engine_release_metadata_are_consistent() -> None:
 
     assert pyproject["project"]["dynamic"] == ["version"]
     assert pyproject["project"]["requires-python"] == ">=3.12,<3.14"
+    assert "Development Status :: 4 - Beta" in pyproject["project"]["classifiers"]
     assert "Programming Language :: Python :: 3.13" in pyproject["project"]["classifiers"]
-    assert __version__ == "2.2.2"
+    assert __version__ == "2.3.0"
     assert set(engines) == {"linux-x86_64", "darwin-arm64", "darwin-x86_64"}
     assert linux_engine["minimum_glibc"] == "2.17"
     for platform, engine in engines.items():

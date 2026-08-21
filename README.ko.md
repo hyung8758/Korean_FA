@@ -15,6 +15,8 @@ KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 P
 - WAV/TXT 한 쌍 또는 디렉터리 전체를 정렬
 - 한국어·일본어 모델 자동 선택 또는 직접 지정
 - Praat TextGrid의 단어·음소 tier 생성
+- 정렬 전 코퍼스 검증과 재현 가능한 JSON 실행 리포트 생성
+- 구조화 구간을 JSON, CSV, 단어·음소 CTM으로 내보내기
 - Docker나 웹 서버 없이 관리형 Kaldi 기반 엔진 사용
 
 ## 지원 환경
@@ -73,7 +75,15 @@ koreanfa align corpus -r -o aligned
 
 같은 상대 경로와 파일 이름을 가진 파일을 한 쌍으로 처리합니다. 예를 들어 `session_01.wav`에는 `session_01.txt`가 필요합니다. 짝이 없는 파일은 기본적으로 건너뛰고 경고를 출력합니다.
 
-CLI는 파일별 준비·디코딩 단계, 디렉터리 진행 막대, 마지막 `total / success / failed` 요약을 출력합니다. 일부 파일이 실패해도 성공한 파일의 TextGrid는 보존하며, CLI는 실패 파일과 사유를 출력한 뒤 종료 코드 2로 끝납니다. 진단을 위해 `logs/summary.tsv`와 파일별 Kaldi 로그를 보관하려면 `--keep-workdir`를 사용하세요.
+Kaldi 정렬을 시작하지 않고 파일 pairing, UTF-8 전사, 언어 감지, WAV 전체 디코딩, 엔진 준비 상태를 검사할 수 있습니다.
+
+```bash
+koreanfa validate corpus -r --report validation.json
+```
+
+검증은 첫 오류에서 멈추지 않고 발견한 문제를 모두 수집합니다. 오류가 있으면 종료 코드 2를 반환하며, `--strict`를 사용하면 경고도 실패로 처리합니다. 정렬을 실행하지 않을 컴퓨터에서 데이터만 검사할 때는 `--no-engine-check`를 사용할 수 있습니다.
+
+CLI는 파일별 준비·디코딩 단계, 디렉터리 진행 막대, 마지막 `total / success / failed / skipped` 요약을 출력합니다. 일부 파일이 실패해도 성공한 파일의 TextGrid는 보존하며, CLI는 실패 파일과 사유를 출력한 뒤 종료 코드 2로 끝납니다. 진단을 위해 `logs/summary.tsv`와 파일별 Kaldi 로그를 보관하려면 `--keep-workdir`를 사용하세요.
 
 ### 언어 모델 선택
 
@@ -96,6 +106,9 @@ koreanfa align recording.wav recording.txt -l jap
 - `-iu`, `--ignore-unmatched [true|false]`: 같은 이름의 짝이 없는 WAV/TXT 파일을 경고와 함께 건너뜁니다. 기본값은 true이며 (`ignore_unmatched=True`), `false`로 지정하면 짝이 없는 파일을 발견한 시점에 정렬 전에 중단합니다.
 - `-nw`, `--no-word`; `-np`, `--no-phone`: 해당 TextGrid tier를 만들지 않습니다 (`word_tier=False`, `phone_tier=False`).
 - `-kw`, `--keep-workdir`: 성공한 실행의 Kaldi 로그와 진단 작업 파일을 보관합니다 (`keep_workdir=True`).
+- `--existing {overwrite,skip,error}`: 기존 TextGrid를 덮어쓰거나(호환성을 위한 기본값), 구조가 올바른 TextGrid는 재정렬하지 않거나, 요청 출력이 하나라도 있으면 정렬 전에 중단합니다 (`existing=...`). 올바른 TextGrid를 건너뛸 때도 요청한 JSON/CSV/CTM은 기존 TextGrid에서 생성하며, 손상된 TextGrid는 성공한 파일로 건너뛰지 않습니다.
+- `--export {json,csv,ctm}`: 기계 판독용 형식을 추가로 생성합니다. 여러 형식은 옵션을 반복합니다 (`exports=("json", "csv", "ctm")`). CTM은 단어·음소 파일로 나뉘며 빈 gap 구간만 제외하고, 코퍼스 기준 상대 stem을 recording ID로 사용합니다. CTM의 5필드 구조를 유지하도록 recording ID와 label의 공백·제어 문자·`%`는 UTF-8 퍼센트 인코딩하며, JSON과 CSV의 label은 원문 그대로 유지합니다.
+- `--report PATH`: 상대 경로, 옵션, 성공·실패·건너뜀, 시도 횟수, 엔진 메타데이터가 담긴 버전형 JSON 실행 리포트를 원자적으로 저장합니다 (`report_path=PATH`). 전사 원문은 리포트에 복사하지 않습니다.
 
 명령 도움말은 `-h`, `--help`로, 패키지 버전은 `-v`, `--version`으로 확인합니다.
 
@@ -110,6 +123,8 @@ install_engine()
 result = align("recording.wav", "recording.txt", lang="auto")
 print(result.textgrid)
 print(result.language)  # "kor" 또는 "jap"
+for word in result.words:
+    print(word.start, word.end, word.label)
 ```
 
 디렉터리 정렬에는 `Aligner`를 사용합니다.
@@ -118,14 +133,27 @@ print(result.language)  # "kor" 또는 "jap"
 from koreanfa import Aligner
 
 aligner = Aligner(lang="auto", num_jobs=4)
-batch = aligner.align("corpus", recursive=True)
+batch = aligner.align(
+    "corpus",
+    output_dir="aligned",
+    recursive=True,
+    existing="skip",
+    exports=("json", "csv", "ctm"),
+    report_path="aligned/run.json",
+)
 for result in batch.results:
-    print(result.textgrid)
+    print(result.textgrid, result.outputs["json"])
+for skipped in batch.skipped:
+    print(f"변경 없음: {skipped.textgrid}")
 for failure in batch.failures:
     print(f"제외됨: {failure.audio} ({failure.reason})")
 ```
 
-라이브러리 함수는 기본적으로 진행 로그를 출력하지 않으며, 짝이 없는 입력 파일은 Python 경고 시스템으로 알립니다. 호스트 프로그램에서 진행 상태가 필요하면 `progress` 콜백을 넘기고, `logs/summary.tsv`를 보관하려면 `keep_workdir=True`를 사용하세요. 디렉터리 정렬 결과에서 성공 파일은 `batch.results`, 처리하지 못한 파일과 실패 사유는 `batch.failures`로 각각 확인할 수 있습니다.
+`result.words`와 `result.phones`에는 이름이 있는 무음 구간을 포함한 초 단위 typed interval이 들어 있습니다. `result.outputs`에서 생성된 모든 파일을 확인할 수 있습니다. 디렉터리 결과는 성공 파일을 `batch.results`, 올바른 기존 출력을 `batch.skipped`, 처리하지 못한 파일을 `batch.failures`에 담으며, 합계와 경과 시간은 `batch.summary`에서 확인합니다.
+
+라이브러리 함수는 기본적으로 진행 로그를 출력하지 않으며, 짝이 없는 입력 파일은 Python 경고 시스템으로 알립니다. 호스트 프로그램에서 진행 상태가 필요하면 `progress` 콜백을 넘기고, `logs/summary.tsv`를 보관하려면 `keep_workdir=True`를 사용하세요.
+
+Python에서도 `validate("corpus", recursive=True)`로 같은 사전 검증을 실행할 수 있습니다. 반환되는 `ValidationReport`에는 올바른 pair와 발견한 구조화 문제가 모두 들어 있으며, 데이터만 검사할 때는 `check_engine=False`를 지정합니다.
 
 ## 입력 자료 안내
 

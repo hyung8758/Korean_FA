@@ -15,6 +15,8 @@ KoreanFA creates Praat TextGrid files from Korean or Japanese WAV audio and a ma
 - Align one WAV/TXT pair or an entire directory of pairs
 - Select Korean or Japanese automatically, or choose a model explicitly
 - Produce word and phone tiers in a Praat TextGrid
+- Validate a corpus before alignment and record reproducible JSON run reports
+- Export structured intervals as JSON, CSV, or word/phone CTM files
 - Use a managed Kaldi-based engine; Docker and a web server are not required
 
 ## Requirements
@@ -73,7 +75,15 @@ koreanfa align corpus -r -o aligned
 
 Files are paired by their relative stem: for example, `session_01.wav` is matched with `session_01.txt`. Unmatched files are skipped by default and a warning identifies them.
 
-The CLI reports each file's preparation/decode stage, a directory progress bar, and a final `total / success / failed` summary. Successful files keep their TextGrids even if other files fail; the CLI then exits with status 2 and prints each rejected file's reason. Add `--keep-workdir` to retain `logs/summary.tsv` and per-file Kaldi logs for diagnosis.
+Validate pairing, UTF-8 transcripts, language detection, complete WAV decoding, and engine readiness without running Kaldi:
+
+```bash
+koreanfa validate corpus -r --report validation.json
+```
+
+Validation collects all detected problems instead of stopping at the first file. It exits with status 2 for errors; add `--strict` to make warnings fail as well. `--no-engine-check` is available when checking data on a machine that will not perform alignment.
+
+The CLI reports each file's preparation/decode stage, a directory progress bar, and a final `total / success / failed / skipped` summary. Successful files keep their TextGrids even if other files fail; the CLI then exits with status 2 and prints each rejected file's reason. Add `--keep-workdir` to retain `logs/summary.tsv` and per-file Kaldi logs for diagnosis.
 
 ### Language selection
 
@@ -96,6 +106,9 @@ Run `koreanfa align --help` for all options.
 - `-iu`, `--ignore-unmatched [true|false]`: skip WAV/TXT files without a same-stem counterpart and issue a warning; this is the default (`ignore_unmatched=True`). Set it to `false` to stop before alignment when an unmatched file is found.
 - `-nw`, `--no-word`; `-np`, `--no-phone`: omit the corresponding TextGrid tier (`word_tier=False` / `phone_tier=False`).
 - `-kw`, `--keep-workdir`: retain successful-run Kaldi logs and staged diagnostics (`keep_workdir=True`).
+- `--existing {overwrite,skip,error}`: overwrite existing TextGrids (the compatible default), skip realignment for structurally valid TextGrids, or stop before alignment if a requested output already exists (`existing=...`). Requested JSON/CSV/CTM files are still generated from a valid skipped TextGrid; a damaged TextGrid is never treated as a successful skip.
+- `--export {json,csv,ctm}`: write an additional machine-readable format; repeat the option for multiple formats (`exports=("json", "csv", "ctm")`). CTM export writes separate word and phone files, omits only empty gap intervals, and uses the corpus-relative stem as its recording ID. Whitespace, control characters, and `%` in CTM recording IDs or labels are UTF-8 percent-encoded to preserve the five-field format; JSON and CSV labels remain unchanged.
+- `--report PATH`: atomically write a versioned JSON run report containing relative paths, options, outcomes, attempt counts, and engine metadata (`report_path=PATH`). Transcript contents are not copied into the report.
 
 Use `-h` / `--help` for command help and `-v` / `--version` for the package version.
 
@@ -110,6 +123,8 @@ install_engine()
 result = align("recording.wav", "recording.txt", lang="auto")
 print(result.textgrid)
 print(result.language)  # "kor" or "jap"
+for word in result.words:
+    print(word.start, word.end, word.label)
 ```
 
 For a directory, use `Aligner`:
@@ -118,14 +133,27 @@ For a directory, use `Aligner`:
 from koreanfa import Aligner
 
 aligner = Aligner(lang="auto", num_jobs=4)
-batch = aligner.align("corpus", recursive=True)
+batch = aligner.align(
+    "corpus",
+    output_dir="aligned",
+    recursive=True,
+    existing="skip",
+    exports=("json", "csv", "ctm"),
+    report_path="aligned/run.json",
+)
 for result in batch.results:
-    print(result.textgrid)
+    print(result.textgrid, result.outputs["json"])
+for skipped in batch.skipped:
+    print(f"unchanged: {skipped.textgrid}")
 for failure in batch.failures:
     print(f"rejected: {failure.audio} ({failure.reason})")
 ```
 
-Library calls do not print progress by default; unmatched input files are reported through Python's warning system. Pass a `progress` callback when the host application wants structured progress events, and use `keep_workdir=True` when it needs to retain `logs/summary.tsv`. Directory alignment returns successful files in `batch.results` and controlled per-file rejections in `batch.failures`.
+`result.words` and `result.phones` contain typed intervals in seconds, including named silence intervals. `result.outputs` identifies every emitted file. Directory alignment returns successes in `batch.results`, valid existing outputs in `batch.skipped`, and controlled per-file rejections in `batch.failures`; aggregate counts and elapsed time are available from `batch.summary`.
+
+Library calls do not print progress by default; unmatched input files are reported through Python's warning system. Pass a `progress` callback when the host application wants structured progress events, and use `keep_workdir=True` when it needs to retain `logs/summary.tsv`.
+
+The same preflight is available in Python as `validate("corpus", recursive=True)`. Its `ValidationReport` contains every valid pair and every structured issue; pass `check_engine=False` when validating data only.
 
 ## Input notes
 
