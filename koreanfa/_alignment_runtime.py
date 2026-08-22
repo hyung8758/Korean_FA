@@ -7,12 +7,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+from ._engine_environment import merge_engine_environment
 from .audio import normalize_wav
 from .errors import AlignmentError, AudioPreparationError
 from .pairing import _textgrid_relative_path
+from .pronunciation import PronunciationDictionary
 from .result import AlignmentFailure, AlignmentResult, InputPair, ProgressCallback
-
-_LIBRARY_PATH_VARIABLES = frozenset({"LD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"})
 
 
 def run_language_group(
@@ -30,12 +30,14 @@ def run_language_group(
     completed_before: int,
     total: int,
     diagnostics_root: Path | None,
+    pronunciation_dictionary: PronunciationDictionary | None = None,
 ) -> tuple[list[AlignmentResult], list[AlignmentFailure], Path | None]:
     """Normalize and align every pair assigned to one language model."""
     work_dir = _work_directory(language, diagnostics_root)
     input_dir, log_dir = work_dir / "input", work_dir / "logs"
     input_dir.mkdir()
     log_dir.mkdir()
+    staged_dictionary = _stage_pronunciation_dictionary(pronunciation_dictionary, input_dir)
     staged, failures = _stage_pairs(
         pairs, language, input_dir, work_dir, keep_workdir, progress, completed_before, total
     )
@@ -45,7 +47,7 @@ def run_language_group(
             completed_normally = True
             return [], failures, work_dir if keep_workdir else None
         command = _runtime_command(resources, input_dir, num_jobs, word_tier, phone_tier)
-        environment = _runtime_environment(runtime, log_dir, language, engine_env)
+        environment = _runtime_environment(runtime, log_dir, language, engine_env, resources, staged_dictionary)
         completed = run_runtime_command(
             command,
             resources,
@@ -114,7 +116,12 @@ def _runtime_command(
 
 
 def _runtime_environment(
-    runtime: Path, log_dir: Path, language: str, engine_environment: dict[str, str]
+    runtime: Path,
+    log_dir: Path,
+    language: str,
+    engine_environment: dict[str, str],
+    resources: Path,
+    pronunciation_dictionary: Path | None,
 ) -> dict[str, str]:
     environment = os.environ.copy()
     environment.update(
@@ -125,8 +132,23 @@ def _runtime_environment(
             "KOREANFA_PYTHON_EXECUTABLE": sys.executable,
         }
     )
+    package_parent = resources.parent.parent
+    environment["PYTHONPATH"] = os.pathsep.join(
+        filter(None, (str(package_parent), environment.get("PYTHONPATH")))
+    )
+    if pronunciation_dictionary is not None:
+        environment["KOREANFA_PRONUNCIATION_DICTIONARY"] = str(pronunciation_dictionary)
     merge_engine_environment(environment, engine_environment)
     return environment
+
+
+def _stage_pronunciation_dictionary(
+    pronunciation_dictionary: PronunciationDictionary | None, input_dir: Path
+) -> Path | None:
+    """Snapshot caller overrides so a batch cannot observe a changing TSV."""
+    if pronunciation_dictionary is None:
+        return None
+    return pronunciation_dictionary.write_snapshot(input_dir / ".koreanfa-pronunciations.tsv")
 
 
 def _require_complete_runtime_summary(
@@ -270,12 +292,3 @@ def _event_detail(fields: list[str], input_names: tuple[str, ...]) -> str:
     if fields[1] == "failed" and len(fields) >= 5:
         return f"{detail} ({fields[4]})"
     return detail
-
-
-def merge_engine_environment(environment: dict[str, str], engine_environment: dict[str, str]) -> None:
-    """Add engine settings without discarding caller library paths."""
-    for key, value in engine_environment.items():
-        if key in _LIBRARY_PATH_VARIABLES:
-            environment[key] = ":".join(filter(None, (value, environment.get(key))))
-        else:
-            environment.setdefault(key, value)

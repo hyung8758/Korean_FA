@@ -89,6 +89,52 @@ def test_cli_validate_succeeds_without_engine_check(
     assert "pairs=1 errors=0 warnings=0 valid=true" in captured.out
 
 
+def test_validation_reports_korean_oov_tokens_without_persisting_transcript_content(
+    tmp_path: Path, write_wav: Callable[[Path], Path]
+) -> None:
+    audio = write_wav(tmp_path / "sample.wav")
+    transcript = tmp_path / "sample.txt"
+    transcript.write_text("KoreanFA", encoding="utf-8")
+    report_path = tmp_path / "validation.json"
+
+    report = validate(audio, transcript, lang="kor", check_engine=False, report_path=report_path)
+
+    oov = next(issue for issue in report.issues if issue.code == "transcript.oov")
+    assert oov.details == ("KoreanFA",)
+    assert "KoreanFA" not in report_path.read_text(encoding="utf-8")
+
+
+def test_validation_uses_korean_dictionary_to_clear_an_oov(tmp_path: Path, write_wav: Callable[[Path], Path]) -> None:
+    audio = write_wav(tmp_path / "sample.wav")
+    transcript = tmp_path / "sample.txt"
+    transcript.write_text("KoreanFA", encoding="utf-8")
+    dictionary = tmp_path / "dictionary.tsv"
+    dictionary.write_text("language\tword\tpronunciation\nkor\tKoreanFA\t코리안에프에이\n", encoding="utf-8")
+
+    report = validate(audio, transcript, lang="kor", check_engine=False, pronunciation_dictionary=dictionary)
+
+    assert not any(issue.code == "transcript.oov" for issue in report.issues)
+    assert report.valid
+
+
+def test_validation_returns_a_structured_error_for_an_invalid_dictionary(
+    tmp_path: Path, write_wav: Callable[[Path], Path]
+) -> None:
+    dictionary = tmp_path / "dictionary.tsv"
+    dictionary.write_text("kor\tword\t발음\n", encoding="utf-8")
+    audio = write_wav(tmp_path / "sample.wav")
+    transcript = tmp_path / "sample.txt"
+    transcript.write_text("KoreanFA", encoding="utf-8")
+
+    report = validate(audio, transcript, lang="kor", check_engine=False, pronunciation_dictionary=dictionary)
+
+    assert {issue.code for issue in report.issues} == {
+        "pronunciation_dictionary.invalid",
+        "language.undetermined",
+    }
+    assert not any(issue.code == "transcript.oov" for issue in report.issues)
+
+
 def test_validation_report_cannot_overwrite_an_input(
     tmp_path: Path, write_wav: Callable[[Path], Path]
 ) -> None:

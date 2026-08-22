@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from .pronunciation import PronunciationDictionary
 from .result import ExistingOutputPolicy, ExportFormat
 
 
@@ -16,6 +17,7 @@ class WorkflowOptions:
     requested_language: str
     recursive: bool
     ignore_unmatched: bool
+    pronunciation_dictionary: PronunciationDictionary | None
 
     def report_values(self) -> dict[str, object]:
         """Return the stable subset recorded in execution reports."""
@@ -29,6 +31,7 @@ class WorkflowOptions:
             "language": self.requested_language,
             "recursive": self.recursive,
             "ignore_unmatched": self.ignore_unmatched,
+            "pronunciation_dictionary": self.pronunciation_dictionary is not None,
         }
 
 
@@ -42,6 +45,7 @@ def normalize_workflow_options(
     requested_language: str,
     recursive: bool,
     ignore_unmatched: bool,
+    pronunciation_dictionary: PronunciationDictionary | None,
 ) -> WorkflowOptions:
     """Validate user options once before filesystem or engine work."""
     if num_jobs < 1:
@@ -63,4 +67,5 @@ def normalize_workflow_options(
         requested_language,
         recursive,
         ignore_unmatched,
+        pronunciation_dictionary,
     )

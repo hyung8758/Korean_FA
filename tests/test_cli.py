@@ -84,7 +84,10 @@ def test_cli_accepts_workflow_outputs_and_validation_options() -> None:
         ["align", "corpus", "--existing", "skip", "--export", "json", "--export", "ctm", "--report", "run.json"]
     )
     validate_args = build_parser().parse_args(
-        ["validate", "corpus", "--recursive", "--strict", "--no-engine-check", "--report", "validation.json"]
+        [
+            "validate", "corpus", "--recursive", "--strict", "--no-engine-check", "--report", "validation.json",
+            "--pronunciation-dictionary", "dictionary.tsv",
+        ]
     )
 
     assert align_args.existing == "skip"
@@ -93,6 +96,7 @@ def test_cli_accepts_workflow_outputs_and_validation_options() -> None:
     assert validate_args.recursive is True
     assert validate_args.strict is True
     assert validate_args.no_engine_check is True
+    assert validate_args.pronunciation_dictionary == Path("dictionary.tsv")
 
 
 def test_cli_supports_short_forms_for_every_alignment_option() -> None:

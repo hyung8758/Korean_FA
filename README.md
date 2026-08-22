@@ -17,6 +17,7 @@ KoreanFA creates Praat TextGrid files from Korean or Japanese WAV audio and a ma
 - Produce word and phone tiers in a Praat TextGrid
 - Validate a corpus before alignment and record reproducible JSON run reports
 - Export structured intervals as JSON, CSV, or word/phone CTM files
+- Apply optional per-token pronunciation overrides and Korean G2P/OOV checks
 - Use a managed Kaldi-based engine; Docker and a web server are not required
 
 ## Requirements
@@ -108,7 +109,28 @@ Run `koreanfa align --help` for all options.
 - `-kw`, `--keep-workdir`: retain successful-run Kaldi logs and staged diagnostics (`keep_workdir=True`).
 - `--existing {overwrite,skip,error}`: overwrite existing TextGrids (the compatible default), skip realignment for structurally valid TextGrids, or stop before alignment if a requested output already exists (`existing=...`). Requested JSON/CSV/CTM files are still generated from a valid skipped TextGrid; a damaged TextGrid is never treated as a successful skip.
 - `--export {json,csv,ctm}`: write an additional machine-readable format; repeat the option for multiple formats (`exports=("json", "csv", "ctm")`). CTM export writes separate word and phone files, omits only empty gap intervals, and uses the corpus-relative stem as its recording ID. Whitespace, control characters, and `%` in CTM recording IDs or labels are UTF-8 percent-encoded to preserve the five-field format; JSON and CSV labels remain unchanged.
+- `--pronunciation-dictionary PATH`: apply exact-token pronunciation overrides from a UTF-8 TSV file. See [pronunciation dictionary notes](docs/pronunciation-dictionary.md).
 - `--report PATH`: atomically write a versioned JSON run report containing relative paths, options, outcomes, attempt counts, and engine metadata (`report_path=PATH`). Transcript contents are not copied into the report.
+
+### Pronunciation dictionary and OOV checks
+
+Use an optional UTF-8 TSV dictionary when a Korean or Japanese token needs a specific reading. It has a required header and exactly three tab-separated columns:
+
+```tsv
+language	word	pronunciation
+kor	KoreanFA	코리안에프에이
+jap	大切	タイセツ
+```
+
+`word` and `pronunciation` must each be one token without whitespace. Korean readings use Hangul; Japanese readings accept Hiragana or Katakana and are normalized to Katakana. Entries match exact Korean whitespace tokens or exact Japanese MeCab surface tokens.
+If a transcript contains no Korean or Japanese script, choose its intended model explicitly with `--lang kor` or `--lang jap`; an override alone does not change automatic language detection.
+
+Validate the corpus before alignment to find Korean tokens that the default G2P cannot pronounce and to validate the dictionary itself:
+
+```bash
+koreanfa validate corpus --pronunciation-dictionary pronunciations.tsv
+koreanfa align corpus --pronunciation-dictionary pronunciations.tsv
+```
 
 Use `-h` / `--help` for command help and `-v` / `--version` for the package version.
 
@@ -140,6 +162,7 @@ batch = aligner.align(
     existing="skip",
     exports=("json", "csv", "ctm"),
     report_path="aligned/run.json",
+    pronunciation_dictionary="pronunciations.tsv",
 )
 for result in batch.results:
     print(result.textgrid, result.outputs["json"])

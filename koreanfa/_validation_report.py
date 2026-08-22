@@ -1,7 +1,7 @@
 """Structured preflight validation results and JSON serialization."""
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -27,6 +27,7 @@ class ValidationIssue:
     path: Path | None
     message: str
     suggestion: str
+    details: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -106,7 +107,10 @@ class ValidationReport:
             ],
             "issues": [
                 {
-                    **asdict(issue),
+                    # ``details`` can contain original transcript tokens for
+                    # local CLI diagnostics, so it must never enter JSON.
+                    "code": issue.code,
+                    "severity": issue.severity,
                     "path": relative(issue.path),
                     "message": safe_text(issue.message, issue.path),
                     "suggestion": safe_text(issue.suggestion, issue.path),
