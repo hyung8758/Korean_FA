@@ -17,6 +17,7 @@ KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 P
 - Praat TextGrid의 단어·음소 tier 생성
 - 정렬 전 코퍼스 검증과 재현 가능한 JSON 실행 리포트 생성
 - 구조화 구간을 JSON, CSV, 단어·음소 CTM으로 내보내기
+- 토큰별 사용자 발음 사전과 한국어 G2P/OOV 사전 점검
 - Docker나 웹 서버 없이 관리형 Kaldi 기반 엔진 사용
 
 ## 지원 환경
@@ -108,7 +109,28 @@ koreanfa align recording.wav recording.txt -l jap
 - `-kw`, `--keep-workdir`: 성공한 실행의 Kaldi 로그와 진단 작업 파일을 보관합니다 (`keep_workdir=True`).
 - `--existing {overwrite,skip,error}`: 기존 TextGrid를 덮어쓰거나(호환성을 위한 기본값), 구조가 올바른 TextGrid는 재정렬하지 않거나, 요청 출력이 하나라도 있으면 정렬 전에 중단합니다 (`existing=...`). 올바른 TextGrid를 건너뛸 때도 요청한 JSON/CSV/CTM은 기존 TextGrid에서 생성하며, 손상된 TextGrid는 성공한 파일로 건너뛰지 않습니다.
 - `--export {json,csv,ctm}`: 기계 판독용 형식을 추가로 생성합니다. 여러 형식은 옵션을 반복합니다 (`exports=("json", "csv", "ctm")`). CTM은 단어·음소 파일로 나뉘며 빈 gap 구간만 제외하고, 코퍼스 기준 상대 stem을 recording ID로 사용합니다. CTM의 5필드 구조를 유지하도록 recording ID와 label의 공백·제어 문자·`%`는 UTF-8 퍼센트 인코딩하며, JSON과 CSV의 label은 원문 그대로 유지합니다.
+- `--pronunciation-dictionary PATH`: UTF-8 TSV의 정확한 토큰별 발음 override를 적용합니다. 자세한 형식은 [발음 사전 안내](docs/pronunciation-dictionary.md)를 참고하세요.
 - `--report PATH`: 상대 경로, 옵션, 성공·실패·건너뜀, 시도 횟수, 엔진 메타데이터가 담긴 버전형 JSON 실행 리포트를 원자적으로 저장합니다 (`report_path=PATH`). 전사 원문은 리포트에 복사하지 않습니다.
+
+### 발음 사전과 OOV 점검
+
+특정 한국어·일본어 토큰에 원하는 읽기를 적용하려면 UTF-8 TSV 발음 사전을 선택적으로 전달합니다. 헤더와 정확히 세 개의 탭 구분 열이 필요합니다.
+
+```tsv
+language	word	pronunciation
+kor	KoreanFA	코리안에프에이
+jap	大切	タイセツ
+```
+
+`word`와 `pronunciation`은 공백 없는 하나의 토큰이어야 합니다. 한국어 발음은 한글로, 일본어 발음은 히라가나 또는 가타카나로 적습니다(내부적으로 가타카나로 정규화). 한국어는 공백으로 나눈 정확한 토큰에, 일본어는 MeCab가 만든 정확한 표층형에 적용됩니다.
+전사에 한글·일본어 문자가 전혀 없다면 override만으로 자동 언어 감지가 바뀌지는 않으므로 `--lang kor` 또는 `--lang jap`으로 사용할 모델을 명시하세요.
+
+정렬 전에 아래처럼 실행하면 사전 형식과 기본 한국어 G2P가 발음으로 바꾸지 못하는 토큰을 점검할 수 있습니다.
+
+```bash
+koreanfa validate corpus --pronunciation-dictionary pronunciations.tsv
+koreanfa align corpus --pronunciation-dictionary pronunciations.tsv
+```
 
 명령 도움말은 `-h`, `--help`로, 패키지 버전은 `-v`, `--version`으로 확인합니다.
 
@@ -140,6 +162,7 @@ batch = aligner.align(
     existing="skip",
     exports=("json", "csv", "ctm"),
     report_path="aligned/run.json",
+    pronunciation_dictionary="pronunciations.tsv",
 )
 for result in batch.results:
     print(result.textgrid, result.outputs["json"])
