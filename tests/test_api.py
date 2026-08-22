@@ -1,9 +1,11 @@
+import os
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from koreanfa import BatchAlignmentResult, InputPair, PairingError, discover_pairs
+from koreanfa._alignment_runtime import _runtime_environment
 from koreanfa._alignment_runtime import run_language_group as _run_language_group
 from koreanfa._alignment_runtime import runtime_attempt_counts as _runtime_attempt_counts
 from koreanfa._alignment_runtime import runtime_failure_reasons as _runtime_failure_reasons
@@ -116,6 +118,25 @@ def test_reads_greatest_runtime_attempt_count() -> None:
     )
 
     assert _runtime_attempt_counts(output) == {"pair_000000": 2, "pair_000001": 1}
+
+
+def test_runtime_environment_prefers_the_active_package_over_an_installed_copy(tmp_path: Path) -> None:
+    resources = tmp_path / "site-packages" / "koreanfa" / "runtime"
+    resources.mkdir(parents=True)
+    dictionary = tmp_path / "dictionary.tsv"
+    dictionary.write_text("language\tword\tpronunciation\n", encoding="utf-8")
+
+    environment = _runtime_environment(
+        tmp_path / "engine",
+        tmp_path / "logs",
+        "kor",
+        {},
+        resources,
+        dictionary,
+    )
+
+    assert environment["PYTHONPATH"].split(os.pathsep)[0] == str(resources.parent.parent)
+    assert environment["KOREANFA_PRONUNCIATION_DICTIONARY"] == str(dictionary)
 
 
 def test_directory_auto_mode_collects_unknown_language_as_a_file_failure(

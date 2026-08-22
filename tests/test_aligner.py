@@ -33,6 +33,7 @@ def test_aligner_forwards_explicit_file_options(tmp_path: Path, monkeypatch: pyt
     text = tmp_path / "sample.txt"
     output = tmp_path / "output"
     report = tmp_path / "run.json"
+    dictionary = tmp_path / "pronunciations.tsv"
     wav.write_bytes(b"")
     text.write_text("테스트", encoding="utf-8")
     expected = AlignmentResult(wav, text, output / "sample.TextGrid", "kor")
@@ -57,6 +58,7 @@ def test_aligner_forwards_explicit_file_options(tmp_path: Path, monkeypatch: pyt
         existing="error",
         exports=("json", "ctm"),
         report_path=report,
+        pronunciation_dictionary=dictionary,
     )
 
     assert result is expected
@@ -72,12 +74,14 @@ def test_aligner_forwards_explicit_file_options(tmp_path: Path, monkeypatch: pyt
         "existing": "error",
         "exports": ("json", "ctm"),
         "report_path": report,
+        "pronunciation_dictionary": dictionary,
     }
 
 
 def test_aligner_forwards_explicit_directory_options(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     output = tmp_path / "output"
     report = tmp_path / "run.json"
+    dictionary = tmp_path / "pronunciations.tsv"
     expected = BatchAlignmentResult((), output)
     received: dict[str, object] = {}
 
@@ -96,6 +100,7 @@ def test_aligner_forwards_explicit_directory_options(tmp_path: Path, monkeypatch
         existing="skip",
         exports=("csv",),
         report_path=report,
+        pronunciation_dictionary=dictionary,
     )
 
     assert result is expected
@@ -113,4 +118,5 @@ def test_aligner_forwards_explicit_directory_options(tmp_path: Path, monkeypatch
         "existing": "skip",
         "exports": ("csv",),
         "report_path": report,
+        "pronunciation_dictionary": dictionary,
     }

@@ -3,8 +3,8 @@
 # New languages add only languages/<id>/profile.sh and prepare.sh.
 set -Eeuo pipefail
 
-if [[ $# -ne 8 ]]; then
-  echo "Usage: $0 <language> <python> <raw-text> <trans-dir> <dict-dir> <prono-dir> <model-dir> <utterance-id>" >&2
+if [[ $# -ne 8 && $# -ne 9 ]]; then
+  echo "Usage: $0 <language> <python> <raw-text> <trans-dir> <dict-dir> <prono-dir> <model-dir> <utterance-id> [pronunciation-dictionary]" >&2
   exit 2
 fi
 

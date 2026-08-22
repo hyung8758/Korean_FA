@@ -104,6 +104,7 @@ finish_job() {
 
 prepare_transcript_and_dictionary() {
   local raw_text="$RAW_SENT_DIR/$LOG_NAME.raw"
+  local -a prepare_args
 
   cp -- "$WAV_FILE" "$DATA_DIR/$LOG_NAME.wav"
   cp -- "$TXT_FILE" "$DATA_DIR/$LOG_NAME.txt"
@@ -115,9 +116,18 @@ prepare_transcript_and_dictionary() {
 
   # check_text.py normalizes all whitespace to single spaces before tokenizing.
   tr ' ' '\n' < "$DATA_DIR/$LOG_NAME.txt" > "$raw_text"
-  if ! bash "$RUNTIME_ROOT/pipeline/prepare.sh" \
-    "$LANGUAGE" "$PYTHON_EXECUTABLE" "$raw_text" "$TRANS_DIR" "$DICT_DIR" \
-    "$PRONUNCIATION_DIR" "$MODEL_DIR" "$LOG_NAME"; then
+  prepare_args=(
+    "$LANGUAGE" "$PYTHON_EXECUTABLE" "$raw_text" "$TRANS_DIR" "$DICT_DIR"
+    "$PRONUNCIATION_DIR" "$MODEL_DIR" "$LOG_NAME"
+  )
+  if [[ -n ${KOREANFA_PRONUNCIATION_DICTIONARY:-} ]]; then
+    [[ -f $KOREANFA_PRONUNCIATION_DICTIONARY ]] || {
+      FAILURE_REASON="Pronunciation dictionary is unavailable: $KOREANFA_PRONUNCIATION_DICTIONARY"
+      return 1
+    }
+    prepare_args+=("$KOREANFA_PRONUNCIATION_DICTIONARY")
+  fi
+  if ! bash "$RUNTIME_ROOT/pipeline/prepare.sh" "${prepare_args[@]}"; then
     if [[ $LANGUAGE == jap && -s $PRONUNCIATION_DIR/mecab.txt && ! -s $PRONUNCIATION_DIR/sent_lexicon.txt ]]; then
       FAILURE_REASON="Japanese transcript produced no alignable MeCab/G2P entries."
     else

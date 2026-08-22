@@ -7,6 +7,7 @@ from ._workflow import align_pairs as _align_pairs
 from .errors import AlignmentError, PairingError
 from .language import detect_language, normalize_language
 from .pairing import discover_corpus_files
+from .pronunciation import PronunciationDictionary, load_pronunciation_dictionary
 from .result import (
     AlignmentFailure,
     AlignmentResult,
@@ -50,12 +51,14 @@ def align(
     existing: ExistingOutputPolicy = "overwrite",
     exports: tuple[ExportFormat, ...] = (),
     report_path: str | Path | None = None,
+    pronunciation_dictionary: str | Path | None = None,
 ) -> AlignmentResult | AlignmentSkip:
     """Align one WAV/TXT pair with automatic or forced language selection."""
     audio_path = Path(audio).expanduser().resolve()
     transcript_path = Path(transcript).expanduser().resolve()
     _validate_pair(audio_path, transcript_path)
     requested_language = normalize_language(lang)
+    dictionary = _load_dictionary(pronunciation_dictionary)
     pair = InputPair(
         audio_path,
         transcript_path,
@@ -77,6 +80,7 @@ def align(
         report_path=report_path,
         input_root=audio_path.parent,
         requested_language=requested_language,
+        pronunciation_dictionary=dictionary,
     )
     if batch.failures:
         failure = batch.failures[0]
@@ -106,9 +110,11 @@ def align_directory(
     existing: ExistingOutputPolicy = "overwrite",
     exports: tuple[ExportFormat, ...] = (),
     report_path: str | Path | None = None,
+    pronunciation_dictionary: str | Path | None = None,
 ) -> BatchAlignmentResult:
     """Align every matched pair in a directory using the appropriate model."""
     root = Path(directory).expanduser().resolve()
+    dictionary = _load_dictionary(pronunciation_dictionary)
     pairs, failures, protected_inputs = _collect_pairs(
         root,
         recursive=recursive,
@@ -135,6 +141,7 @@ def align_directory(
         recursive=recursive,
         ignore_unmatched=ignore_unmatched,
         protected_inputs=protected_inputs,
+        pronunciation_dictionary=dictionary,
     )
 
 
@@ -209,3 +216,7 @@ def _validate_pair(audio: Path, transcript: Path) -> None:
         raise PairingError(f"Audio must be an existing WAV file: {audio}")
     if not transcript.is_file() or transcript.suffix.lower() != ".txt":
         raise PairingError(f"Transcript must be an existing TXT file: {transcript}")
+
+
+def _load_dictionary(path: str | Path | None) -> PronunciationDictionary | None:
+    return load_pronunciation_dictionary(path) if path is not None else None

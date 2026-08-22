@@ -84,6 +84,11 @@ def _options(parser: argparse.ArgumentParser) -> None:
         "--export", dest="exports", action="append", choices=("json", "csv", "ctm"), default=[],
         help="Write an additional format; may be repeated",
     )
+    parser.add_argument(
+        "--pronunciation-dictionary",
+        type=Path,
+        help="UTF-8 TSV overrides: language, word, pronunciation",
+    )
     parser.add_argument("--report", type=Path, help="Write an atomic JSON execution report")
 
 
@@ -110,6 +115,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate_parser.add_argument("--no-engine-check", action="store_true")
     validate_parser.add_argument("--strict", action="store_true", help="Treat warnings as a failed validation")
+    validate_parser.add_argument(
+        "--pronunciation-dictionary",
+        type=Path,
+        help="UTF-8 TSV overrides: language, word, pronunciation",
+    )
     validate_parser.add_argument("--report", type=Path, help="Write an atomic JSON validation report")
 
     engine_parser = commands.add_parser("engine", help="Install and manage the local KoreanFA engine")
@@ -150,11 +160,13 @@ def main(argv: list[str] | None = None) -> int:
                 ignore_unmatched=args.ignore_unmatched,
                 check_engine=not args.no_engine_check,
                 report_path=args.report,
+                pronunciation_dictionary=args.pronunciation_dictionary,
             )
             for issue in report.issues:
                 location = f" {issue.path}" if issue.path else ""
+                details = f" ({', '.join(issue.details)})" if issue.details else ""
                 print(
-                    f"koreanfa: {issue.severity}: {issue.code}:{location}: {issue.message} {issue.suggestion}",
+                    f"koreanfa: {issue.severity}: {issue.code}:{location}: {issue.message}{details} {issue.suggestion}",
                     file=sys.stderr,
                 )
             print(
@@ -179,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
                 existing=args.existing,
                 exports=tuple(args.exports),
                 report_path=args.report,
+                pronunciation_dictionary=args.pronunciation_dictionary,
             )
         else:
             transcript: Path | None = getattr(args, "transcript", None)
@@ -195,6 +208,7 @@ def main(argv: list[str] | None = None) -> int:
                 existing=args.existing,
                 exports=tuple(args.exports),
                 report_path=args.report,
+                pronunciation_dictionary=args.pronunciation_dictionary,
             )
         has_partial_failures = False
         if isinstance(result, BatchAlignmentResult):

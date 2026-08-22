@@ -21,6 +21,7 @@ from ._kaldi import resolve_kaldi_dir
 from ._workflow_options import WorkflowOptions, normalize_workflow_options
 from .errors import PairingError
 from .pairing import _portable_path_key
+from .pronunciation import PronunciationDictionary
 from .reporting import write_execution_report
 from .resources import runtime_root
 from .result import (
@@ -55,6 +56,7 @@ def align_pairs(
     recursive: bool = False,
     ignore_unmatched: bool = True,
     protected_inputs: tuple[Path, ...] = (),
+    pronunciation_dictionary: PronunciationDictionary | None = None,
 ) -> BatchAlignmentResult:
     """Apply output policy, execute language groups, and publish one batch."""
     started_at = time.monotonic()
@@ -68,6 +70,7 @@ def align_pairs(
         requested_language,
         recursive,
         ignore_unmatched,
+        pronunciation_dictionary,
     )
     if not pairs and not initial_failures:
         raise PairingError("No alignable WAV/TXT pairs were found.")
@@ -177,6 +180,7 @@ def _execute_batch(
                 completed_before,
                 total,
                 diagnostics_root,
+                options.pronunciation_dictionary,
             )
             raw_results.extend(results)
             all_failures.extend(group_failures)

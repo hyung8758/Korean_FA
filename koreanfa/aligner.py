@@ -44,6 +44,7 @@ class Aligner:
         existing: ExistingOutputPolicy = "overwrite",
         exports: tuple[ExportFormat, ...] = (),
         report_path: str | Path | None = None,
+        pronunciation_dictionary: str | Path | None = None,
     ) -> AlignmentResult | AlignmentSkip: ...
 
     @overload
@@ -65,6 +66,7 @@ class Aligner:
         existing: ExistingOutputPolicy = "overwrite",
         exports: tuple[ExportFormat, ...] = (),
         report_path: str | Path | None = None,
+        pronunciation_dictionary: str | Path | None = None,
     ) -> BatchAlignmentResult: ...
 
     def align(
@@ -85,6 +87,7 @@ class Aligner:
         existing: ExistingOutputPolicy = "overwrite",
         exports: tuple[ExportFormat, ...] = (),
         report_path: str | Path | None = None,
+        pronunciation_dictionary: str | Path | None = None,
     ) -> AlignmentResult | AlignmentSkip | BatchAlignmentResult:
         """Align one WAV/TXT pair or every discovered pair in a directory.
 
@@ -115,6 +118,7 @@ class Aligner:
                 existing=existing,
                 exports=exports,
                 report_path=report_path,
+                pronunciation_dictionary=pronunciation_dictionary,
             )
         if transcript is None:
             raise ValueError("A WAV input requires its matching TXT transcript.")
@@ -132,4 +136,5 @@ class Aligner:
             existing=existing,
             exports=exports,
             report_path=report_path,
+            pronunciation_dictionary=pronunciation_dictionary,
         )
