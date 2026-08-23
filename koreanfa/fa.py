@@ -28,6 +28,7 @@ def align_file(
     existing: ExistingOutputPolicy = "overwrite",
     exports: tuple[ExportFormat, ...] = (),
     report_path: str | Path | None = None,
+    quality_report_path: str | Path | None = None,
     pronunciation_dictionary: str | Path | None = None,
 ) -> AlignmentResult | AlignmentSkip:
     """Force-align one WAV/TXT pair and return its TextGrid result."""
@@ -45,6 +46,7 @@ def align_file(
         existing=existing,
         exports=exports,
         report_path=report_path,
+        quality_report_path=quality_report_path,
         pronunciation_dictionary=pronunciation_dictionary,
     )
 
@@ -65,6 +67,7 @@ def align_directory_files(
     existing: ExistingOutputPolicy = "overwrite",
     exports: tuple[ExportFormat, ...] = (),
     report_path: str | Path | None = None,
+    quality_report_path: str | Path | None = None,
     pronunciation_dictionary: str | Path | None = None,
 ) -> BatchAlignmentResult:
     """Force-align every automatically discovered WAV/TXT pair in a directory."""
@@ -83,6 +86,7 @@ def align_directory_files(
         existing=existing,
         exports=exports,
         report_path=report_path,
+        quality_report_path=quality_report_path,
         pronunciation_dictionary=pronunciation_dictionary,
     )
 

@@ -19,6 +19,8 @@ from .result import (
     ExistingOutputPolicy,
     ExportFormat,
     InputPair,
+    QualityReport,
+    QualitySummary,
 )
 from .validation import ValidatedPair, ValidationIssue, ValidationReport, validate
 
@@ -45,6 +47,8 @@ __all__ = [
     "InputPair",
     "KoreanFAError",
     "PairingError",
+    "QualityReport",
+    "QualitySummary",
     "ensure_installed",
     "install_engine",
     "validate",

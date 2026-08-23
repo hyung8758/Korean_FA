@@ -51,6 +51,7 @@ def align(
     existing: ExistingOutputPolicy = "overwrite",
     exports: tuple[ExportFormat, ...] = (),
     report_path: str | Path | None = None,
+    quality_report_path: str | Path | None = None,
     pronunciation_dictionary: str | Path | None = None,
 ) -> AlignmentResult | AlignmentSkip:
     """Align one WAV/TXT pair with automatic or forced language selection."""
@@ -78,6 +79,7 @@ def align(
         existing=existing,
         exports=exports,
         report_path=report_path,
+        quality_report_path=quality_report_path,
         input_root=audio_path.parent,
         requested_language=requested_language,
         pronunciation_dictionary=dictionary,
@@ -110,6 +112,7 @@ def align_directory(
     existing: ExistingOutputPolicy = "overwrite",
     exports: tuple[ExportFormat, ...] = (),
     report_path: str | Path | None = None,
+    quality_report_path: str | Path | None = None,
     pronunciation_dictionary: str | Path | None = None,
 ) -> BatchAlignmentResult:
     """Align every matched pair in a directory using the appropriate model."""
@@ -136,6 +139,7 @@ def align_directory(
         existing=existing,
         exports=exports,
         report_path=report_path,
+        quality_report_path=quality_report_path,
         input_root=root,
         requested_language=normalize_language(lang),
         recursive=recursive,

@@ -116,6 +116,24 @@ class AlignmentReport:
 
 
 @dataclass(frozen=True)
+class QualitySummary:
+    """Counts of clean and review-needed alignments in a quality report."""
+
+    total: int
+    clean: int
+    review: int
+
+
+@dataclass(frozen=True)
+class QualityReport:
+    """In-memory representation of an optional JSON quality diagnostic report."""
+
+    path: Path
+    schema_version: int
+    summary: QualitySummary
+
+
+@dataclass(frozen=True)
 class BatchAlignmentResult:
     """Successful results and controlled per-file failures from one batch."""
 
@@ -126,3 +144,4 @@ class BatchAlignmentResult:
     skipped: tuple[AlignmentSkip, ...] = ()
     summary: AlignmentSummary | None = None
     report: AlignmentReport | None = None
+    quality_report: QualityReport | None = None

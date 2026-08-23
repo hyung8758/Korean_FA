@@ -44,6 +44,7 @@ class Aligner:
         existing: ExistingOutputPolicy = "overwrite",
         exports: tuple[ExportFormat, ...] = (),
         report_path: str | Path | None = None,
+        quality_report_path: str | Path | None = None,
         pronunciation_dictionary: str | Path | None = None,
     ) -> AlignmentResult | AlignmentSkip: ...
 
@@ -66,6 +67,7 @@ class Aligner:
         existing: ExistingOutputPolicy = "overwrite",
         exports: tuple[ExportFormat, ...] = (),
         report_path: str | Path | None = None,
+        quality_report_path: str | Path | None = None,
         pronunciation_dictionary: str | Path | None = None,
     ) -> BatchAlignmentResult: ...
 
@@ -87,6 +89,7 @@ class Aligner:
         existing: ExistingOutputPolicy = "overwrite",
         exports: tuple[ExportFormat, ...] = (),
         report_path: str | Path | None = None,
+        quality_report_path: str | Path | None = None,
         pronunciation_dictionary: str | Path | None = None,
     ) -> AlignmentResult | AlignmentSkip | BatchAlignmentResult:
         """Align one WAV/TXT pair or every discovered pair in a directory.
@@ -118,6 +121,7 @@ class Aligner:
                 existing=existing,
                 exports=exports,
                 report_path=report_path,
+                quality_report_path=quality_report_path,
                 pronunciation_dictionary=pronunciation_dictionary,
             )
         if transcript is None:
@@ -136,5 +140,6 @@ class Aligner:
             existing=existing,
             exports=exports,
             report_path=report_path,
+            quality_report_path=quality_report_path,
             pronunciation_dictionary=pronunciation_dictionary,
         )

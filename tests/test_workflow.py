@@ -44,7 +44,7 @@ def test_skip_valid_existing_output_without_resolving_engine(
 
     result = _align_pairs(
         (pair,), output, None, 1, True, True, False, None, existing="skip", exports=("json", "ctm"),
-        input_root=pair.audio.parent, report_path=output / "run.json",
+        input_root=pair.audio.parent, report_path=output / "run.json", quality_report_path=output / "quality.json",
     )
 
     assert result.results == ()
@@ -58,6 +58,10 @@ def test_skip_valid_existing_output_without_resolving_engine(
     assert result.summary and result.summary.skipped == 1
     report_item = json.loads((output / "run.json").read_text(encoding="utf-8"))["items"][0]
     assert report_item["status"] == "skipped" and report_item["attempts"] == 0
+    assert result.quality_report is not None and result.quality_report.summary.review == 1
+    quality_item = json.loads((output / "quality.json").read_text(encoding="utf-8"))["items"][0]
+    assert quality_item["source"] == "existing" and quality_item["attempts"] == 0
+    assert {flag["code"] for flag in quality_item["flags"]} == {"phone.duration.long"}
 
 
 def test_error_policy_fails_before_alignment(
@@ -84,10 +88,12 @@ def test_invalid_existing_output_is_realigned_and_exports_and_report_are_publish
     monkeypatch.setattr("koreanfa._workflow.runtime_root", lambda: tmp_path / "runtime")
     monkeypatch.setattr("koreanfa._workflow.run_language_group", _fake_runtime(write_textgrid))
     report_path = output / "run.json"
+    quality_path = output / "quality.json"
 
     batch = _align_pairs(
         (pair,), output, None, 1, True, True, False, None, existing="skip",
-        exports=("json", "csv", "ctm"), report_path=report_path, input_root=pair.audio.parent,
+        exports=("json", "csv", "ctm"), report_path=report_path, quality_report_path=quality_path,
+        input_root=pair.audio.parent,
     )
 
     assert len(batch.results) == 1
@@ -109,6 +115,12 @@ def test_invalid_existing_output_is_realigned_and_exports_and_report_are_publish
     assert payload["engine"]["source"] == "managed"
     assert payload["items"][0]["audio"] == "sample.wav"
     assert str(tmp_path) not in report_path.read_text(encoding="utf-8")
+    assert batch.quality_report is not None and batch.quality_report.summary.review == 1
+    quality_item = json.loads(quality_path.read_text(encoding="utf-8"))["items"][0]
+    assert {flag["code"] for flag in quality_item["flags"]} == {
+        "alignment.retried",
+        "phone.duration.long",
+    }
 
 
 def test_execution_report_cannot_overwrite_an_input_or_alignment_output(
@@ -131,6 +143,18 @@ def test_execution_report_cannot_overwrite_an_input_or_alignment_output(
         _align_pairs(
             (pair,), output, None, 1, True, True, False, None,
             report_path=output / "nested/SAMPLE.textgrid", input_root=pair.audio.parent,
+        )
+
+    with pytest.raises(ValueError, match="must be different"):
+        _align_pairs(
+            (pair,), output, None, 1, True, True, False, None,
+            report_path=output / "run.json", quality_report_path=output / "run.json", input_root=pair.audio.parent,
+        )
+
+    with pytest.raises(ValueError, match="must not overwrite"):
+        _align_pairs(
+            (pair,), output, None, 1, True, True, False, None,
+            quality_report_path=pair.audio, input_root=pair.audio.parent,
         )
 
 
