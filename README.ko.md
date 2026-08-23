@@ -18,6 +18,7 @@ KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 P
 - 정렬 전 코퍼스 검증과 재현 가능한 JSON 실행 리포트 생성
 - 구조화 구간을 JSON, CSV, 단어·음소 CTM으로 내보내기
 - 토큰별 사용자 발음 사전과 한국어 G2P/OOV 사전 점검
+- Kaldi를 다시 실행하지 않고 검토가 필요한 TextGrid를 진단
 - Docker나 웹 서버 없이 관리형 Kaldi 기반 엔진 사용
 
 ## 지원 환경
@@ -111,6 +112,7 @@ koreanfa align recording.wav recording.txt -l jap
 - `--export {json,csv,ctm}`: 기계 판독용 형식을 추가로 생성합니다. 여러 형식은 옵션을 반복합니다 (`exports=("json", "csv", "ctm")`). CTM은 단어·음소 파일로 나뉘며 빈 gap 구간만 제외하고, 코퍼스 기준 상대 stem을 recording ID로 사용합니다. CTM의 5필드 구조를 유지하도록 recording ID와 label의 공백·제어 문자·`%`는 UTF-8 퍼센트 인코딩하며, JSON과 CSV의 label은 원문 그대로 유지합니다.
 - `--pronunciation-dictionary PATH`: UTF-8 TSV의 정확한 토큰별 발음 override를 적용합니다. 자세한 형식은 [발음 사전 안내](docs/pronunciation-dictionary.md)를 참고하세요.
 - `--report PATH`: 상대 경로, 옵션, 성공·실패·건너뜀, 시도 횟수, 엔진 메타데이터가 담긴 버전형 JSON 실행 리포트를 원자적으로 저장합니다 (`report_path=PATH`). 전사 원문은 리포트에 복사하지 않습니다.
+- `--quality-report PATH`: 정렬 뒤 별도 JSON TextGrid 품질 진단 리포트를 작성합니다 (`quality_report_path=PATH`). `review`는 확인이 필요한 후보를 뜻하며, 정렬 실패나 신뢰도 점수는 아닙니다. 자세한 기준은 [품질 진단 안내](docs/alignment-quality.md)를 참고하세요.
 
 ### 발음 사전과 OOV 점검
 
@@ -162,6 +164,7 @@ batch = aligner.align(
     existing="skip",
     exports=("json", "csv", "ctm"),
     report_path="aligned/run.json",
+    quality_report_path="aligned/quality.json",
     pronunciation_dictionary="pronunciations.tsv",
 )
 for result in batch.results:
@@ -170,6 +173,8 @@ for skipped in batch.skipped:
     print(f"변경 없음: {skipped.textgrid}")
 for failure in batch.failures:
     print(f"제외됨: {failure.audio} ({failure.reason})")
+if batch.quality_report:
+    print(batch.quality_report.path, batch.quality_report.summary.review)
 ```
 
 `result.words`와 `result.phones`에는 이름이 있는 무음 구간을 포함한 초 단위 typed interval이 들어 있습니다. `result.outputs`에서 생성된 모든 파일을 확인할 수 있습니다. 디렉터리 결과는 성공 파일을 `batch.results`, 올바른 기존 출력을 `batch.skipped`, 처리하지 못한 파일을 `batch.failures`에 담으며, 합계와 경과 시간은 `batch.summary`에서 확인합니다.

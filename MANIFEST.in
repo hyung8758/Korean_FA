@@ -3,6 +3,7 @@
 # test suite in the source distribution.
 prune tests
 include README.ko.md
+include docs/alignment-quality.md
 include docs/pronunciation-dictionary.md
 include docs/troubleshooting.md
 graft koreanfa/runtime
