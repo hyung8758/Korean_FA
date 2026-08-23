@@ -90,6 +90,11 @@ def _options(parser: argparse.ArgumentParser) -> None:
         help="UTF-8 TSV overrides: language, word, pronunciation",
     )
     parser.add_argument("--report", type=Path, help="Write an atomic JSON execution report")
+    parser.add_argument(
+        "--quality-report",
+        type=Path,
+        help="Write TextGrid-based heuristic alignment diagnostics as JSON",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -191,6 +196,7 @@ def main(argv: list[str] | None = None) -> int:
                 existing=args.existing,
                 exports=tuple(args.exports),
                 report_path=args.report,
+                quality_report_path=args.quality_report,
                 pronunciation_dictionary=args.pronunciation_dictionary,
             )
         else:
@@ -208,6 +214,7 @@ def main(argv: list[str] | None = None) -> int:
                 existing=args.existing,
                 exports=tuple(args.exports),
                 report_path=args.report,
+                quality_report_path=args.quality_report,
                 pronunciation_dictionary=args.pronunciation_dictionary,
             )
         has_partial_failures = False
@@ -223,6 +230,8 @@ def main(argv: list[str] | None = None) -> int:
             print(result.textgrid)
             if isinstance(result, AlignmentSkip):
                 print(f"koreanfa: skipped {result.audio.name}: {result.reason}", file=sys.stderr)
+        if args.quality_report is not None:
+            print(f"koreanfa: quality report: {args.quality_report}", file=sys.stderr)
         work_dir = getattr(result, "work_dir", None)
         if args.keep_workdir and work_dir:
             print(f"koreanfa: diagnostics: {work_dir}", file=sys.stderr)

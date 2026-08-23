@@ -10,6 +10,7 @@ def test_align_file_forwards_every_public_option(tmp_path: Path, monkeypatch) ->
     text = tmp_path / "sample.txt"
     output = tmp_path / "output"
     report = tmp_path / "run.json"
+    quality_report = tmp_path / "quality.json"
     dictionary = tmp_path / "pronunciations.tsv"
     expected = AlignmentResult(wav, text, output / "sample.TextGrid", "kor")
     received: dict[str, object] = {}
@@ -33,6 +34,7 @@ def test_align_file_forwards_every_public_option(tmp_path: Path, monkeypatch) ->
         existing="error",
         exports=("json",),
         report_path=report,
+        quality_report_path=quality_report,
         pronunciation_dictionary=dictionary,
     )
 
@@ -49,6 +51,7 @@ def test_align_file_forwards_every_public_option(tmp_path: Path, monkeypatch) ->
         "existing": "error",
         "exports": ("json",),
         "report_path": report,
+        "quality_report_path": quality_report,
         "pronunciation_dictionary": dictionary,
     }
 
@@ -56,6 +59,7 @@ def test_align_file_forwards_every_public_option(tmp_path: Path, monkeypatch) ->
 def test_align_directory_files_and_alias_forward_every_public_option(tmp_path: Path, monkeypatch) -> None:
     output = tmp_path / "output"
     report = tmp_path / "run.json"
+    quality_report = tmp_path / "quality.json"
     dictionary = tmp_path / "pronunciations.tsv"
     expected = BatchAlignmentResult((), output)
     received: dict[str, object] = {}
@@ -80,6 +84,7 @@ def test_align_directory_files_and_alias_forward_every_public_option(tmp_path: P
         existing="skip",
         exports=("csv", "ctm"),
         report_path=report,
+        quality_report_path=quality_report,
         pronunciation_dictionary=dictionary,
     )
 
@@ -99,5 +104,6 @@ def test_align_directory_files_and_alias_forward_every_public_option(tmp_path: P
         "existing": "skip",
         "exports": ("csv", "ctm"),
         "report_path": report,
+        "quality_report_path": quality_report,
         "pronunciation_dictionary": dictionary,
     }

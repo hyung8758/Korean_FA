@@ -18,6 +18,7 @@ KoreanFA creates Praat TextGrid files from Korean or Japanese WAV audio and a ma
 - Validate a corpus before alignment and record reproducible JSON run reports
 - Export structured intervals as JSON, CSV, or word/phone CTM files
 - Apply optional per-token pronunciation overrides and Korean G2P/OOV checks
+- Flag TextGrid recordings that merit quality review without re-running Kaldi
 - Use a managed Kaldi-based engine; Docker and a web server are not required
 
 ## Requirements
@@ -111,6 +112,7 @@ Run `koreanfa align --help` for all options.
 - `--export {json,csv,ctm}`: write an additional machine-readable format; repeat the option for multiple formats (`exports=("json", "csv", "ctm")`). CTM export writes separate word and phone files, omits only empty gap intervals, and uses the corpus-relative stem as its recording ID. Whitespace, control characters, and `%` in CTM recording IDs or labels are UTF-8 percent-encoded to preserve the five-field format; JSON and CSV labels remain unchanged.
 - `--pronunciation-dictionary PATH`: apply exact-token pronunciation overrides from a UTF-8 TSV file. See [pronunciation dictionary notes](docs/pronunciation-dictionary.md).
 - `--report PATH`: atomically write a versioned JSON run report containing relative paths, options, outcomes, attempt counts, and engine metadata (`report_path=PATH`). Transcript contents are not copied into the report.
+- `--quality-report PATH`: write a separate heuristic TextGrid quality report after alignment (`quality_report_path=PATH`). `review` identifies recordings worth checking; it is not an alignment failure or confidence score. See [quality diagnostic notes](docs/alignment-quality.md).
 
 ### Pronunciation dictionary and OOV checks
 
@@ -162,6 +164,7 @@ batch = aligner.align(
     existing="skip",
     exports=("json", "csv", "ctm"),
     report_path="aligned/run.json",
+    quality_report_path="aligned/quality.json",
     pronunciation_dictionary="pronunciations.tsv",
 )
 for result in batch.results:
@@ -170,6 +173,8 @@ for skipped in batch.skipped:
     print(f"unchanged: {skipped.textgrid}")
 for failure in batch.failures:
     print(f"rejected: {failure.audio} ({failure.reason})")
+if batch.quality_report:
+    print(batch.quality_report.path, batch.quality_report.summary.review)
 ```
 
 `result.words` and `result.phones` contain typed intervals in seconds, including named silence intervals. `result.outputs` identifies every emitted file. Directory alignment returns successes in `batch.results`, valid existing outputs in `batch.skipped`, and controlled per-file rejections in `batch.failures`; aggregate counts and elapsed time are available from `batch.summary`.

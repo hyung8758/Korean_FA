@@ -22,6 +22,7 @@ from ._workflow_options import WorkflowOptions, normalize_workflow_options
 from .errors import PairingError
 from .pairing import _portable_path_key
 from .pronunciation import PronunciationDictionary
+from .quality import write_quality_report
 from .reporting import write_execution_report
 from .resources import runtime_root
 from .result import (
@@ -51,6 +52,7 @@ def align_pairs(
     existing: ExistingOutputPolicy = "overwrite",
     exports: tuple[ExportFormat, ...] = (),
     report_path: str | Path | None = None,
+    quality_report_path: str | Path | None = None,
     input_root: Path | None = None,
     requested_language: str = "auto",
     recursive: bool = False,
@@ -78,7 +80,14 @@ def align_pairs(
     plans = plan_outputs(pairs, output_dir, options.exports)
     planned_paths = output_paths(plans)
     require_writable_destinations(planned_paths)
-    _protect_report(report_path, pairs, initial_failures, protected_inputs, planned_paths)
+    _protect_report_paths(
+        report_path,
+        quality_report_path,
+        pairs,
+        initial_failures,
+        protected_inputs,
+        planned_paths,
+    )
     if options.existing == "error":
         reject_existing_outputs(planned_paths, output_dir)
 
@@ -102,6 +111,7 @@ def align_pairs(
             started_at,
             progress,
             report_path,
+            quality_report_path,
             input_root,
             kaldi_dir,
             options,
@@ -116,27 +126,36 @@ def align_pairs(
         started_at,
         progress,
         report_path,
+        quality_report_path,
         input_root,
         options,
     )
 
 
-def _protect_report(
+def _protect_report_paths(
     report_path: str | Path | None,
+    quality_report_path: str | Path | None,
     pairs: tuple[InputPair, ...],
     failures: tuple[AlignmentFailure, ...],
     protected_inputs: tuple[Path, ...],
     planned_outputs: tuple[Path, ...],
 ) -> None:
-    if report_path is None:
+    paths = tuple(
+        report_output_path(path)
+        for path in (report_path, quality_report_path)
+        if path is not None
+    )
+    if not paths:
         return
-    destination = report_output_path(report_path)
     inputs = {path.resolve() for pair in pairs for path in (pair.audio, pair.transcript)}
     inputs.update(path.resolve() for path in protected_inputs)
     inputs.update(path.resolve() for failure in failures for path in (failure.audio, failure.transcript))
     protected = inputs | {path.resolve() for path in planned_outputs}
-    if _portable_path_key(destination) in {_portable_path_key(path) for path in protected}:
-        raise ValueError("report_path must not overwrite an input or alignment output file")
+    protected_keys = {_portable_path_key(path) for path in protected}
+    if any(_portable_path_key(path) in protected_keys for path in paths):
+        raise ValueError("report paths must not overwrite an input or alignment output file")
+    if len({_portable_path_key(path) for path in paths}) != len(paths):
+        raise ValueError("report_path and quality_report_path must be different files")
 
 
 def _execute_batch(
@@ -148,6 +167,7 @@ def _execute_batch(
     started_at: float,
     progress: ProgressCallback | None,
     report_path: str | Path | None,
+    quality_report_path: str | Path | None,
     input_root: Path | None,
     options: WorkflowOptions,
 ) -> BatchAlignmentResult:
@@ -203,6 +223,7 @@ def _execute_batch(
             started_at,
             progress,
             report_path,
+            quality_report_path,
             input_root,
             kaldi_dir,
             options,
@@ -221,6 +242,7 @@ def _finish_batch(
     started_at: float,
     progress: ProgressCallback | None,
     report_path: str | Path | None,
+    quality_report_path: str | Path | None,
     input_root: Path | None,
     kaldi_dir: str | Path | None,
     options: WorkflowOptions,
@@ -252,7 +274,15 @@ def _finish_batch(
             options=options.report_values(),
             engine_source="external" if kaldi_dir or os.environ.get("KOREANFA_KALDI_DIR") else "managed",
         )
-    return BatchAlignmentResult(results, output_dir, work_dir, failures, skipped, summary, report)
+    quality_report = None
+    if quality_report_path is not None:
+        quality_report = write_quality_report(
+            quality_report_path,
+            results=results,
+            skipped=skipped,
+            output_dir=output_dir,
+        )
+    return BatchAlignmentResult(results, output_dir, work_dir, failures, skipped, summary, report, quality_report)
 
 
 def _emit_initial_progress(

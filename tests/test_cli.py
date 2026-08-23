@@ -81,7 +81,10 @@ def test_cli_accepts_single_alignment() -> None:
 
 def test_cli_accepts_workflow_outputs_and_validation_options() -> None:
     align_args = build_parser().parse_args(
-        ["align", "corpus", "--existing", "skip", "--export", "json", "--export", "ctm", "--report", "run.json"]
+        [
+            "align", "corpus", "--existing", "skip", "--export", "json", "--export", "ctm",
+            "--report", "run.json", "--quality-report", "quality.json",
+        ]
     )
     validate_args = build_parser().parse_args(
         [
@@ -93,6 +96,7 @@ def test_cli_accepts_workflow_outputs_and_validation_options() -> None:
     assert align_args.existing == "skip"
     assert align_args.exports == ["json", "ctm"]
     assert align_args.report == Path("run.json")
+    assert align_args.quality_report == Path("quality.json")
     assert validate_args.recursive is True
     assert validate_args.strict is True
     assert validate_args.no_engine_check is True
