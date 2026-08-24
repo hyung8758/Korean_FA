@@ -130,24 +130,27 @@ run_pair() {
     "$stage/pair_$index.wav" "$stage/pair_$index.txt" "$kaldi" "$word_option" "$phone_option"
 }
 
-# Wait in batches to bound concurrent Kaldi processes to --num-jobs.
-failed=0; declare -a pids; pid_count=0
-wait_batch() {
-  local index pid
-  for ((index = 0; index < pid_count; index++)); do
-    pid=${pids[index]}
-    wait "$pid" || failed=$((failed + 1))
+# Keep each file worker busy until the corpus is exhausted.  This works on
+# Bash 3.2 (the macOS system shell) without wait -n, while avoiding the idle
+# slots caused by waiting for a whole batch of unevenly sized recordings.
+worker() {
+  local worker_index=$1 index worker_failed=0
+  for ((index = worker_index; index < total; index += num_jobs)); do
+    run_pair "$index" "${audio_files[index]}" "${text_files[index]}" || worker_failed=1
   done
-  pids=()
-  pid_count=0
+  return "$worker_failed"
 }
-for ((i = 0; i < total; i++)); do
-  run_pair "$i" "${audio_files[i]}" "${text_files[i]}" &
-  pids[pid_count]=$!
-  pid_count=$((pid_count + 1))
-  (( pid_count < num_jobs )) || wait_batch
+
+worker_count=$num_jobs
+(( worker_count <= total )) || worker_count=$total
+failed=0; declare -a pids
+for ((i = 0; i < worker_count; i++)); do
+  worker "$i" &
+  pids[i]=$!
 done
-(( pid_count == 0 )) || wait_batch
+for ((i = 0; i < worker_count; i++)); do
+  wait "${pids[i]}" || failed=$((failed + 1))
+done
 success=$(awk -F '\t' '$1 == "SUCCESS" { count++ } END { print count + 0 }' "$log_dir/history.tsv")
 failure=$(awk -F '\t' '$1 == "FAIL" { count++ } END { print count + 0 }' "$log_dir/history.tsv")
 if (( success + failure != total )); then failure=$((total - success)); failed=$failure; fi
