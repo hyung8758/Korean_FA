@@ -1,6 +1,8 @@
 """Focused tests for runtime scripts that run outside the Python package."""
 
 import importlib.util
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -103,3 +105,66 @@ def test_shell_pairing_helper_uses_nul_delimited_deterministic_records(tmp_path:
         ("PAIR", str(Path("space 日本語") / "b")),
         ("MISSING_TEXT", "orphan"),
     ]
+
+
+def test_shell_workers_start_new_pairs_without_waiting_for_a_whole_batch(tmp_path: Path) -> None:
+    """A completed worker must continue while a different worker is still slow."""
+    runtime = tmp_path / "runtime"
+    pipeline = runtime / "pipeline"
+    language_profile = runtime / "languages" / "kor" / "profile.sh"
+    pipeline.mkdir(parents=True)
+    language_profile.parent.mkdir(parents=True)
+    language_profile.write_text("\n", encoding="utf-8")
+    shutil.copy2(ROOT / "koreanfa" / "runtime" / "pipeline" / "forced_align.sh", pipeline)
+    (runtime / "path.sh").write_text("return 0\n", encoding="utf-8")
+    (pipeline / "pair_corpus.py").write_text(
+        "import os\n"
+        "import sys\n"
+        "for index in range(4):\n"
+        "    stem = f'pair_{index}'\n"
+        "    fields = ('PAIR', stem, os.path.join(sys.argv[1], stem + '.wav'), os.path.join(sys.argv[1], stem + '.txt'))\n"
+        "    sys.stdout.buffer.write(b'\\0'.join(value.encode() for value in fields) + b'\\0')\n",
+        encoding="utf-8",
+    )
+    (pipeline / "main_fa.sh").write_text(
+        "#!/usr/bin/env bash\n"
+        "set -Eeuo pipefail\n"
+        "job=$2; log_dir=$3; output=$4\n"
+        "if [[ $job == 0 ]]; then\n"
+        "  sleep 0.20\n"
+        "  [[ -f $log_dir/job-3-started ]] || { printf 'FAIL\\t%s\\n' \"$job\" >> \"$log_dir/history.tsv\"; exit 1; }\n"
+        "elif [[ $job == 1 ]]; then\n"
+        "  sleep 0.02\n"
+        "elif [[ $job == 3 ]]; then\n"
+        "  touch \"$log_dir/job-3-started\"\n"
+        "fi\n"
+        "touch \"$output\"\n"
+        "printf 'SUCCESS\\t%s\\n' \"$job\" >> \"$log_dir/history.tsv\"\n",
+        encoding="utf-8",
+    )
+    corpus = tmp_path / "corpus"
+    engine = tmp_path / "engine"
+    logs = tmp_path / "logs"
+    corpus.mkdir()
+    engine.mkdir()
+    for index in range(4):
+        (corpus / f"pair_{index}.wav").write_bytes(b"audio")
+        (corpus / f"pair_{index}.txt").write_text("text", encoding="utf-8")
+
+    environment = os.environ | {
+        "KOREANFA_KALDI_DIR": str(engine),
+        "KOREANFA_LANG": "kor",
+        "KOREANFA_LOG_DIR": str(logs),
+        "KOREANFA_PYTHON_EXECUTABLE": sys.executable,
+    }
+    completed = subprocess.run(
+        ["bash", pipeline / "forced_align.sh", "--num-jobs", "2", corpus],
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "KOREANFA_SUMMARY\ttotal=4\tsuccess=4\tfailed=0" in completed.stdout
+    assert (logs / "job-3-started").is_file()
+    assert all((corpus / f"pair_{index}.TextGrid").is_file() for index in range(4))

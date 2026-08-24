@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from ._engine_environment import merge_engine_environment
+from ._resource_controls import apply_thread_limit
 from .audio import normalize_wav
 from .errors import AlignmentError, AudioPreparationError
 from .pairing import _textgrid_relative_path
@@ -23,6 +24,7 @@ def run_language_group(
     engine_env: dict[str, str],
     resources: Path,
     num_jobs: int,
+    threads_per_job: int,
     word_tier: bool,
     phone_tier: bool,
     keep_workdir: bool,
@@ -47,7 +49,15 @@ def run_language_group(
             completed_normally = True
             return [], failures, work_dir if keep_workdir else None
         command = _runtime_command(resources, input_dir, num_jobs, word_tier, phone_tier)
-        environment = _runtime_environment(runtime, log_dir, language, engine_env, resources, staged_dictionary)
+        environment = _runtime_environment(
+            runtime,
+            log_dir,
+            language,
+            engine_env,
+            resources,
+            staged_dictionary,
+            threads_per_job,
+        )
         completed = run_runtime_command(
             command,
             resources,
@@ -122,6 +132,7 @@ def _runtime_environment(
     engine_environment: dict[str, str],
     resources: Path,
     pronunciation_dictionary: Path | None,
+    threads_per_job: int = 1,
 ) -> dict[str, str]:
     environment = os.environ.copy()
     environment.update(
@@ -138,6 +149,7 @@ def _runtime_environment(
     )
     if pronunciation_dictionary is not None:
         environment["KOREANFA_PRONUNCIATION_DICTIONARY"] = str(pronunciation_dictionary)
+    apply_thread_limit(environment, threads_per_job)
     merge_engine_environment(environment, engine_environment)
     return environment
 

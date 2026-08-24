@@ -133,10 +133,14 @@ def test_runtime_environment_prefers_the_active_package_over_an_installed_copy(t
         {},
         resources,
         dictionary,
+        3,
     )
 
     assert environment["PYTHONPATH"].split(os.pathsep)[0] == str(resources.parent.parent)
     assert environment["KOREANFA_PRONUNCIATION_DICTIONARY"] == str(dictionary)
+    assert {environment[name] for name in (
+        "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"
+    )} == {"3"}
 
 
 def test_directory_auto_mode_collects_unknown_language_as_a_file_failure(
@@ -198,6 +202,7 @@ def test_audio_preparation_failure_does_not_abort_the_rest_of_a_batch(
         tmp_path / "engine",
         {},
         tmp_path / "resources",
+        1,
         1,
         True,
         True,

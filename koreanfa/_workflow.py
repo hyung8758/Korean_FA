@@ -18,6 +18,7 @@ from ._alignment_outputs import (
 from ._alignment_runtime import run_language_group
 from ._io import report_output_path
 from ._kaldi import resolve_kaldi_dir
+from ._resource_controls import threads_per_job
 from ._workflow_options import WorkflowOptions, normalize_workflow_options
 from .errors import PairingError
 from .pairing import _portable_path_key
@@ -62,10 +63,12 @@ def align_pairs(
 ) -> BatchAlignmentResult:
     """Apply output policy, execute language groups, and publish one batch."""
     started_at = time.monotonic()
+    worker_threads = threads_per_job(os.environ)
     options = normalize_workflow_options(
         existing,
         exports,
         num_jobs,
+        worker_threads,
         word_tier,
         phone_tier,
         keep_workdir,
@@ -193,6 +196,7 @@ def _execute_batch(
                 engine_env,
                 resources,
                 options.num_jobs,
+                options.threads_per_job,
                 options.word_tier,
                 options.phone_tier,
                 options.keep_workdir,
