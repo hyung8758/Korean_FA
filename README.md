@@ -100,7 +100,7 @@ Run `koreanfa align --help` for all options.
 
 ### Alignment options
 
-- `-nj N`, `--num-jobs N`: align up to `N` files concurrently; the default is 4. In Python, use `num_jobs=N`.
+- `-nj N`, `--num-jobs N`: run up to `N` file workers concurrently; a worker starts its next pair as soon as it finishes the previous one. The default is 4. In Python, use `num_jobs=N`.
 - `-o DIR`, `--output-dir DIR`: write TextGrids under `DIR` (`output_dir=DIR`).
 - `-kd DIR`, `--kaldi-dir DIR`: use an external Kaldi runtime (`kaldi_dir=DIR`).
 - `-l {auto,kor,jap}`, `--lang ...`: choose a language adapter (`lang=...`).
@@ -113,6 +113,8 @@ Run `koreanfa align --help` for all options.
 - `--pronunciation-dictionary PATH`: apply exact-token pronunciation overrides from a UTF-8 TSV file. See [pronunciation dictionary notes](docs/pronunciation-dictionary.md).
 - `--report PATH`: atomically write a versioned JSON run report containing relative paths, options, outcomes, attempt counts, and engine metadata (`report_path=PATH`). Transcript contents are not copied into the report.
 - `--quality-report PATH`: write a separate heuristic TextGrid quality report after alignment (`quality_report_path=PATH`). `review` identifies recordings worth checking; it is not an alignment failure or confidence score. See [quality diagnostic notes](docs/alignment-quality.md).
+
+For hosts that need a stricter native-library limit, set `KOREANFA_THREADS_PER_JOB` to a positive integer. It defaults to `1` for each file worker.
 
 ### Pronunciation dictionary and OOV checks
 

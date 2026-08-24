@@ -100,7 +100,7 @@ koreanfa align recording.wav recording.txt -l jap
 
 ### 정렬 옵션
 
-- `-nj N`, `--num-jobs N`: 최대 `N`개 파일을 동시에 정렬합니다. 기본값은 4이며 Python에서는 `num_jobs=N`으로 지정합니다.
+- `-nj N`, `--num-jobs N`: 최대 `N`개의 파일 작업자를 동시에 실행하며, 각 작업자는 이전 파일이 끝나는 즉시 다음 pair를 처리합니다. 기본값은 4이며 Python에서는 `num_jobs=N`으로 지정합니다.
 - `-o DIR`, `--output-dir DIR`: TextGrid를 `DIR` 아래에 저장합니다 (`output_dir=DIR`).
 - `-kd DIR`, `--kaldi-dir DIR`: 외부 Kaldi runtime을 사용합니다 (`kaldi_dir=DIR`).
 - `-l {auto,kor,jap}`, `--lang ...`: 언어 어댑터를 선택합니다 (`lang=...`).
@@ -113,6 +113,8 @@ koreanfa align recording.wav recording.txt -l jap
 - `--pronunciation-dictionary PATH`: UTF-8 TSV의 정확한 토큰별 발음 override를 적용합니다. 자세한 형식은 [발음 사전 안내](docs/pronunciation-dictionary.md)를 참고하세요.
 - `--report PATH`: 상대 경로, 옵션, 성공·실패·건너뜀, 시도 횟수, 엔진 메타데이터가 담긴 버전형 JSON 실행 리포트를 원자적으로 저장합니다 (`report_path=PATH`). 전사 원문은 리포트에 복사하지 않습니다.
 - `--quality-report PATH`: 정렬 뒤 별도 JSON TextGrid 품질 진단 리포트를 작성합니다 (`quality_report_path=PATH`). `review`는 확인이 필요한 후보를 뜻하며, 정렬 실패나 신뢰도 점수는 아닙니다. 자세한 기준은 [품질 진단 안내](docs/alignment-quality.md)를 참고하세요.
+
+네이티브 라이브러리의 작업자별 스레드를 더 엄격히 제한해야 하는 환경에서는 `KOREANFA_THREADS_PER_JOB`에 양의 정수를 설정할 수 있습니다. 기본값은 파일 작업자별 `1`입니다.
 
 ### 발음 사전과 OOV 점검
 
