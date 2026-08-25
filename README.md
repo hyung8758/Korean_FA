@@ -14,7 +14,8 @@ KoreanFA creates Praat TextGrid files from Korean or Japanese WAV audio and a ma
 
 - Align one WAV/TXT pair or an entire directory of pairs
 - Select Korean or Japanese automatically, or choose a model explicitly
-- Produce word and phone tiers in a Praat TextGrid
+- Produce word and phone tiers, plus readable Korean/Japanese Romanization, in a Praat TextGrid
+- Explain Korean model phone labels with a [symbol and IPA reference](docs/korean-phone-labels.md)
 - Validate a corpus before alignment and record reproducible JSON run reports
 - Export structured intervals as JSON, CSV, or word/phone CTM files
 - Apply optional per-token pronunciation overrides and Korean G2P/OOV checks
@@ -107,6 +108,7 @@ Run `koreanfa align --help` for all options.
 - `-r`, `--recursive`: include subdirectories when aligning a directory (`recursive=True`).
 - `-iu`, `--ignore-unmatched [true|false]`: skip WAV/TXT files without a same-stem counterpart and issue a warning; this is the default (`ignore_unmatched=True`). Set it to `false` to stop before alignment when an unmatched file is found.
 - `-nw`, `--no-word`; `-np`, `--no-phone`: omit the corresponding TextGrid tier (`word_tier=False` / `phone_tier=False`).
+- `-nr`, `--no-romanization`: omit the default `romanization` tier (`romanization_tier=False`). Korean uses Revised Romanization of the resolved pronunciation; Japanese uses ASCII Hepburn-style Romanization of the MeCab reading. This display tier does not change model phone labels. See [Korean phone labels](docs/korean-phone-labels.md) and [Japanese Romanization](docs/japanese-romanization.md).
 - `-kw`, `--keep-workdir`: retain successful-run Kaldi logs and staged diagnostics (`keep_workdir=True`).
 - `--existing {overwrite,skip,error}`: overwrite existing TextGrids (the compatible default), skip realignment for structurally valid TextGrids, or stop before alignment if a requested output already exists (`existing=...`). Requested JSON/CSV/CTM files are still generated from a valid skipped TextGrid; a damaged TextGrid is never treated as a successful skip.
 - `--export {json,csv,ctm}`: write an additional machine-readable format; repeat the option for multiple formats (`exports=("json", "csv", "ctm")`). CTM export writes separate word and phone files, omits only empty gap intervals, and uses the corpus-relative stem as its recording ID. Whitespace, control characters, and `%` in CTM recording IDs or labels are UTF-8 percent-encoded to preserve the five-field format; JSON and CSV labels remain unchanged.
