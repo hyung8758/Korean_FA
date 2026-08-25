@@ -43,10 +43,12 @@ def test_korean_dictionary_replaces_default_g2p_for_an_exact_token(tmp_path: Pat
     words = tmp_path / "words.txt"
     words.write_text("값이\n", encoding="utf-8")
     output = tmp_path / "phones.txt"
+    resolved = tmp_path / "pronunciations.txt"
 
-    convert_word_file(words, output, dictionary)
+    convert_word_file(words, output, dictionary, resolved)
 
     assert output.read_text(encoding="utf-8").strip() == "k0 aa pf s0 ii"
+    assert resolved.read_text(encoding="utf-8") == "갑시\n"
 
 
 def test_korean_g2p_cli_reports_invalid_dictionary_without_a_traceback(

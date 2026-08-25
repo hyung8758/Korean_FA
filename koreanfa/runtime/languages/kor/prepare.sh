@@ -17,7 +17,11 @@ model_dir=$6
 utterance_id=$7
 pronunciation_dictionary=${8:-}
 
-g2p_args=(--input "$raw_text" --output "$prono_dir/pronunciations.txt")
+g2p_args=(
+  --input "$raw_text"
+  --output "$prono_dir/pronunciations.txt"
+  --pronunciation-output "$prono_dir/pronunciations_hangul.txt"
+)
 [[ -n $pronunciation_dictionary ]] && g2p_args+=(--pronunciation-dictionary "$pronunciation_dictionary")
 "$python_executable" -m koreanfa._korean_g2p "${g2p_args[@]}"
 paste -d ' ' "$raw_text" "$prono_dir/pronunciations.txt" > "$prono_dir/sent_lexicon.txt"

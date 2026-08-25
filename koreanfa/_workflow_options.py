@@ -14,6 +14,7 @@ class WorkflowOptions:
     threads_per_job: int
     word_tier: bool
     phone_tier: bool
+    romanization_tier: bool
     keep_workdir: bool
     requested_language: str
     recursive: bool
@@ -29,6 +30,7 @@ class WorkflowOptions:
             "threads_per_job": self.threads_per_job,
             "word_tier": self.word_tier,
             "phone_tier": self.phone_tier,
+            "romanization_tier": self.romanization_tier,
             "keep_workdir": self.keep_workdir,
             "language": self.requested_language,
             "recursive": self.recursive,
@@ -49,6 +51,7 @@ def normalize_workflow_options(
     recursive: bool,
     ignore_unmatched: bool,
     pronunciation_dictionary: PronunciationDictionary | None,
+    romanization_tier: bool = False,
 ) -> WorkflowOptions:
     """Validate user options once before filesystem or engine work."""
     if num_jobs < 1:
@@ -69,6 +72,7 @@ def normalize_workflow_options(
         threads_per_job,
         word_tier,
         phone_tier,
+        romanization_tier,
         keep_workdir,
         requested_language,
         recursive,

@@ -107,7 +107,7 @@ def test_cli_supports_short_forms_for_every_alignment_option() -> None:
     args = build_parser().parse_args(
         [
             "align-dir", "corpus", "-l", "jap", "-o", "output", "-kd", "kaldi", "-nj", "3",
-            "-r", "-iu", "-nw", "-np", "-kw",
+            "-r", "-iu", "-nw", "-np", "-nr", "-kw",
         ]
     )
 
@@ -119,6 +119,7 @@ def test_cli_supports_short_forms_for_every_alignment_option() -> None:
     assert args.ignore_unmatched is True
     assert args.no_word is True
     assert args.no_phone is True
+    assert args.no_romanization is True
     assert args.keep_workdir is True
 
 

@@ -1,3 +1,4 @@
+import ast
 import json
 import re
 import tomllib
@@ -168,6 +169,35 @@ def test_korean_g2p_no_longer_ships_kog2p_sources() -> None:
     assert not (runtime_pipeline / "g2p.py").exists()
     assert not (runtime_pipeline / "rulebook.txt").exists()
     assert not (runtime_pipeline / "text2lexicon.py").exists()
+
+
+def test_korean_phone_label_reference_documents_the_packaged_inventory() -> None:
+    document = (ROOT / "docs" / "korean-phone-labels.md").read_text(encoding="utf-8")
+    source_manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    english_readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    korean_readme = (ROOT / "README.ko.md").read_text(encoding="utf-8")
+
+    assert "`k0 xx nn xx nf`" in document
+    assert "https://doi.org/10.13064/KSSS.2015.7.2.103" in document
+    assert "KoreanFA does not bundle" in document
+    assert "or use the KoG2P implementation." in document
+    assert "include docs/korean-phone-labels.md" in source_manifest
+    assert "include docs/japanese-romanization.md" in source_manifest
+    assert "docs/korean-phone-labels.md" in english_readme
+    assert "docs/korean-phone-labels.md" in korean_readme
+
+    module = ast.parse((ROOT / "koreanfa" / "_korean_g2p.py").read_text(encoding="utf-8"))
+    inventory = {
+        value.value
+        for assignment in ast.walk(module)
+        if isinstance(assignment, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id in {"_ONSETS", "_VOWELS", "_CODAS"} for target in assignment.targets)
+        and isinstance(assignment.value, ast.Tuple)
+        for value in assignment.value.elts
+        if isinstance(value, ast.Constant) and isinstance(value.value, str) and value.value
+    }
+    documented = set(re.findall(r"^\| `([^`]+)` \|", document, flags=re.MULTILINE))
+    assert documented == inventory
 
 
 def test_macos_engine_candidate_enforces_release_safety_policies() -> None:

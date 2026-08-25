@@ -49,12 +49,15 @@ def read_short_textgrid_labels(path: Path) -> dict[str, list[str]]:
 
 
 def validate_labels(textgrid: Path, expected: dict[str, list[str]]) -> None:
-    """Raise with a useful diff location when a label sequence changes."""
+    """Validate golden model labels and the required readable Romanization tier."""
 
     actual = read_short_textgrid_labels(textgrid)
-    if set(actual) != set(expected):
+    expected_tiers = set(expected)
+    received_model_tiers = set(actual) - {"romanization"}
+    if received_model_tiers != expected_tiers:
         raise RuntimeError(
-            f"TextGrid tiers differ for {textgrid}: expected {sorted(expected)}, received {sorted(actual)}"
+            f"TextGrid model tiers differ for {textgrid}: "
+            f"expected {sorted(expected_tiers)}, received {sorted(received_model_tiers)}"
         )
     for tier, expected_labels in expected.items():
         actual_labels = actual[tier]
@@ -75,6 +78,26 @@ def validate_labels(textgrid: Path, expected: dict[str, list[str]]) -> None:
             f"expected {expected_label!r}, received {actual_label!r} "
             f"(expected {len(expected_labels)} labels, received {len(actual_labels)})"
         )
+    _validate_romanization(textgrid, actual)
+
+
+def _validate_romanization(textgrid: Path, tiers: dict[str, list[str]]) -> None:
+    """Check the display tier without changing phone/word golden fixtures."""
+    romanization = tiers.get("romanization")
+    words = tiers.get("word")
+    if romanization is None:
+        raise RuntimeError(f"TextGrid is missing the required romanization tier: {textgrid}")
+    if words is None or len(romanization) != len(words):
+        raise RuntimeError(f"Romanization tier does not match word-tier intervals: {textgrid}")
+    for index, (word, label) in enumerate(zip(words, romanization, strict=True)):
+        if word.startswith("<") and word.endswith(">"):
+            if label != word:
+                raise RuntimeError(f"Romanization silence label differs at index {index} for {textgrid}")
+        elif word == "":
+            if label:
+                raise RuntimeError(f"Romanization gap is not empty at index {index} for {textgrid}")
+        elif not label or not label.isascii():
+            raise RuntimeError(f"Invalid Romanization label at index {index} for {textgrid}: {label!r}")
 
 
 def main() -> int:

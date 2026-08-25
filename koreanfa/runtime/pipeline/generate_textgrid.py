@@ -10,12 +10,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
 
+from koreanfa.romanization import romanize_japanese_reading, romanize_korean_pronunciation
+
 
 @dataclass(frozen=True)
 class PhoneEvent:
     label: str
     start: float
     end: float
+
+
+@dataclass(frozen=True)
+class LexiconEntry:
+    """One displayed word and the pronunciation actually aligned for it."""
+
+    word: str
+    pronunciation: str
 
 
 def _escape(label: str) -> str:
@@ -51,13 +61,25 @@ def _read_events(source_dir: Path) -> list[PhoneEvent]:
     return sorted(events, key=lambda event: (event.start, event.end))
 
 
-def _read_words(path: Path) -> list[str]:
-    words: list[str] = []
+def _read_words(path: Path) -> list[LexiconEntry]:
+    words: list[LexiconEntry] = []
     for line in path.read_text(encoding="utf-8").splitlines():
-        fields = line.split()
+        fields = line.split(maxsplit=1)
         if fields:
-            words.append(fields[0])
+            words.append(LexiconEntry(fields[0], fields[1] if len(fields) == 2 else fields[0]))
     return words
+
+
+def _with_pronunciations(entries: list[LexiconEntry], path: Path | None) -> list[LexiconEntry]:
+    """Replace display fallback text with Korean G2P pronunciations when supplied."""
+    if path is None:
+        return entries
+    pronunciations = path.read_text(encoding="utf-8").splitlines()
+    if len(pronunciations) != len(entries):
+        raise ValueError(
+            f"Pronunciation count does not match the alignment lexicon: {len(pronunciations)} != {len(entries)}"
+        )
+    return [LexiconEntry(entry.word, pronunciation) for entry, pronunciation in zip(entries, pronunciations, strict=True)]
 
 
 def _continuous(items: list[tuple[float, float, str]], end_time: float) -> list[tuple[float, float, str]]:
@@ -79,9 +101,12 @@ def _continuous(items: list[tuple[float, float, str]], end_time: float) -> list[
     return result
 
 
-def _word_items(events: list[PhoneEvent], words: list[str]) -> list[tuple[float, float, str]]:
+def _word_items(
+    events: list[PhoneEvent], words: list[LexiconEntry], language: str
+) -> tuple[list[tuple[float, float, str]], list[tuple[float, float, str]]]:
     """Join B/I/E/S phone sequences to transcript words in lexical order."""
     items: list[tuple[float, float, str]] = []
+    romanization_items: list[tuple[float, float, str]] = []
     word_index = 0
     group_start: float | None = None
     group_end: float | None = None
@@ -92,7 +117,14 @@ def _word_items(events: list[PhoneEvent], words: list[str]) -> list[tuple[float,
             return
         if word_index >= len(words):
             raise ValueError("More aligned word groups than entries in the pronunciation lexicon")
-        items.append((group_start, group_end, words[word_index]))
+        entry = words[word_index]
+        items.append((group_start, group_end, entry.word))
+        following = words[word_index + 1].pronunciation if word_index + 1 < len(words) else ""
+        if language == "kor":
+            romanization = romanize_korean_pronunciation(entry.pronunciation)
+        else:
+            romanization = romanize_japanese_reading(entry.pronunciation, following)
+        romanization_items.append((group_start, group_end, romanization))
         word_index += 1
         group_start = group_end = None
 
@@ -101,6 +133,7 @@ def _word_items(events: list[PhoneEvent], words: list[str]) -> list[tuple[float,
         if label.startswith("<") and label.endswith(">"):
             close_group()
             items.append((event.start, event.end, label))
+            romanization_items.append((event.start, event.end, label))
             continue
         _, separator, tag = label.rpartition("_")
         if separator and tag == "B":
@@ -123,7 +156,7 @@ def _word_items(events: list[PhoneEvent], words: list[str]) -> list[tuple[float,
             group_start, group_end = event.start, event.end
             close_group()
     close_group()
-    return items
+    return items, romanization_items
 
 
 def _write_tier(stream: TextIO, name: str, end_time: float, intervals: list[tuple[float, float, str]]) -> None:
@@ -132,7 +165,18 @@ def _write_tier(stream: TextIO, name: str, end_time: float, intervals: list[tupl
         stream.write(f"{start:.6f}\n{end:.6f}\n\"{_escape(label)}\"\n")
 
 
-def generate(source_dir: Path, word_file: Path, _text_num: Path, save_dir: Path, *, no_word: bool, no_phone: bool) -> Path:
+def generate(
+    source_dir: Path,
+    word_file: Path,
+    _text_num: Path,
+    save_dir: Path,
+    *,
+    no_word: bool,
+    no_phone: bool,
+    no_romanization: bool = False,
+    language: str = "kor",
+    romanization_file: Path | None = None,
+) -> Path:
     if no_word and no_phone:
         raise ValueError("At least one of word or phone tiers must be enabled")
     events = _read_events(source_dir)
@@ -140,8 +184,12 @@ def generate(source_dir: Path, word_file: Path, _text_num: Path, save_dir: Path,
     tiers: list[tuple[str, list[tuple[float, float, str]]]] = []
     if not no_phone:
         tiers.append(("phone", _continuous([(event.start, event.end, _base_phone(event.label)) for event in events], end_time)))
+    entries = _with_pronunciations(_read_words(word_file), romanization_file)
+    word_items, romanization_items = _word_items(events, entries, language)
     if not no_word:
-        tiers.append(("word", _continuous(_word_items(events, _read_words(word_file)), end_time)))
+        tiers.append(("word", _continuous(word_items, end_time)))
+    if not no_romanization:
+        tiers.append(("romanization", _continuous(romanization_items, end_time)))
     save_dir.mkdir(parents=True, exist_ok=True)
     destination = save_dir / "tagged_final_ali.TextGrid"
     with destination.open("w", encoding="utf-8", newline="\n") as stream:
@@ -156,12 +204,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-word", action="store_true", help="Do not write the word tier")
     parser.add_argument("--no-phone", action="store_true", help="Do not write the phone tier")
+    parser.add_argument("--no-romanization", action="store_true", help="Do not write the romanization tier")
+    parser.add_argument("--language", choices=("kor", "jap"), default="kor")
+    parser.add_argument("--romanization-file", type=Path, help="resolved Korean pronunciation, one entry per aligned word")
     parser.add_argument("source_dir", type=Path)
     parser.add_argument("word_file", type=Path)
     parser.add_argument("text_num", type=Path, help="Retained for backwards compatibility")
     parser.add_argument("save_dir", type=Path)
     args = parser.parse_args(argv)
-    generate(args.source_dir, args.word_file, args.text_num, args.save_dir, no_word=args.no_word, no_phone=args.no_phone)
+    generate(
+        args.source_dir,
+        args.word_file,
+        args.text_num,
+        args.save_dir,
+        no_word=args.no_word,
+        no_phone=args.no_phone,
+        no_romanization=args.no_romanization,
+        language=args.language,
+        romanization_file=args.romanization_file,
+    )
     return 0
 
 

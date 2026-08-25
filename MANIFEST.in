@@ -4,6 +4,8 @@
 prune tests
 include README.ko.md
 include docs/alignment-quality.md
+include docs/korean-phone-labels.md
+include docs/japanese-romanization.md
 include docs/pronunciation-dictionary.md
 include docs/troubleshooting.md
 graft koreanfa/runtime

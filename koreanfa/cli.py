@@ -75,6 +75,7 @@ def _options(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("-nw", "--no-word", action="store_true")
     parser.add_argument("-np", "--no-phone", action="store_true")
+    parser.add_argument("-nr", "--no-romanization", action="store_true", help="Omit the romanization tier")
     parser.add_argument("-kw", "--keep-workdir", action="store_true")
     parser.add_argument(
         "--existing", choices=("overwrite", "skip", "error"), default="overwrite",
@@ -191,6 +192,7 @@ def main(argv: list[str] | None = None) -> int:
                 ignore_unmatched=args.ignore_unmatched,
                 word_tier=not args.no_word,
                 phone_tier=not args.no_phone,
+                romanization_tier=not args.no_romanization,
                 keep_workdir=args.keep_workdir,
                 progress=_CliProgress(),
                 existing=args.existing,
@@ -209,6 +211,7 @@ def main(argv: list[str] | None = None) -> int:
                 output_dir=args.output_dir,
                 word_tier=not args.no_word,
                 phone_tier=not args.no_phone,
+                romanization_tier=not args.no_romanization,
                 keep_workdir=args.keep_workdir,
                 progress=_CliProgress(),
                 existing=args.existing,

@@ -45,7 +45,11 @@ def _validate_normal(root: Path, output: Path, *, num_jobs: int) -> None:
         if fixture_id not in expected:
             raise RuntimeError(f"Unexpected normal fixture result: {fixture_id}")
         validate_labels(item.textgrid, expected[fixture_id])
-        actual[fixture_id] = read_short_textgrid_labels(item.textgrid)
+        labels = read_short_textgrid_labels(item.textgrid)
+        # The immutable fixture records model-phone and word labels. The
+        # Romanization tier is validated above, but it is intentionally not
+        # mixed into the historical model-regression checksum.
+        actual[fixture_id] = {tier: labels[tier] for tier in expected[fixture_id]}
     if set(actual) != set(expected):
         raise RuntimeError(
             f"Normal fixture IDs changed: missing={sorted(set(expected) - set(actual))} "

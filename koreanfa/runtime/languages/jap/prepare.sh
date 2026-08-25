@@ -51,5 +51,17 @@ awk 'NR == FNR { if (!($1 in lexicon)) lexicon[$1] = $0; next }
   { if ($1 in lexicon) print lexicon[$1] }' \
   "$prono_dir/valid_lexicon.txt" "$prono_dir/mecab_words.txt" > "$prono_dir/sent_lexicon.txt"
 [[ -s $prono_dir/sent_lexicon.txt ]] || { echo "Japanese transcript produced no alignable MeCab/G2P entries." >&2; exit 1; }
+# Preserve the MeCab reading corresponding to each selected lexicon entry.
+# The first-reading policy matches the existing surface-form lexicon map above.
+tr ' ' '\n' < "$g2p_input" | awk -F'+' 'NF >= 2 && $1 != "" && $2 != "" && !($1 in seen) {
+  seen[$1] = 1; print $1 "\t" $2
+}' > "$prono_dir/reading_by_word.tsv"
+awk 'NR == FNR { reading[$1] = $2; next }
+  { if (!($1 in reading)) { print "Missing MeCab reading for selected word: " $1 > "/dev/stderr"; exit 1 }
+    print reading[$1] }' \
+  "$prono_dir/reading_by_word.tsv" "$prono_dir/sent_lexicon.txt" > "$prono_dir/romanization_readings.txt"
+[[ $(wc -l < "$prono_dir/romanization_readings.txt") -eq $(wc -l < "$prono_dir/sent_lexicon.txt") ]] || {
+  echo "Japanese Romanization readings do not match selected lexicon entries." >&2; exit 1;
+}
 paste -d '\n' "$prono_dir/valid_lexicon.txt" "$model_dir/lexicon.txt" | LC_ALL=C sort -u | sed '/^[[:space:]]*$/d' > "$dict_dir/lexicon.txt"
 printf '%s %s\n' "$utterance_id" "$(awk '{printf "%s%s", sep, $1; sep=" "}' "$prono_dir/sent_lexicon.txt")" > "$trans_dir/text"

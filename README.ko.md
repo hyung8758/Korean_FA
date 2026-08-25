@@ -14,7 +14,8 @@ KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 P
 
 - WAV/TXT 한 쌍 또는 디렉터리 전체를 정렬
 - 한국어·일본어 모델 자동 선택 또는 직접 지정
-- Praat TextGrid의 단어·음소 tier 생성
+- Praat TextGrid의 단어·음소·읽기용 한국어·일본어 로마자 tier 생성
+- 한국어 모델 음소 label의 [기호·IPA 참고표](docs/korean-phone-labels.md) 제공
 - 정렬 전 코퍼스 검증과 재현 가능한 JSON 실행 리포트 생성
 - 구조화 구간을 JSON, CSV, 단어·음소 CTM으로 내보내기
 - 토큰별 사용자 발음 사전과 한국어 G2P/OOV 사전 점검
@@ -107,6 +108,7 @@ koreanfa align recording.wav recording.txt -l jap
 - `-r`, `--recursive`: 디렉터리 정렬 시 하위 디렉터리도 포함합니다 (`recursive=True`).
 - `-iu`, `--ignore-unmatched [true|false]`: 같은 이름의 짝이 없는 WAV/TXT 파일을 경고와 함께 건너뜁니다. 기본값은 true이며 (`ignore_unmatched=True`), `false`로 지정하면 짝이 없는 파일을 발견한 시점에 정렬 전에 중단합니다.
 - `-nw`, `--no-word`; `-np`, `--no-phone`: 해당 TextGrid tier를 만들지 않습니다 (`word_tier=False`, `phone_tier=False`).
+- `-nr`, `--no-romanization`: 기본 `romanization` tier를 생략합니다 (`romanization_tier=False`). 한국어는 실제 정렬한 발음을 국어의 로마자 표기법으로, 일본어는 MeCab reading을 ASCII Hepburn 방식으로 보여 줍니다. 이 읽기용 tier는 모델의 phone label을 바꾸지 않습니다. 자세한 내용은 [한국어 phone label 안내](docs/korean-phone-labels.md)와 [일본어 Romanization 안내](docs/japanese-romanization.md)를 참고하세요.
 - `-kw`, `--keep-workdir`: 성공한 실행의 Kaldi 로그와 진단 작업 파일을 보관합니다 (`keep_workdir=True`).
 - `--existing {overwrite,skip,error}`: 기존 TextGrid를 덮어쓰거나(호환성을 위한 기본값), 구조가 올바른 TextGrid는 재정렬하지 않거나, 요청 출력이 하나라도 있으면 정렬 전에 중단합니다 (`existing=...`). 올바른 TextGrid를 건너뛸 때도 요청한 JSON/CSV/CTM은 기존 TextGrid에서 생성하며, 손상된 TextGrid는 성공한 파일로 건너뛰지 않습니다.
 - `--export {json,csv,ctm}`: 기계 판독용 형식을 추가로 생성합니다. 여러 형식은 옵션을 반복합니다 (`exports=("json", "csv", "ctm")`). CTM은 단어·음소 파일로 나뉘며 빈 gap 구간만 제외하고, 코퍼스 기준 상대 stem을 recording ID로 사용합니다. CTM의 5필드 구조를 유지하도록 recording ID와 label의 공백·제어 문자·`%`는 UTF-8 퍼센트 인코딩하며, JSON과 CSV의 label은 원문 그대로 유지합니다.

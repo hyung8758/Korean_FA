@@ -19,6 +19,7 @@ class ParsedAlignment:
     duration: float
     words: tuple[AlignmentInterval, ...]
     phones: tuple[AlignmentInterval, ...]
+    romanizations: tuple[AlignmentInterval, ...] = ()
 
 
 def _quoted(value: str, *, context: str) -> str:
@@ -105,30 +106,41 @@ def parse_textgrid(path: str | Path) -> ParsedAlignment:
             tiers[name] = tuple(intervals)
         if index != len(lines):
             raise ValueError("Unexpected trailing TextGrid content")
-        if not set(tiers).issubset({"word", "phone"}):
+        if not set(tiers).issubset({"word", "phone", "romanization"}):
             raise ValueError("TextGrid contains an unsupported tier")
     except (IndexError, ValueError) as error:
         raise AlignmentError(f"Invalid KoreanFA TextGrid: {source}: {error}", work_dir=None) from error
-    return ParsedAlignment(maximum, tiers.get("word", ()), tiers.get("phone", ()))
+    return ParsedAlignment(maximum, tiers.get("word", ()), tiers.get("phone", ()), tiers.get("romanization", ()))
 
 
-def is_valid_textgrid(path: Path, *, word_tier: bool, phone_tier: bool) -> bool:
+def is_valid_textgrid(
+    path: Path, *, word_tier: bool, phone_tier: bool, romanization_tier: bool = False
+) -> bool:
     """Return whether an existing output is structurally valid for this request."""
     try:
         parsed = parse_textgrid(path)
-        require_tiers(parsed, word_tier=word_tier, phone_tier=phone_tier)
+        require_tiers(
+            parsed,
+            word_tier=word_tier,
+            phone_tier=phone_tier,
+            romanization_tier=romanization_tier,
+        )
     except AlignmentError:
         return False
     return True
 
 
-def require_tiers(parsed: ParsedAlignment, *, word_tier: bool, phone_tier: bool) -> None:
+def require_tiers(
+    parsed: ParsedAlignment, *, word_tier: bool, phone_tier: bool, romanization_tier: bool = False
+) -> None:
     """Reject a runtime output that omitted a tier requested by the caller."""
     missing = []
     if word_tier and not parsed.words:
         missing.append("word")
     if phone_tier and not parsed.phones:
         missing.append("phone")
+    if romanization_tier and not parsed.romanizations:
+        missing.append("romanization")
     if missing:
         raise AlignmentError(f"TextGrid is missing requested tier(s): {', '.join(missing)}", work_dir=None)
 
@@ -137,7 +149,11 @@ def _csv_content(parsed: ParsedAlignment) -> str:
     stream = io.StringIO(newline="")
     writer = csv.writer(stream, lineterminator="\n")
     writer.writerow(("tier", "start", "end", "duration", "label"))
-    for tier_name, intervals in (("word", parsed.words), ("phone", parsed.phones)):
+    for tier_name, intervals in (
+        ("word", parsed.words),
+        ("phone", parsed.phones),
+        ("romanization", parsed.romanizations),
+    ):
         for interval in intervals:
             writer.writerow(
                 (tier_name, f"{interval.start:.6f}", f"{interval.end:.6f}", f"{interval.duration:.6f}", interval.label)
@@ -198,6 +214,7 @@ def write_exports(
             "tiers": {
                 "word": [vars(item) for item in parsed.words],
                 "phone": [vars(item) for item in parsed.phones],
+                "romanization": [vars(item) for item in parsed.romanizations],
             },
         }
         atomic_write_text(json_path, json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
