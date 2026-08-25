@@ -48,9 +48,9 @@ def _assert_textgrid(path: Path) -> dict[str, list[str]]:
     if "\ufffd" in contents:
         raise RuntimeError(f"Replacement character found in {path}")
     tiers = read_short_textgrid_labels(path)
-    if "word" not in tiers or "phone" not in tiers:
-        raise RuntimeError(f"Missing word or phone tier in {path}: {sorted(tiers)}")
-    for tier in ("word", "phone"):
+    if {"word", "phone", "romanization"} - set(tiers):
+        raise RuntimeError(f"Missing word, phone, or romanization tier in {path}: {sorted(tiers)}")
+    for tier in ("word", "phone", "romanization"):
         if not tiers[tier] or not any(tiers[tier]):
             raise RuntimeError(f"Empty {tier} tier in {path}")
         if any(left == right == "" for left, right in zip(tiers[tier], tiers[tier][1:])):

@@ -12,11 +12,12 @@ LABELS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(LABELS)
 
 
-def _textgrid(phone: str = "a", word: str = "테스트") -> str:
+def _textgrid(phone: str = "a", word: str = "테스트", romanization: str = "teseuteu") -> str:
     return (
-        'File type = "ooTextFile short"\n"TextGrid"\n\n0\n1\n<exists>\n2\n'
+        'File type = "ooTextFile short"\n"TextGrid"\n\n0\n1\n<exists>\n3\n'
         f'"IntervalTier"\n"phone"\n0\n1\n1\n0\n1\n"{phone}"\n'
         f'"IntervalTier"\n"word"\n0\n1\n1\n0\n1\n"{word}"\n'
+        f'"IntervalTier"\n"romanization"\n0\n1\n1\n0\n1\n"{romanization}"\n'
     )
 
 
@@ -27,6 +28,7 @@ def test_reads_ordered_short_textgrid_labels(tmp_path: Path) -> None:
     assert LABELS.read_short_textgrid_labels(path) == {
         "phone": ["a"],
         "word": ["테스트"],
+        "romanization": ["teseuteu"],
     }
 
 
@@ -44,3 +46,15 @@ def test_rejects_invalid_utf8_textgrid(tmp_path: Path) -> None:
 
     with pytest.raises(UnicodeDecodeError):
         LABELS.read_short_textgrid_labels(path)
+
+
+def test_rejects_missing_or_invalid_romanization_tier(tmp_path: Path) -> None:
+    path = tmp_path / "result.TextGrid"
+    path.write_text(_textgrid().replace('\n3\n"IntervalTier"', '\n2\n"IntervalTier"', 1).rsplit('"IntervalTier"', 1)[0], encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="missing the required romanization"):
+        LABELS.validate_labels(path, {"phone": ["a"], "word": ["테스트"]})
+
+    path.write_text(_textgrid(romanization="테스트"), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="Invalid Romanization"):
+        LABELS.validate_labels(path, {"phone": ["a"], "word": ["테스트"]})

@@ -75,7 +75,7 @@ def _options(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("-nw", "--no-word", action="store_true")
     parser.add_argument("-np", "--no-phone", action="store_true")
-    parser.add_argument("-nr", "--no-romanization", action="store_true", help="Omit the Korean romanization tier")
+    parser.add_argument("-nr", "--no-romanization", action="store_true", help="Omit the romanization tier")
     parser.add_argument("-kw", "--keep-workdir", action="store_true")
     parser.add_argument(
         "--existing", choices=("overwrite", "skip", "error"), default="overwrite",
