@@ -35,7 +35,7 @@ def test_generate_textgrid_writes_continuous_phone_and_word_tiers(tmp_path: Path
         encoding="utf-8",
     )
     words = tmp_path / "words.txt"
-    words.write_text("테스트 a b\n", encoding="utf-8")
+    words.write_text("테스트 테스트\n", encoding="utf-8")
     text_num = tmp_path / "text_num.txt"
     text_num.write_text("1\n", encoding="utf-8")
     output = tmp_path / "output"
@@ -45,9 +45,11 @@ def test_generate_textgrid_writes_continuous_phone_and_word_tiers(tmp_path: Path
     text = generated.read_text(encoding="utf-8")
     assert '"phone"' in text
     assert '"word"' in text
+    assert '"romanization"' in text
     assert '"테스트"' in text
+    assert '"teseuteu"' in text
     assert "0.000000\n0.200000\n\"<sil>\"" in text
-    assert text.count('"IntervalTier"') == 2
+    assert text.count('"IntervalTier"') == 3
 
 
 def test_generate_textgrid_supports_a_single_requested_tier(tmp_path: Path) -> None:
@@ -62,13 +64,65 @@ def test_generate_textgrid_supports_a_single_requested_tier(tmp_path: Path) -> N
     number = tmp_path / "number.txt"
     number.write_text("1\n", encoding="utf-8")
 
-    generated = module.generate(source, words, number, tmp_path / "output", no_word=True, no_phone=False)
+    generated = module.generate(
+        source, words, number, tmp_path / "output", no_word=True, no_phone=False, no_romanization=True
+    )
 
     text = generated.read_text(encoding="utf-8")
     assert '"phone"' in text
     assert '"word"' not in text
     with pytest.raises(ValueError, match="At least one"):
         module.generate(source, words, number, tmp_path / "none", no_word=True, no_phone=True)
+
+
+def test_generate_textgrid_romanizes_the_resolved_korean_pronunciation(tmp_path: Path) -> None:
+    module = _load_script("generate_textgrid.py")
+    source = tmp_path / "result"
+    source.mkdir()
+    (source / "tagged_final_ali.txt").write_text(
+        "header\nutt\tfile\t1\t1\t0\t1\ta_S\t0\t1\t0\t1\n", encoding="utf-8"
+    )
+    words = tmp_path / "words.txt"
+    # The displayed spelling and aligned pronunciation intentionally differ.
+    words.write_text("국물 궁물\n", encoding="utf-8")
+    number = tmp_path / "number.txt"
+    number.write_text("1\n", encoding="utf-8")
+
+    text = module.generate(source, words, number, tmp_path / "output", no_word=False, no_phone=False).read_text(
+        encoding="utf-8"
+    )
+
+    assert '"국물"' in text
+    assert '"gungmul"' in text
+
+
+def test_generate_textgrid_romanizes_japanese_mecab_readings(tmp_path: Path) -> None:
+    module = _load_script("generate_textgrid.py")
+    source = tmp_path / "result"
+    source.mkdir()
+    (source / "tagged_final_ali.txt").write_text(
+        "header\nutt\tfile\t1\t1\t0\t1\ta_S\t0\t1\t0\t1\n", encoding="utf-8"
+    )
+    words = tmp_path / "words.txt"
+    words.write_text("東京 t o u ky o u\n", encoding="utf-8")
+    readings = tmp_path / "readings.txt"
+    readings.write_text("トウキョウ\n", encoding="utf-8")
+    number = tmp_path / "number.txt"
+    number.write_text("1\n", encoding="utf-8")
+
+    text = module.generate(
+        source,
+        words,
+        number,
+        tmp_path / "output",
+        no_word=False,
+        no_phone=False,
+        language="jap",
+        romanization_file=readings,
+    ).read_text(encoding="utf-8")
+
+    assert '"romanization"' in text
+    assert '"toukyou"' in text
 
 
 def test_prepare_data_matches_wav_and_text_by_exact_stem(tmp_path: Path) -> None:

@@ -87,6 +87,31 @@ def test_writes_json_csv_and_ctm_from_one_canonical_parse(
     assert outputs["phones_ctm"].read_text(encoding="utf-8") == "日本語 1 0.000000 1.000000 t\n"
 
 
+def test_parses_and_exports_the_optional_romanization_tier(
+    tmp_path: Path, write_textgrid: Callable[..., Path]
+) -> None:
+    textgrid = write_textgrid(tmp_path / "sample.TextGrid")
+    textgrid.write_text(
+        textgrid.read_text(encoding="utf-8").replace(
+            '"word"\n0\n1.000000\n1\n0.000000\n1.000000\n"테스트"',
+            '"word"\n0\n1.000000\n1\n0.000000\n1.000000\n"테스트"\n'
+            '"IntervalTier"\n"romanization"\n0\n1.000000\n1\n0.000000\n1.000000\n"teseuteu"',
+        ).replace("\n2\n\"IntervalTier\"", "\n3\n\"IntervalTier\""),
+        encoding="utf-8",
+    )
+
+    parsed = parse_textgrid(textgrid)
+    require_tiers(parsed, word_tier=True, phone_tier=True, romanization_tier=True)
+    outputs = write_exports(
+        textgrid, parsed, ("json", "csv"), audio=tmp_path / "sample.wav", transcript=tmp_path / "sample.txt", language="kor"
+    )
+
+    payload = json.loads(outputs["json"].read_text(encoding="utf-8"))
+    assert payload["tiers"]["romanization"][0]["label"] == "teseuteu"
+    with outputs["csv"].open(encoding="utf-8", newline="") as stream:
+        assert {row["tier"] for row in csv.DictReader(stream)} == {"word", "phone", "romanization"}
+
+
 def test_ctm_recording_id_uses_encoded_corpus_relative_stem(
     tmp_path: Path, write_textgrid: Callable[..., Path]
 ) -> None:

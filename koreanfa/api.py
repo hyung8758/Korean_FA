@@ -46,6 +46,7 @@ def align(
     num_jobs: int = DEFAULT_NUM_JOBS,
     word_tier: bool = True,
     phone_tier: bool = True,
+    romanization_tier: bool = True,
     keep_workdir: bool = False,
     progress: ProgressCallback | None = None,
     existing: ExistingOutputPolicy = "overwrite",
@@ -83,6 +84,7 @@ def align(
         input_root=audio_path.parent,
         requested_language=requested_language,
         pronunciation_dictionary=dictionary,
+        romanization_tier=romanization_tier,
     )
     if batch.failures:
         failure = batch.failures[0]
@@ -107,6 +109,7 @@ def align_directory(
     ignore_unmatched: bool = True,
     word_tier: bool = True,
     phone_tier: bool = True,
+    romanization_tier: bool = True,
     keep_workdir: bool = False,
     progress: ProgressCallback | None = None,
     existing: ExistingOutputPolicy = "overwrite",
@@ -146,6 +149,7 @@ def align_directory(
         ignore_unmatched=ignore_unmatched,
         protected_inputs=protected_inputs,
         pronunciation_dictionary=dictionary,
+        romanization_tier=romanization_tier,
     )
 
 

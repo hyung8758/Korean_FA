@@ -64,6 +64,7 @@ class AlignmentResult:
     duration: float | None = None
     words: tuple[AlignmentInterval, ...] = ()
     phones: tuple[AlignmentInterval, ...] = ()
+    romanizations: tuple[AlignmentInterval, ...] = ()
     attempts: int = 1
     outputs: AlignmentOutputs | None = None
 
@@ -92,6 +93,7 @@ class AlignmentSkip:
     duration: float | None = None
     words: tuple[AlignmentInterval, ...] = ()
     phones: tuple[AlignmentInterval, ...] = ()
+    romanizations: tuple[AlignmentInterval, ...] = ()
     outputs: AlignmentOutputs | None = None
 
 

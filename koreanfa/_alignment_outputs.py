@@ -76,6 +76,7 @@ def partition_skipped_outputs(
     *,
     word_tier: bool,
     phone_tier: bool,
+    romanization_tier: bool = False,
 ) -> tuple[tuple[InputPair, ...], tuple[AlignmentSkip, ...], tuple[AlignmentFailure, ...]]:
     """Reuse valid TextGrids and transactionally generate requested exports."""
     retained: list[InputPair] = []
@@ -85,7 +86,12 @@ def partition_skipped_outputs(
         textgrid = plan.outputs.textgrid
         try:
             parsed = parse_textgrid(textgrid)
-            require_tiers(parsed, word_tier=word_tier, phone_tier=phone_tier)
+            require_tiers(
+                parsed,
+                word_tier=word_tier,
+                phone_tier=phone_tier,
+                romanization_tier=romanization_tier,
+            )
         except AlignmentError:
             retained.append(plan.pair)
             continue
@@ -110,6 +116,7 @@ def partition_skipped_outputs(
                 duration=parsed.duration,
                 words=parsed.words,
                 phones=parsed.phones,
+                romanizations=parsed.romanizations,
                 outputs=plan.outputs,
             )
         )
@@ -151,6 +158,7 @@ def prepare_and_publish(
     *,
     word_tier: bool,
     phone_tier: bool,
+    romanization_tier: bool = False,
 ) -> tuple[list[AlignmentResult], list[AlignmentFailure]]:
     """Parse staged TextGrids and publish each valid pair as one transaction."""
     published: list[AlignmentResult] = []
@@ -158,7 +166,12 @@ def prepare_and_publish(
     for result in results:
         try:
             parsed = parse_textgrid(result.textgrid)
-            require_tiers(parsed, word_tier=word_tier, phone_tier=phone_tier)
+            require_tiers(
+                parsed,
+                word_tier=word_tier,
+                phone_tier=phone_tier,
+                romanization_tier=romanization_tier,
+            )
             relative = result.textgrid.relative_to(staging_output)
             relative_stem = relative.parent / relative.name.removesuffix(".TextGrid")
             staged = write_exports(
@@ -200,16 +213,17 @@ def prepare_and_publish(
             continue
         published.append(
             AlignmentResult(
-                result.audio,
-                result.transcript,
-                final_outputs.textgrid,
-                result.language,
-                result.work_dir,
-                parsed.duration,
-                parsed.words,
-                parsed.phones,
-                result.attempts,
-                final_outputs,
+                audio=result.audio,
+                transcript=result.transcript,
+                textgrid=final_outputs.textgrid,
+                language=result.language,
+                work_dir=result.work_dir,
+                duration=parsed.duration,
+                words=parsed.words,
+                phones=parsed.phones,
+                romanizations=parsed.romanizations,
+                attempts=result.attempts,
+                outputs=final_outputs,
             )
         )
     return published, failures

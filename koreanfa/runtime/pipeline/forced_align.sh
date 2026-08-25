@@ -9,7 +9,7 @@ cd "$runtime_root/.."
 kaldi=${KOREANFA_KALDI_DIR:-/home/kaldi}
 language=${KOREANFA_LANG:-kor}
 python_executable=${KOREANFA_PYTHON_EXECUTABLE:-python}
-num_jobs=4; skip_existing=false; ignore_unmatched=true; word_option=; phone_option=
+num_jobs=4; skip_existing=false; ignore_unmatched=true; word_option=; phone_option=; romanization_option=
 
 usage() {
   cat <<'EOF'
@@ -20,6 +20,8 @@ Usage: forced_align.sh [options] DIRECTORY
                          Skip unmatched WAV/TXT files with a warning (default: true).
   -nw, --no-word     Do not generate the word tier.
   -np, --no-phone    Do not generate the phone tier.
+  -nr, --no-romanization
+                     Do not generate the Korean romanization tier.
 EOF
 }
 while [[ $# -gt 0 ]]; do
@@ -36,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     -nj|--num-jobs|--num-job) [[ $# -ge 2 ]] || { echo "$1 requires a value" >&2; exit 2; }; num_jobs=$2; shift 2 ;;
     -nw|--no-word) word_option=--no-word; shift ;;
     -np|--no-phone) phone_option=--no-phone; shift ;;
+    -nr|--no-romanization) romanization_option=--no-romanization; shift ;;
     --) shift; break ;;
     -*) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) break ;;
@@ -127,7 +130,7 @@ run_pair() {
   mkdir -p "$stage"; cp -- "$audio" "$stage/pair_$index.wav"; cp -- "$transcript" "$stage/pair_$index.txt"
   printf 'KOREANFA_EVENT\tstarted\t%s\t%s\n' "$index" "$(basename -- "$audio")"
   bash "$runtime_root/pipeline/main_fa.sh" "$language" "$index" "$log_dir" "$output" \
-    "$stage/pair_$index.wav" "$stage/pair_$index.txt" "$kaldi" "$word_option" "$phone_option"
+    "$stage/pair_$index.wav" "$stage/pair_$index.txt" "$kaldi" "$word_option" "$phone_option" "$romanization_option"
 }
 
 # Keep each file worker busy until the corpus is exhausted.  This works on

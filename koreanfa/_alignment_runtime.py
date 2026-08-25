@@ -33,6 +33,7 @@ def run_language_group(
     total: int,
     diagnostics_root: Path | None,
     pronunciation_dictionary: PronunciationDictionary | None = None,
+    romanization_tier: bool = False,
 ) -> tuple[list[AlignmentResult], list[AlignmentFailure], Path | None]:
     """Normalize and align every pair assigned to one language model."""
     work_dir = _work_directory(language, diagnostics_root)
@@ -48,7 +49,7 @@ def run_language_group(
         if not staged:
             completed_normally = True
             return [], failures, work_dir if keep_workdir else None
-        command = _runtime_command(resources, input_dir, num_jobs, word_tier, phone_tier)
+        command = _runtime_command(resources, input_dir, num_jobs, word_tier, phone_tier, romanization_tier)
         environment = _runtime_environment(
             runtime,
             log_dir,
@@ -114,13 +115,20 @@ def _stage_pairs(
 
 
 def _runtime_command(
-    resources: Path, input_dir: Path, num_jobs: int, word_tier: bool, phone_tier: bool
+    resources: Path,
+    input_dir: Path,
+    num_jobs: int,
+    word_tier: bool,
+    phone_tier: bool,
+    romanization_tier: bool,
 ) -> list[str]:
     command = ["bash", str(resources / "pipeline" / "forced_align.sh"), "-nj", str(num_jobs)]
     if not word_tier:
         command.append("-nw")
     if not phone_tier:
         command.append("-np")
+    if not romanization_tier:
+        command.append("-nr")
     command.append(str(input_dir))
     return command
 

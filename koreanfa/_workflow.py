@@ -60,6 +60,7 @@ def align_pairs(
     ignore_unmatched: bool = True,
     protected_inputs: tuple[Path, ...] = (),
     pronunciation_dictionary: PronunciationDictionary | None = None,
+    romanization_tier: bool = False,
 ) -> BatchAlignmentResult:
     """Apply output policy, execute language groups, and publish one batch."""
     started_at = time.monotonic()
@@ -76,6 +77,7 @@ def align_pairs(
         recursive,
         ignore_unmatched,
         pronunciation_dictionary,
+        romanization_tier,
     )
     if not pairs and not initial_failures:
         raise PairingError("No alignable WAV/TXT pairs were found.")
@@ -102,6 +104,7 @@ def align_pairs(
             options.exports,
             word_tier=word_tier,
             phone_tier=phone_tier,
+            romanization_tier=romanization_tier,
         )
         initial_failures += skip_failures
     if not pairs:
@@ -205,6 +208,7 @@ def _execute_batch(
                 total,
                 diagnostics_root,
                 options.pronunciation_dictionary,
+                options.romanization_tier,
             )
             raw_results.extend(results)
             all_failures.extend(group_failures)
@@ -216,6 +220,7 @@ def _execute_batch(
             options.exports,
             word_tier=options.word_tier,
             phone_tier=options.phone_tier,
+            romanization_tier=options.romanization_tier,
         )
         all_failures.extend(output_failures)
         return _finish_batch(

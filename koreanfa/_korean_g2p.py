@@ -111,21 +111,29 @@ def convert_word_file(
     input_path: Path,
     output_path: Path,
     pronunciation_dictionary: Path | None = None,
+    pronunciation_output_path: Path | None = None,
 ) -> None:
-    """Convert one input token per line into one Kaldi phone sequence per line."""
+    """Convert one input token per line into Kaldi phones and optional pronunciation Hangul."""
     overrides: dict[str, str] = {}
     if pronunciation_dictionary is not None:
         from .pronunciation import load_pronunciation_dictionary
 
         overrides = load_pronunciation_dictionary(pronunciation_dictionary).for_language("kor")
     outputs: list[str] = []
+    pronunciations: list[str] = []
     for line_number, line in enumerate(input_path.read_text(encoding="utf-8").splitlines(), start=1):
         try:
-            phones = pronunciation_to_phones(overrides[line]) if line in overrides else phones_for_word(line)
+            pronunciation = overrides[line] if line in overrides else _pronouncer()(line)
+            phones = pronunciation_to_phones(pronunciation)
             outputs.append(" ".join(phones))
+            pronunciations.append(pronunciation)
         except KoreanG2PError as error:
             raise KoreanG2PError(f"Korean G2P failed at {input_path}:{line_number}: {error}") from error
     output_path.write_text("\n".join(outputs) + ("\n" if outputs else ""), encoding="utf-8")
+    if pronunciation_output_path is not None:
+        pronunciation_output_path.write_text(
+            "\n".join(pronunciations) + ("\n" if pronunciations else ""), encoding="utf-8"
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -133,10 +141,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Convert Korean tokens to KoreanFA Kaldi phones.")
     parser.add_argument("--input", required=True, type=Path, help="UTF-8 file containing one token per line")
     parser.add_argument("--output", required=True, type=Path, help="destination lexicon-pronunciation file")
+    parser.add_argument(
+        "--pronunciation-output",
+        type=Path,
+        help="optional destination for the resolved Hangul pronunciation of each input token",
+    )
     parser.add_argument("--pronunciation-dictionary", type=Path, help="optional KoreanFA TSV pronunciation dictionary")
     arguments = parser.parse_args(argv)
     try:
-        convert_word_file(arguments.input, arguments.output, arguments.pronunciation_dictionary)
+        convert_word_file(
+            arguments.input,
+            arguments.output,
+            arguments.pronunciation_dictionary,
+            arguments.pronunciation_output,
+        )
     except (OSError, KoreanG2PError, PronunciationDictionaryError) as error:
         parser.error(str(error))
     return 0

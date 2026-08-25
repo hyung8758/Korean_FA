@@ -6,12 +6,12 @@ set -Eeuo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-Usage: main_fa.sh <language> <job-id> <log-root> <output-textgrid> <wav> <txt> <kaldi-dir> [--no-word] [--no-phone]
+Usage: main_fa.sh <language> <job-id> <log-root> <output-textgrid> <wav> <txt> <kaldi-dir> [--no-word] [--no-phone] [--no-romanization]
 EOF
 }
 
 parse_arguments() {
-  [[ $# -ge 7 && $# -le 9 ]] || { usage; exit 2; }
+  [[ $# -ge 7 && $# -le 10 ]] || { usage; exit 2; }
 
   LANGUAGE=$1
   JOB_ID=$2
@@ -22,6 +22,7 @@ parse_arguments() {
   KALDI_DIR=$7
   WORD_OPTION=${8:-}
   PHONE_OPTION=${9:-}
+  ROMANIZATION_OPTION=${10:-}
 
   # Older callers represented an omitted option as the literal string "none".
   if [[ $WORD_OPTION == none ]]; then
@@ -29,6 +30,9 @@ parse_arguments() {
   fi
   if [[ $PHONE_OPTION == none ]]; then
     PHONE_OPTION=
+  fi
+  if [[ $ROMANIZATION_OPTION == none ]]; then
+    ROMANIZATION_OPTION=
   fi
 }
 
@@ -237,6 +241,12 @@ write_textgrid() {
   set --
   [[ -n $WORD_OPTION ]] && set -- "$@" "$WORD_OPTION"
   [[ -n $PHONE_OPTION ]] && set -- "$@" "$PHONE_OPTION"
+  [[ -n $ROMANIZATION_OPTION ]] && set -- "$@" "$ROMANIZATION_OPTION"
+  set -- "$@" --language "$LANGUAGE"
+  case "$LANGUAGE" in
+    kor) set -- "$@" --romanization-file "$PRONUNCIATION_DIR/pronunciations_hangul.txt" ;;
+    jap) set -- "$@" --romanization-file "$PRONUNCIATION_DIR/romanization_readings.txt" ;;
+  esac
   "$PYTHON_EXECUTABLE" "$RUNTIME_ROOT/pipeline/generate_textgrid.py" \
     "$@" "$RESULT_DIR/tmp_fa" "$PRONUNCIATION_DIR/sent_lexicon.txt" "$text_num" "$DATA_DIR"
   mv "$DATA_DIR/tagged_final_ali.TextGrid" "$OUTPUT_TEXTGRID"
