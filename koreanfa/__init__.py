@@ -2,7 +2,7 @@
 
 from ._version import __version__
 from .aligner import Aligner
-from .api import align, align_directory, discover_pairs
+from .api import align, align_directory, align_manifest, discover_pairs
 from .engine import ensure_installed
 from .engine import install as install_engine
 from .errors import AlignmentError, EngineNotFoundError, EngineUnavailableError, KoreanFAError, PairingError
@@ -27,6 +27,7 @@ from .validation import ValidatedPair, ValidationIssue, ValidationReport, valida
 __all__ = [
     "align",
     "align_directory",
+    "align_manifest",
     "align_directory_files",
     "align_file",
     "Aligner",

@@ -3,10 +3,11 @@
 import warnings
 from pathlib import Path
 
+from ._manifest_alignment import align_manifest as align_manifest
 from ._workflow import align_pairs as _align_pairs
 from .errors import AlignmentError, PairingError
 from .language import detect_language, normalize_language
-from .pairing import discover_corpus_files
+from .pairing import discover_corpus_files, validate_explicit_pair
 from .pronunciation import PronunciationDictionary, load_pronunciation_dictionary
 from .result import (
     AlignmentFailure,
@@ -58,7 +59,7 @@ def align(
     """Align one WAV/TXT pair with automatic or forced language selection."""
     audio_path = Path(audio).expanduser().resolve()
     transcript_path = Path(transcript).expanduser().resolve()
-    _validate_pair(audio_path, transcript_path)
+    validate_explicit_pair(audio_path, transcript_path)
     requested_language = normalize_language(lang)
     dictionary = _load_dictionary(pronunciation_dictionary)
     pair = InputPair(
@@ -217,13 +218,6 @@ def _unmatched_details(missing_text: list[Path], missing_audio: list[Path]) -> s
 
 def _resolve_language(transcript: Path, requested: str) -> str:
     return detect_language(transcript) if requested == "auto" else requested
-
-
-def _validate_pair(audio: Path, transcript: Path) -> None:
-    if not audio.is_file() or audio.suffix.lower() != ".wav":
-        raise PairingError(f"Audio must be an existing WAV file: {audio}")
-    if not transcript.is_file() or transcript.suffix.lower() != ".txt":
-        raise PairingError(f"Transcript must be an existing TXT file: {transcript}")
 
 
 def _load_dictionary(path: str | Path | None) -> PronunciationDictionary | None:

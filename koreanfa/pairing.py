@@ -42,6 +42,14 @@ def _portable_path_key(path: Path) -> str:
     return normalize("NFC", path.as_posix()).casefold()
 
 
+def validate_explicit_pair(audio: Path, transcript: Path) -> None:
+    """Require an explicit input pair to name existing WAV and TXT files."""
+    if not audio.is_file() or audio.suffix.lower() != ".wav":
+        raise PairingError(f"Audio must be an existing WAV file: {audio}")
+    if not transcript.is_file() or transcript.suffix.lower() != ".txt":
+        raise PairingError(f"Transcript must be an existing TXT file: {transcript}")
+
+
 def _reject_output_collisions(relative_stems: set[Path]) -> None:
     """Reject pairs that could overwrite each other on a common macOS volume."""
     destinations: dict[str, Path] = {}
