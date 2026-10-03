@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import overload
 
-from .api import DEFAULT_NUM_JOBS, align, align_directory
+from .api import DEFAULT_NUM_JOBS, align, align_directory, align_manifest
 from .language import normalize_language
 from .result import (
     AlignmentResult,
@@ -95,7 +95,7 @@ class Aligner:
         quality_report_path: str | Path | None = None,
         pronunciation_dictionary: str | Path | None = None,
     ) -> AlignmentResult | AlignmentSkip | BatchAlignmentResult:
-        """Align one WAV/TXT pair or every discovered pair in a directory.
+        """Align one WAV/TXT pair, directory, or CSV manifest.
 
         Values configured on the instance remain the defaults. ``lang``,
         ``kaldi_dir``, and ``num_jobs`` may be overridden for one call.
@@ -106,6 +106,26 @@ class Aligner:
         effective_lang = self.lang if lang is None else normalize_language(lang)
         effective_kaldi_dir = self.kaldi_dir if kaldi_dir is None else kaldi_dir
         effective_num_jobs = self.num_jobs if num_jobs is None else num_jobs
+        if path.suffix.lower() == ".csv" and not path.is_dir():
+            if transcript is not None:
+                raise ValueError("A CSV manifest lists its own WAV/TXT pairs; do not pass transcript.")
+            return align_manifest(
+                path,
+                lang=effective_lang,
+                output_dir=output_dir,
+                kaldi_dir=effective_kaldi_dir,
+                num_jobs=effective_num_jobs,
+                word_tier=word_tier,
+                phone_tier=phone_tier,
+                romanization_tier=romanization_tier,
+                keep_workdir=keep_workdir,
+                progress=progress,
+                existing=existing,
+                exports=exports,
+                report_path=report_path,
+                quality_report_path=quality_report_path,
+                pronunciation_dictionary=pronunciation_dictionary,
+            )
         if path.is_dir():
             if transcript is not None:
                 raise ValueError("A directory input discovers its own WAV/TXT pairs; do not pass transcript.")

@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 from ._io import report_output_path
+from ._validation_inputs import validation_input_paths
 from ._validation_report import (
     ValidatedPair,
     ValidationIssue,
@@ -14,6 +15,7 @@ from .audio import normalize_wav
 from .engine import status as engine_status
 from .errors import AudioPreparationError, KoreanFAError, PairingError
 from .language import detect_language, normalize_language
+from .manifest import read_manifest
 from .pairing import _portable_path_key, discover_corpus_files
 from .pronunciation import (
     PronunciationDictionary,
@@ -41,15 +43,19 @@ def validate(
     report_destination: Path | None = None
     if report_path is not None:
         report_destination = report_output_path(report_path)
-        protected_inputs = _validation_input_paths(source, transcript, recursive=recursive)
+        protected_inputs = validation_input_paths(source, transcript, recursive=recursive)
         protected_keys = {_portable_path_key(path.resolve()) for path in protected_inputs}
         if _portable_path_key(report_destination) in protected_keys:
             raise ValueError("report_path must not overwrite an input file")
+        if pronunciation_dictionary is not None and _portable_path_key(report_destination) == _portable_path_key(
+            Path(pronunciation_dictionary).expanduser().resolve()
+        ):
+            raise ValueError("report_path must not overwrite the pronunciation dictionary")
     requested_language = normalize_language(lang)
     issues: list[ValidationIssue] = []
     dictionary = _load_dictionary(pronunciation_dictionary, issues)
     check_korean_oov = pronunciation_dictionary is None or dictionary is not None
-    candidates: list[tuple[Path, Path]] = []
+    candidates: list[tuple[Path, Path, str]] = []
     root = source if source.is_dir() else source.parent
     if source.is_dir():
         if transcript is not None:
@@ -61,7 +67,7 @@ def validate(
                 ValidationIssue("corpus.discovery", "error", source, str(error), "Provide matching WAV and UTF-8 TXT files.")
             )
         else:
-            candidates.extend((pair.audio, pair.transcript) for pair in discovery.pairs)
+            candidates.extend((pair.audio, pair.transcript, requested_language) for pair in discovery.pairs)
             if not discovery.pairs and not discovery.missing_text and not discovery.missing_audio:
                 issues.append(
                     ValidationIssue(
@@ -91,6 +97,25 @@ def validate(
                         "TXT transcript has no matching WAV audio.", "Add the matching WAV file or remove the TXT file.",
                     )
                 )
+    elif source.suffix.lower() == ".csv":
+        if transcript is not None:
+            raise ValueError("A CSV manifest lists its own WAV/TXT pairs; do not pass transcript.")
+        try:
+            entries = read_manifest(source, lang=requested_language)
+        except PairingError as error:
+            # A malformed manifest may still name existing WAV/TXT inputs in
+            # rows we could not parse. Never replace one with an error report.
+            if report_destination is not None and report_destination.suffix.lower() in {".wav", ".txt"}:
+                raise ValueError("report_path must not overwrite an input file") from error
+            issues.append(
+                ValidationIssue("manifest.invalid", "error", source, str(error), "Correct the CSV manifest and retry.")
+            )
+        else:
+            candidates.extend((entry.pair.audio, entry.pair.transcript, entry.pair.language) for entry in entries)
+            if report_destination is not None and _portable_path_key(report_destination) in {
+                _portable_path_key(path) for audio, text, _ in candidates for path in (audio, text)
+            }:
+                raise ValueError("report_path must not overwrite an input file")
     else:
         if transcript is None:
             issues.append(
@@ -100,23 +125,23 @@ def validate(
                 )
             )
         else:
-            candidates.append((source, Path(transcript).expanduser().resolve()))
+            candidates.append((source, Path(transcript).expanduser().resolve(), requested_language))
 
     passed: list[ValidatedPair] = []
     with tempfile.TemporaryDirectory(prefix="koreanfa-validate-") as temporary:
         temporary_root = Path(temporary)
-        for index, (audio, text) in enumerate(candidates):
+        for index, (audio, text, candidate_language) in enumerate(candidates):
             pair_issues = _validate_candidate(
                 audio,
                 text,
-                requested_language,
+                candidate_language,
                 temporary_root / f"{index:06d}.wav",
                 dictionary,
                 check_korean_oov,
             )
             issues.extend(pair_issues)
             if not any(issue.severity == "error" for issue in pair_issues):
-                language = requested_language if requested_language != "auto" else detect_language(text)
+                language = candidate_language if candidate_language != "auto" else detect_language(text)
                 passed.append(ValidatedPair(audio, text, language))
 
     installed: bool | None = None
@@ -144,23 +169,6 @@ def validate(
     if report_path is not None:
         report.write_json(report_path)
     return report
-
-
-def _validation_input_paths(
-    source: Path, transcript: str | Path | None, *, recursive: bool
-) -> tuple[Path, ...]:
-    """Collect report-protected inputs even when corpus discovery is ambiguous."""
-    if not source.is_dir():
-        values = [source]
-        if transcript is not None:
-            values.append(Path(transcript).expanduser().resolve())
-        return tuple(values)
-    candidates = source.rglob("*") if recursive else source.iterdir()
-    return tuple(
-        path
-        for path in candidates
-        if path.is_file() and path.suffix.lower() in {".wav", ".txt"}
-    )
 
 
 def _validate_candidate(

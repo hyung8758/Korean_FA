@@ -102,8 +102,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="koreanfa", description="Korean/Japanese forced alignment powered by Kaldi")
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
-    align_parser = commands.add_parser("align", help="Align a WAV/TXT pair or a directory of pairs")
-    align_parser.add_argument("input", type=Path, help="WAV file or corpus directory")
+    align_parser = commands.add_parser("align", help="Align a WAV/TXT pair, directory, or CSV manifest")
+    align_parser.add_argument("input", type=Path, help="WAV file, corpus directory, or CSV manifest")
     align_parser.add_argument("transcript", nargs="?", type=Path, help="TXT transcript; required for a WAV input")
     _options(align_parser)
     directory_parser = commands.add_parser("align-dir", help="Alias for 'align DIRECTORY'")
@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
     _options(directory_parser)
 
     validate_parser = commands.add_parser("validate", help="Check inputs and engine readiness without alignment")
-    validate_parser.add_argument("input", type=Path, help="WAV file or corpus directory")
+    validate_parser.add_argument("input", type=Path, help="WAV file, corpus directory, or CSV manifest")
     validate_parser.add_argument("transcript", nargs="?", type=Path, help="TXT transcript; required for a WAV input")
     validate_parser.add_argument("-l", "--lang", default="auto")
     validate_parser.add_argument("-r", "--recursive", action="store_true")
@@ -184,7 +184,11 @@ def main(argv: list[str] | None = None) -> int:
         result: AlignmentResult | AlignmentSkip | BatchAlignmentResult
         if args.command == "align-dir" and not args.input.is_dir():
             raise ValueError(f"Input directory does not exist: {args.input.expanduser().resolve()}")
-        if args.command == "align-dir" or args.input.is_dir():
+        if args.command == "align" and args.transcript is not None and (
+            args.input.is_dir() or args.input.suffix.lower() == ".csv"
+        ):
+            raise ValueError("A directory or CSV manifest lists its own WAV/TXT pairs; do not pass transcript.")
+        if args.command == "align-dir" or args.input.is_dir() or args.input.suffix.lower() == ".csv":
             result = aligner.align(
                 args.input,
                 output_dir=args.output_dir,
