@@ -12,7 +12,7 @@ KoreanFA creates Praat TextGrid files from Korean or Japanese WAV audio and a ma
 
 ## Features
 
-- Align one WAV/TXT pair or an entire directory of pairs
+- Align one WAV/TXT pair, a directory of pairs, or an explicit CSV manifest
 - Select Korean or Japanese automatically, or choose a model explicitly
 - Produce word and phone tiers, plus readable Korean/Japanese Romanization, in a Praat TextGrid
 - Explain Korean model phone labels with a [symbol and IPA reference](docs/korean-phone-labels.md)
@@ -77,6 +77,23 @@ koreanfa align corpus -r -o aligned
 ```
 
 Files are paired by their relative stem: for example, `session_01.wav` is matched with `session_01.txt`. Unmatched files are skipped by default and a warning identifies them.
+
+If WAV and TXT names differ, or you need a specific output name or language per item, use a [CSV manifest](docs/manifest-input.md):
+
+```csv
+audio,transcript,language,output_id
+audio/first.wav,text/first.txt,kor,speaker_a/first
+audio/second.wav,text/second.txt,jap,speaker_b/second
+```
+
+Save it as `corpus.csv`, then run:
+
+```bash
+koreanfa validate corpus.csv
+koreanfa align corpus.csv -o aligned
+```
+
+The paths in the CSV are relative to the manifest file. Blank `language` uses `--lang` (default `auto`); blank `output_id` uses the audio filename stem. The examples above write `aligned/speaker_a/first.TextGrid` and `aligned/speaker_b/second.TextGrid`. Without `-o`, manifest outputs go in `aligned/` beside the manifest.
 
 Validate pairing, UTF-8 transcripts, language detection, complete WAV decoding, and engine readiness without running Kaldi:
 
@@ -179,6 +196,16 @@ for failure in batch.failures:
     print(f"rejected: {failure.audio} ({failure.reason})")
 if batch.quality_report:
     print(batch.quality_report.path, batch.quality_report.summary.review)
+```
+
+For explicit pairs, use the same `Aligner` with a CSV path or call `align_manifest` directly:
+
+```python
+from koreanfa import align_manifest
+
+batch = align_manifest("corpus.csv", output_dir="aligned")
+for result in batch.results:
+    print(result.textgrid)
 ```
 
 `result.words` and `result.phones` contain typed intervals in seconds, including named silence intervals. `result.outputs` identifies every emitted file. Directory alignment returns successes in `batch.results`, valid existing outputs in `batch.skipped`, and controlled per-file rejections in `batch.failures`; aggregate counts and elapsed time are available from `batch.summary`.

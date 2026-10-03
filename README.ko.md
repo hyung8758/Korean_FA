@@ -12,7 +12,7 @@ KoreanFA는 한국어와 일본어 WAV 음성 및 UTF-8 전사를 입력받아 P
 
 ## 주요 기능
 
-- WAV/TXT 한 쌍 또는 디렉터리 전체를 정렬
+- WAV/TXT 한 쌍, 디렉터리 전체 또는 명시적 CSV manifest를 정렬
 - 한국어·일본어 모델 자동 선택 또는 직접 지정
 - Praat TextGrid의 단어·음소·읽기용 한국어·일본어 로마자 tier 생성
 - 한국어 모델 음소 label의 [기호·IPA 참고표](docs/korean-phone-labels.md) 제공
@@ -77,6 +77,23 @@ koreanfa align corpus -r -o aligned
 ```
 
 같은 상대 경로와 파일 이름을 가진 파일을 한 쌍으로 처리합니다. 예를 들어 `session_01.wav`에는 `session_01.txt`가 필요합니다. 짝이 없는 파일은 기본적으로 건너뛰고 경고를 출력합니다.
+
+WAV와 TXT의 이름이 다르거나, 파일별 출력 이름·언어를 지정하려면 [CSV manifest](docs/manifest-input.md)를 사용할 수 있습니다.
+
+```csv
+audio,transcript,language,output_id
+audio/first.wav,text/first.txt,kor,speaker_a/first
+audio/second.wav,text/second.txt,jap,speaker_b/second
+```
+
+이 내용을 `corpus.csv`에 저장한 뒤 실행합니다.
+
+```bash
+koreanfa validate corpus.csv
+koreanfa align corpus.csv -o aligned
+```
+
+CSV의 입력 경로는 manifest 파일 기준 상대 경로입니다. `language`가 비어 있으면 `--lang` 값(기본값 `auto`)을, `output_id`가 비어 있으면 WAV 파일명을 사용합니다. 위 예제는 `aligned/speaker_a/first.TextGrid`와 `aligned/speaker_b/second.TextGrid`를 생성합니다. `-o`를 생략하면 manifest 옆의 `aligned/`에 저장합니다.
 
 Kaldi 정렬을 시작하지 않고 파일 pairing, UTF-8 전사, 언어 감지, WAV 전체 디코딩, 엔진 준비 상태를 검사할 수 있습니다.
 
@@ -179,6 +196,16 @@ for failure in batch.failures:
     print(f"제외됨: {failure.audio} ({failure.reason})")
 if batch.quality_report:
     print(batch.quality_report.path, batch.quality_report.summary.review)
+```
+
+명시적 pair에는 `Aligner`에 CSV 경로를 전달하거나 `align_manifest`를 직접 사용할 수 있습니다.
+
+```python
+from koreanfa import align_manifest
+
+batch = align_manifest("corpus.csv", output_dir="aligned")
+for result in batch.results:
+    print(result.textgrid)
 ```
 
 `result.words`와 `result.phones`에는 이름이 있는 무음 구간을 포함한 초 단위 typed interval이 들어 있습니다. `result.outputs`에서 생성된 모든 파일을 확인할 수 있습니다. 디렉터리 결과는 성공 파일을 `batch.results`, 올바른 기존 출력을 `batch.skipped`, 처리하지 못한 파일을 `batch.failures`에 담으며, 합계와 경과 시간은 `batch.summary`에서 확인합니다.
